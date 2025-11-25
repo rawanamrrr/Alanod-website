@@ -1,0 +1,73 @@
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import { Playfair_Display, Crimson_Text } from 'next/font/google'
+import "./globals.css"
+import { AuthProvider } from "@/lib/auth-context"
+import { ProductProvider } from "@/lib/product-context"
+import { OrderProvider } from "@/lib/order-context"
+import { FavoritesProvider } from "@/lib/favorites-context"
+import { CartProvider } from "@/lib/cart-context"
+import { LocaleProvider } from "@/lib/locale-context"
+import { ScrollProvider } from "@/lib/scroll-context"
+import { CartSuccessNotification } from "@/components/cart-success-notification"
+import { HtmlLangWrapper } from "@/components/html-lang-wrapper"
+
+// Configure fonts
+const playfairDisplay = Playfair_Display({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-playfair-display',
+  display: 'swap',
+})
+
+const crimsonText = Crimson_Text({
+  subsets: ['latin'],
+  weight: ['400', '600', '700'],
+  variable: '--font-crimson-text',
+  display: 'swap',
+})
+
+const inter = Inter({ subsets: ["latin"] })
+
+export const metadata: Metadata = {
+  title: "Alanoud Alqadi Atelier – Soirée & Couture Dresses",
+  description: "Step into the world of Alanoud Alqadi Atelier. Discover couture-inspired soirée gowns, modern bridal looks, and bespoke eveningwear crafted for unforgettable moments.",
+  keywords: "Alanoud Alqadi, soirée dresses, couture gowns, eveningwear, bridal couture, luxury fashion",
+  generator: "alanoud-alqadi-atelier",
+  icons: {
+    icon: "/alanoud-mark-dark.svg",
+    shortcut: "/alanoud-mark-dark.svg",
+    apple: "/alanoud-mark-dark.svg",
+  },
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <html lang="en" className={`${playfairDisplay.variable} ${crimsonText.variable}`}>
+      <body className={inter.className}>
+        <LocaleProvider>
+          <HtmlLangWrapper>
+            <AuthProvider>
+              <ProductProvider>
+                <OrderProvider>
+                  <FavoritesProvider>
+                    <CartProvider>
+                      <ScrollProvider>
+                        {children}
+                        <CartSuccessNotification />
+                      </ScrollProvider>
+                    </CartProvider>
+                  </FavoritesProvider>
+                </OrderProvider>
+              </ProductProvider>
+            </AuthProvider>
+          </HtmlLangWrapper>
+        </LocaleProvider>
+      </body>
+    </html>
+  )
+}

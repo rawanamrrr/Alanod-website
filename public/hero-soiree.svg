@@ -1,0 +1,21 @@
+<svg width="1600" height="900" viewBox="0 0 1600 900" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="heroTitle">
+  <title id="heroTitle">Alanoud Alqadi Soirée Dresses</title>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8d7e6"/>
+      <stop offset="60%" stop-color="#f7c4d4"/>
+      <stop offset="100%" stop-color="#f0b0c5"/>
+    </linearGradient>
+    <linearGradient id="highlight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0)"/>
+      <stop offset="40%" stop-color="rgba(255,255,255,0.7)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <ellipse cx="1200" cy="200" rx="420" ry="280" fill="rgba(255,255,255,0.35)"/>
+  <ellipse cx="400" cy="260" rx="360" ry="250" fill="rgba(255,255,255,0.25)"/>
+  <path d="M240 900 C320 640 480 520 640 220 C760 10 940 20 1100 260 C1180 380 1260 520 1360 900 Z" fill="rgba(255,255,255,0.18)"/>
+  <rect x="0" y="0" width="1600" height="900" fill="url(#highlight)"/>
+</svg>
+

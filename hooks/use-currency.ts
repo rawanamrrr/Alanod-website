@@ -1,0 +1,34 @@
+"use client"
+
+import { useMemo } from "react"
+import { useLocale } from "@/lib/locale-context"
+
+export const useCurrencyFormatter = () => {
+  const { settings } = useLocale()
+
+  const formatter = useMemo(() => {
+    try {
+      return new Intl.NumberFormat(settings.language === "ar" ? settings.locale : "en-US", {
+        style: "currency",
+        currency: settings.currencyCode || "USD",
+        minimumFractionDigits: 2
+      })
+    } catch {
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" })
+    }
+  }, [settings.currencyCode, settings.language, settings.locale])
+
+  const formatPrice = (amountUSD: number | undefined | null) => {
+    if (!amountUSD || Number.isNaN(amountUSD)) return formatter.format(0)
+    const converted = amountUSD * (settings.exchangeRate || 1)
+    return formatter.format(converted)
+  }
+
+  return {
+    formatPrice,
+    currencyCode: settings.currencyCode,
+    currencySymbol: settings.currencySymbol,
+    localeSettings: settings
+  }
+}
+
