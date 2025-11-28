@@ -40,7 +40,7 @@ interface Product {
   description: string
   longDescription?: string
   images: string[]
-  category: "men" | "women" | "packages" | "outlet"
+  category: "winter" | "summer" | "fall"
   sizes: ProductSize[]
   giftPackageSizes?: GiftPackageSize[]
   packagePrice?: number
@@ -69,7 +69,7 @@ export default function EditProductPage() {
     name: "",
     description: "",
     longDescription: "",
-    category: "men",
+    category: "winter",
     topNotes: [""],
     middleNotes: [""],
     baseNotes: [""],
@@ -77,7 +77,8 @@ export default function EditProductPage() {
       size: "", 
       volume: "",
       originalPrice: "",
-      discountedPrice: ""
+      discountedPrice: "",
+      stockCount: ""
     }],
     giftPackageSizes: [{
       size: "",
@@ -128,7 +129,7 @@ export default function EditProductPage() {
           name: product.name || "",
           description: product.description || "",
           longDescription: product.longDescription || "",
-          category: product.category || "men",
+          category: product.category || "winter",
           topNotes: product.notes?.top || [""],
           middleNotes: product.notes?.middle || [""],
           baseNotes: product.notes?.base || [""],
@@ -136,12 +137,14 @@ export default function EditProductPage() {
             size: size.size || "",
             volume: size.volume || "",
             originalPrice: size.originalPrice?.toString() || "",
-            discountedPrice: size.discountedPrice?.toString() || ""
+            discountedPrice: size.discountedPrice?.toString() || "",
+            stockCount: size.stockCount?.toString() || ""
           })) || [{ 
             size: "", 
             volume: "",
             originalPrice: "",
-            discountedPrice: ""
+            discountedPrice: "",
+            stockCount: ""
           }],
           giftPackageSizes: product.giftPackageSizes?.map((size: any) => ({
             size: size.size || "",
@@ -188,14 +191,7 @@ export default function EditProductPage() {
     fetchProduct()
   }, [searchParams])
 
-  // Auto-enable gift package mode when category is packages
-  useEffect(() => {
-    if (formData.category === "packages") {
-      setFormData(prev => ({ ...prev, isGiftPackage: true }))
-    } else {
-      setFormData(prev => ({ ...prev, isGiftPackage: false }))
-    }
-  }, [formData.category])
+  // Gift package is now a separate option, not tied to category
 
   // Fetch available products for gift package options
   useEffect(() => {
@@ -204,7 +200,7 @@ export default function EditProductPage() {
         const response = await fetch("/api/products?isGiftPackage=false&limit=500")
         if (response.ok) {
           const products = await response.json()
-          setAvailableProducts(products.filter((p: any) => p.category !== "packages"))
+          setAvailableProducts(products.filter((p: any) => !p.isGiftPackage))
         }
       } catch (error) {
         console.error("Error fetching products:", error)
@@ -300,7 +296,8 @@ export default function EditProductPage() {
           size: size.size,
           volume: size.volume,
           originalPrice: size.originalPrice ? parseFloat(size.originalPrice) : undefined,
-          discountedPrice: size.discountedPrice ? parseFloat(size.discountedPrice) : undefined
+          discountedPrice: size.discountedPrice ? parseFloat(size.discountedPrice) : undefined,
+          stockCount: size.stockCount ? parseInt(size.stockCount) : undefined
         })),
         giftPackageSizes: formData.isGiftPackage ? formData.giftPackageSizes.map(size => ({
           size: size.size,
@@ -401,7 +398,8 @@ export default function EditProductPage() {
         size: "", 
         volume: "",
         originalPrice: "",
-        discountedPrice: ""
+        discountedPrice: "",
+        stockCount: ""
       }],
     }))
   }
@@ -678,10 +676,9 @@ export default function EditProductPage() {
                             <SelectValue placeholder="Select category" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="men">For Him</SelectItem>
-                            <SelectItem value="women">For Her</SelectItem>
-                            <SelectItem value="packages">Bundles</SelectItem>
-                            <SelectItem value="outlet">Outlet</SelectItem>
+                            <SelectItem value="winter">Winter</SelectItem>
+                            <SelectItem value="summer">Summer</SelectItem>
+                            <SelectItem value="fall">Fall</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -737,27 +734,27 @@ export default function EditProductPage() {
                         <div className="space-y-4">
                           {formData.sizes.map((size, index) => (
                             <div key={index} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                              <div className="grid md:grid-cols-4 gap-3 items-end">
+                              <div className="grid md:grid-cols-5 gap-3 items-end">
                                 <div>
                                   <Label>Size Name</Label>
                                   <Input
                                     value={size.size}
                                     onChange={(e) => handleSizeChange(index, "size", e.target.value)}
-                                    placeholder="Travel"
+                                    placeholder="XS, S, M, L, XL"
                                     required
                                   />
                                 </div>
                                 <div>
-                                  <Label>Volume</Label>
+                                  <Label>Volume/Description</Label>
                                   <Input
                                     value={size.volume}
                                     onChange={(e) => handleSizeChange(index, "volume", e.target.value)}
-                                    placeholder="15ml"
+                                    placeholder="Description"
                                     required
                                   />
                                 </div>
                                 <div>
-                                  <Label>Original Price (EGP)</Label>
+                                  <Label>Original Price (USD)</Label>
                                   <Input
                                     type="number"
                                     step="0.01"
@@ -765,15 +762,27 @@ export default function EditProductPage() {
                                     onChange={(e) => handleSizeChange(index, "originalPrice", e.target.value)}
                                     placeholder="200.00"
                                   />
+                                  <p className="text-xs text-gray-500 mt-1">Price in USD</p>
                                 </div>
                                 <div>
-                                  <Label>Discounted Price (EGP)</Label>
+                                  <Label>Discounted Price (USD)</Label>
                                   <Input
                                     type="number"
                                     step="0.01"
                                     value={size.discountedPrice}
                                     onChange={(e) => handleSizeChange(index, "discountedPrice", e.target.value)}
                                     placeholder="150.00"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Price in USD</p>
+                                </div>
+                                <div>
+                                  <Label>Stock Count</Label>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    value={size.stockCount || ""}
+                                    onChange={(e) => handleSizeChange(index, "stockCount", e.target.value)}
+                                    placeholder="10"
                                   />
                                 </div>
                               </div>
@@ -815,7 +824,7 @@ export default function EditProductPage() {
                             {/* Package Pricing */}
                             <div className="grid md:grid-cols-2 gap-6">
                               <div>
-                                <Label htmlFor="packagePrice">Package Price (EGP) *</Label>
+                                <Label htmlFor="packagePrice">Package Price (USD) *</Label>
                                 <Input
                                   id="packagePrice"
                                   type="number"
@@ -825,9 +834,12 @@ export default function EditProductPage() {
                                   placeholder="1500.00"
                                   required
                                 />
+                                <p className="text-sm text-gray-600 mt-1">
+                                  Enter price in USD. It will be converted to customer's currency automatically.
+                                </p>
                               </div>
                               <div>
-                                <Label htmlFor="packageOriginalPrice">Original Price (EGP)</Label>
+                                <Label htmlFor="packageOriginalPrice">Original Price (USD)</Label>
                                 <Input
                                   id="packageOriginalPrice"
                                   type="number"
@@ -837,7 +849,7 @@ export default function EditProductPage() {
                                   placeholder="1800.00"
                                 />
                                 <p className="text-sm text-gray-600 mt-1">
-                                  Original price before discount (optional)
+                                  Original price before discount in USD (optional)
                                 </p>
                               </div>
                             </div>

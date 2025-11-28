@@ -14,12 +14,16 @@ import { Navigation } from "@/components/navigation"
 import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
 import { GiftPackageSelector } from "@/components/gift-package-selector"
+import { useCurrencyFormatter } from "@/hooks/use-currency"
+import { useCustomSize } from "@/hooks/use-custom-size"
+import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
 
 interface ProductSize {
   size: string
   volume: string
   originalPrice?: number
   discountedPrice?: number
+  stockCount?: number
 }
 
 interface Product {
@@ -30,7 +34,7 @@ interface Product {
   images: string[]
   rating: number
   reviews: number
-  category: "men" | "women" | "packages" | "outlet"
+  category: "winter" | "summer" | "fall"
   isNew?: boolean
   isBestseller?: boolean
   isOutOfStock?: boolean
@@ -43,17 +47,15 @@ interface Product {
 }
 
 const categoryTitles = {
-  men: "Signature Soirée",
-  women: "Luminous Couture",
-  packages: "Style Capsules",
-  outlet: "Atelier Archive",
+  winter: "Winter Collection",
+  summer: "Summer Collection",
+  fall: "Fall Collection",
 }
 
 const categoryDescriptions = {
-  men: "Dramatic evening gowns and tailored silhouettes that command the room.",
-  women: "Fluid, light-catching couture designed for modern muses and brides.",
-  packages: "Curated ensembles and finishing touches for every celebration.",
-  outlet: "Limited pieces and finale looks from past seasons awaiting new moments.",
+  winter: "Elegant winter pieces designed for the season's special occasions.",
+  summer: "Light and airy designs perfect for warm weather celebrations.",
+  fall: "Rich textures and warm tones for autumn gatherings.",
 }
 
 export default function CategoryPage() {
@@ -67,6 +69,27 @@ export default function CategoryPage() {
   const [quantity, setQuantity] = useState(1)
   const [showSizeSelector, setShowSizeSelector] = useState(false)
   const [showGiftPackageSelector, setShowGiftPackageSelector] = useState(false)
+  
+  const {
+    isCustomSizeMode,
+    setIsCustomSizeMode,
+    measurementUnit,
+    setMeasurementUnit,
+    measurements,
+    handleMeasurementChange,
+    confirmMeasurements,
+    setConfirmMeasurements,
+    resetMeasurements,
+    isMeasurementsValid,
+  } = useCustomSize()
+  
+  const sizeChart: SizeChartRow[] = [
+    { label: "XS", bust: "80-84", waist: "60-64", hips: "86-90" },
+    { label: "S", bust: "85-89", waist: "65-69", hips: "91-95" },
+    { label: "M", bust: "90-94", waist: "70-74", hips: "96-100" },
+    { label: "L", bust: "95-100", waist: "75-80", hips: "101-106" },
+    { label: "XL", bust: "101-106", waist: "81-86", hips: "107-112" },
+  ]
   
   // Function to calculate the smallest price from all sizes
   const getSmallestPrice = (sizes: ProductSize[]) => {
@@ -86,6 +109,7 @@ export default function CategoryPage() {
 
   const { dispatch: cartDispatch } = useCart()
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites()
+  const { formatPrice } = useCurrencyFormatter()
 
   useEffect(() => {
     if (category) {
@@ -115,9 +139,11 @@ export default function CategoryPage() {
 
   const openSizeSelector = (product: Product) => {
     setSelectedProduct(product)
-    setSelectedSize(product.sizes.length > 0 ? product.sizes[0] : null)
+    setSelectedSize(null)
     setQuantity(1)
     setShowSizeSelector(true)
+    setIsCustomSizeMode(true)
+    resetMeasurements()
   }
 
   const closeSizeSelector = () => {
@@ -125,25 +151,63 @@ export default function CategoryPage() {
     setTimeout(() => {
       setSelectedProduct(null)
       setSelectedSize(null)
+      resetMeasurements()
+      setIsCustomSizeMode(true)
+      setMeasurementUnit("cm")
+      setConfirmMeasurements(false)
     }, 300)
   }
 
   const addToCart = () => {
-    if (!selectedProduct || !selectedSize) return
+    if (!selectedProduct) return
+    if (!isCustomSizeMode && !selectedSize) return
+    if (isCustomSizeMode && !isMeasurementsValid) return
     
+    // Check stock for standard sizes
+    if (!isCustomSizeMode && selectedSize) {
+      if (selectedSize.stockCount !== undefined && selectedSize.stockCount < quantity) {
+        alert(`Insufficient stock for ${selectedProduct.name} - Size ${selectedSize.size}. Available: ${selectedSize.stockCount}, Requested: ${quantity}`)
+        return
+      }
+      if (selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) {
+        alert(`Size ${selectedSize.size} is out of stock`)
+        return
+      }
+    }
+    
+    let firstSize: ProductSize | null = null
+    if (selectedProduct.sizes && selectedProduct.sizes.length > 0) {
+      firstSize = selectedProduct.sizes[0]
+    }
+    const fallbackSize: ProductSize = {
+      size: "custom",
+      volume: measurementUnit,
+      discountedPrice: selectedProduct.packagePrice || (firstSize ? (firstSize.discountedPrice ?? 0) : 0),
+      originalPrice: firstSize ? (firstSize.originalPrice ?? 0) : 0
+    }
+    const baseSize: ProductSize = selectedSize || firstSize || fallbackSize
+
+    const computedPrice = baseSize.discountedPrice || baseSize.originalPrice || selectedProduct.packagePrice || 0
+
     cartDispatch({
       type: "ADD_ITEM",
       payload: {
-        id: `${selectedProduct.id}-${selectedSize.size}`,
+        id: `${selectedProduct.id}-${isCustomSizeMode ? "custom" : baseSize.size}`,
         productId: selectedProduct.id,
         name: selectedProduct.name,
-        price: selectedSize.discountedPrice || selectedSize.originalPrice || 0,
-        originalPrice: selectedSize.originalPrice,
-        size: selectedSize.size,
-        volume: selectedSize.volume,
+        price: computedPrice,
+        originalPrice: baseSize.originalPrice,
+        size: isCustomSizeMode ? "custom" : baseSize.size,
+        volume: isCustomSizeMode ? measurementUnit : baseSize.volume,
         image: selectedProduct.images[0],
         category: selectedProduct.category,
-        quantity: quantity
+        quantity,
+        customMeasurements: isCustomSizeMode
+          ? {
+              unit: measurementUnit,
+              values: measurements,
+            }
+          : undefined,
       }
     })
     
@@ -340,38 +404,27 @@ export default function CategoryPage() {
               </div>
               
               <div className="mb-6">
-                <h4 className="font-medium mb-3">Available Sizes</h4>
-                <div className="grid grid-cols-3 gap-3">
-                  {selectedProduct.sizes.map((size) => (
-                    <motion.button
-                      key={size.size}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`border-2 rounded-xl p-3 text-center transition-all ${
-                        selectedSize?.size === size.size
-                          ? 'border-black bg-black text-white shadow-md'
-                          : 'border-gray-200 hover:border-gray-400'
-                      }`}
-                      onClick={() => setSelectedSize(size)}
-                      aria-label={`Select size ${size.size} - ${size.volume}`}
-                    >
-                      <div className="font-medium">{size.size}</div>
-                      <div className="text-xs mt-1">{size.volume}</div>
-                      <div className="text-xs mt-1 font-medium">
-                        {size.originalPrice && size.discountedPrice && 
-                         size.discountedPrice < size.originalPrice ? (
-                          <>
-                            <span className="line-through text-gray-400">EGP{size.originalPrice}</span>
-                            <br />
-                            <span className="text-red-600">EGP{size.discountedPrice}</span>
-                          </>
-                        ) : (
-                          <>EGP{size.discountedPrice || size.originalPrice || 0}</>
-                        )}
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
+                <CustomSizeForm
+                  controller={{
+                    isCustomSizeMode,
+                    setIsCustomSizeMode,
+                    measurementUnit,
+                    setMeasurementUnit,
+                    measurements,
+                    onMeasurementChange: handleMeasurementChange,
+                    confirmMeasurements,
+                    setConfirmMeasurements,
+                    isMeasurementsValid,
+                  }}
+                  sizeChart={sizeChart}
+                  sizes={selectedProduct.sizes}
+                  selectedSize={selectedSize}
+                  onSelectSize={(size) => {
+                    setIsCustomSizeMode(false)
+                    setSelectedSize(size)
+                  }}
+                  formatPrice={formatPrice}
+                />
               </div>
               
               {/* Quantity Selection */}
@@ -407,14 +460,20 @@ export default function CategoryPage() {
                       selectedSize.originalPrice && selectedSize.discountedPrice && 
                       selectedSize.discountedPrice < selectedSize.originalPrice ? (
                         <>
-                          <span className="line-through text-gray-400 mr-2 text-lg">EGP{selectedSize.originalPrice}</span>
-                          <span className="text-red-600 font-bold">EGP{selectedSize.discountedPrice}</span>
+                          <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(selectedSize.originalPrice)}</span>
+                          <span className="text-red-600 font-bold">{formatPrice(selectedSize.discountedPrice)}</span>
                         </>
                       ) : (
-                        <>EGP{selectedSize.discountedPrice || selectedSize.originalPrice || 0}</>
+                        <>{formatPrice(selectedSize.discountedPrice || selectedSize.originalPrice || 0)}</>
                       )
                     ) : (
-                      <>EGP{getSmallestPrice(selectedProduct.sizes)}</>
+                      <>
+                        {isCustomSizeMode && selectedProduct.sizes && selectedProduct.sizes.length > 0 ? (
+                          <>{formatPrice(selectedProduct.sizes[0].discountedPrice || selectedProduct.sizes[0].originalPrice || 0)}</>
+                        ) : (
+                          <>{formatPrice(getSmallestPrice(selectedProduct.sizes))}</>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -422,15 +481,19 @@ export default function CategoryPage() {
                 <Button 
                   onClick={addToCart} 
                   className={`flex items-center rounded-full px-6 py-5 ${
-                    selectedProduct?.isOutOfStock 
+                    selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0)
                       ? 'bg-gray-400 cursor-not-allowed opacity-60' 
                       : 'bg-black hover:bg-gray-800'
                   }`}
-                  disabled={!selectedSize || selectedProduct?.isOutOfStock}
+                  disabled={
+                    selectedProduct?.isOutOfStock ||
+                    (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ||
+                    (isCustomSizeMode ? !isMeasurementsValid : !selectedSize)
+                  }
                   aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Add to cart"}
                 >
                   <ShoppingCart className="h-4 w-4 mr-2" />
-                  {selectedProduct?.isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                  {selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ? "Out of Stock" : "Add to Cart"}
                 </Button>
               </div>
             </div>
@@ -637,12 +700,12 @@ export default function CategoryPage() {
                                       if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
                                         return (
                                           <>
-                                            <span className="line-through text-gray-300 mr-2 text-base">EGP{packageOriginalPrice}</span>
-                                            <span className="text-red-500 font-bold">EGP{packagePrice}</span>
+                                            <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(packageOriginalPrice)}</span>
+                                            <span className="text-red-500 font-bold">{formatPrice(packagePrice)}</span>
                                           </>
                                         );
                                       } else {
-                                        return <>EGP{packagePrice}</>;
+                                        return <>{formatPrice(packagePrice)}</>;
                                       }
                                     }
                                     
@@ -653,12 +716,12 @@ export default function CategoryPage() {
                                     if (smallestOriginalPrice > 0 && smallestPrice < smallestOriginalPrice) {
                                       return (
                                         <>
-                                          <span className="line-through text-gray-300 mr-2 text-base">EGP{smallestOriginalPrice}</span>
-                                          <span className="text-red-500 font-bold">EGP{smallestPrice}</span>
+                                          <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(smallestOriginalPrice)}</span>
+                                          <span className="text-red-500 font-bold">{formatPrice(smallestPrice)}</span>
                                         </>
                                       );
                                     } else {
-                                      return <>EGP{smallestPrice}</>;
+                                      return <>{formatPrice(smallestPrice)}</>;
                                     }
                                   })()}
                                 </div>
@@ -756,17 +819,14 @@ export default function CategoryPage() {
             <div>
               <h3 className="font-medium mb-4">Collections</h3>
               <div className="space-y-2 text-sm">
-                <Link href="/products/men" className="block text-gray-400 hover:text-white transition-colors">
-                  Signature Soirée
+                <Link href="/products/winter" className="block text-gray-400 hover:text-white transition-colors">
+                  Winter Collection
                 </Link>
-                <Link href="/products/women" className="block text-gray-400 hover:text-white transition-colors">
-                  Luminous Couture
+                <Link href="/products/summer" className="block text-gray-400 hover:text-white transition-colors">
+                  Summer Collection
                 </Link>
-                <Link href="/products/packages" className="block text-gray-400 hover:text-white transition-colors">
-                  Style Capsules
-                </Link>
-                <Link href="/products/outlet" className="block text-gray-400 hover:text-white transition-colors">
-                  Outlet Deals
+                <Link href="/products/fall" className="block text-gray-400 hover:text-white transition-colors">
+                  Fall Collection
                 </Link>
               </div>
             </div>

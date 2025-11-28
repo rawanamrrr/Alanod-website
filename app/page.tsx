@@ -17,12 +17,15 @@ import { StarRating } from "@/lib/star-rating"
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
 import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
+import { useLocale } from "@/lib/locale-context"
+import { useTranslation } from "@/lib/translations"
 
 interface ProductSize {
   size: string
   volume: string
   originalPrice?: number
   discountedPrice?: number
+  stockCount?: number
 }
 
 interface Product {
@@ -33,7 +36,7 @@ interface Product {
   images: string[]
   rating: number
   reviews: number
-  category: "men" | "women" | "packages" | "outlet"
+  category: "winter" | "summer" | "fall"
   isNew?: boolean
   isBestseller?: boolean
   isOutOfStock?: boolean
@@ -57,17 +60,20 @@ export default function HomePage() {
   const { isScrolled, isLogoVisible } = useScroll()
   const [isHeroLogoVisible, setIsHeroLogoVisible] = useState(true)
   const [favorites, setFavorites] = useState<any[]>([])
+  const [allProducts, setAllProducts] = useState<Product[]>([])
+  const [loadingProducts, setLoadingProducts] = useState(true)
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites()
   const { dispatch: cartDispatch } = useCart()
   const collectionsRef = useRef<HTMLElement>(null)
   const { formatPrice } = useCurrencyFormatter()
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
   
   // Size selector state
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [showSizeSelector, setShowSizeSelector] = useState(false)
-  const [showIntro, setShowIntro] = useState(false)
   const {
     isCustomSizeMode,
     setIsCustomSizeMode,
@@ -91,7 +97,7 @@ export default function HomePage() {
   }, [])
 
   useEffect(() => {
-    // Hide hero logo when header logo becomes visible
+    // Hide hero logo when header logo becomes visible (when scrolled past hero)
     setIsHeroLogoVisible(!isLogoVisible)
   }, [isLogoVisible])
 
@@ -104,22 +110,6 @@ export default function HomePage() {
     }
   }, [isCustomSizeMode, selectedProduct, selectedSize])
 
-  useEffect(() => {
-    // Check if the user has already seen the intro
-    const hasSeenIntro = sessionStorage.getItem('hasSeenIntro');
-    
-    if (!hasSeenIntro) {
-      setShowIntro(true);
-      
-      // Auto-hide intro after 4 seconds
-      const timer = setTimeout(() => {
-        setShowIntro(false);
-        sessionStorage.setItem('hasSeenIntro', 'true');
-      }, 4000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, []);
 
   useEffect(() => {
     const fetchFavorites = async () => {
@@ -144,6 +134,25 @@ export default function HomePage() {
     fetchFavorites()
   }, [])
 
+  useEffect(() => {
+    const fetchAllProducts = async () => {
+      try {
+        const response = await fetch("/api/products?limit=100")
+        if (response.ok) {
+          const data = await response.json()
+          // Filter active products and ensure they have valid data
+          const activeProducts = data.filter((p: Product) => p.isActive && p.images && p.images.length > 0)
+          setAllProducts(activeProducts)
+        }
+      } catch (error) {
+        console.error("Error fetching products", error)
+      } finally {
+        setLoadingProducts(false)
+      }
+    }
+    fetchAllProducts()
+  }, [])
+
   const openSizeSelector = (product: Product) => {
     // For gift packages, we don't need to set selectedSize since it's handled differently
     if (product.isGiftPackage) {
@@ -151,10 +160,10 @@ export default function HomePage() {
       setShowSizeSelector(true)
     } else {
       setSelectedProduct(product)
-      setSelectedSize(product.sizes.length > 0 ? product.sizes[0] : null)
+      setSelectedSize(null) // Start with no size selected - user must choose
       setQuantity(1)
       setShowSizeSelector(true)
-      setIsCustomSizeMode(true)
+      setIsCustomSizeMode(true) // Default to custom size mode
       setMeasurementUnit("cm")
       resetMeasurements()
     }
@@ -175,7 +184,19 @@ export default function HomePage() {
   const addToCart = () => {
     if (!selectedProduct) return
     if (!isCustomSizeMode && !selectedSize) return
-    if (isCustomSizeMode && (!isMeasurementsValid || !confirmMeasurements)) return
+    if (isCustomSizeMode && !isMeasurementsValid) return
+
+    // Check stock for standard sizes
+    if (!isCustomSizeMode && selectedSize) {
+      if (selectedSize.stockCount !== undefined && selectedSize.stockCount < quantity) {
+        alert(`Insufficient stock for ${selectedProduct.name} - Size ${selectedSize.size}. Available: ${selectedSize.stockCount}, Requested: ${quantity}`)
+        return
+      }
+      if (selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) {
+        alert(`Size ${selectedSize.size} is out of stock`)
+        return
+      }
+    }
 
     let firstSize: ProductSize | null = null
     if (selectedProduct.sizes && selectedProduct.sizes.length > 0) {
@@ -285,42 +306,6 @@ export default function HomePage() {
     })
   }
 
-  const handleCollectionClick = (productId: string, category: string) => {
-    // Navigate immediately without delay
-    window.location.href = `/products/${category}`
-  }
-
-  const products = [
-    {
-      id: "signature-soiree",
-      title: "Signature Soirée",
-      description: "Hand-finished gowns that shimmer beneath moonlit chandeliers.",
-      image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=600&q=80",
-      category: "women",
-    },
-    {
-      id: "luminous-couture",
-      title: "Luminous Couture",
-      description: "Architectural silhouettes crafted for modern muses and red-carpet moments.",
-      image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80",
-      category: "men",
-    },
-    {
-      id: "style-capsules",
-      title: "Style Capsules",
-      description: "Curated ensembles, accessories, and finishing layers for every soirée.",
-      image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?auto=format&fit=crop&w=600&q=80",
-      category: "packages",
-    },
-    {
-      id: "atelier-archive",
-      title: "Atelier Archive",
-      description: "Limited pieces from past seasons, reimagined for new celebrations.",
-      image: "https://images.unsplash.com/photo-1514996937319-344454492b37?auto=format&fit=crop&w=600&q=80",
-      category: "outlet",
-    },
-  ]
-
   const sizeChart: SizeChartRow[] = [
     { label: "XS", bust: "80-84", waist: "60-64", hips: "86-90" },
     { label: "S", bust: "85-89", waist: "65-69", hips: "91-95" },
@@ -333,67 +318,6 @@ export default function HomePage() {
     <div className="min-h-screen bg-white">
       <Navigation />
 
-      {/* Elegant Intro Animation */}
-      <AnimatePresence>
-        {showIntro && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 1 }}
-            exit={{ 
-              opacity: 0,
-              transition: { duration: 0.8, ease: "easeInOut" }
-            }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black"
-          >
-            <motion.div 
-              className="absolute inset-0 overflow-hidden"
-              initial={{ scale: 1.1 }}
-              animate={{ 
-                scale: 1,
-                transition: { duration: 2, ease: "easeOut" }
-              }}
-            >
-              
-              
-              
-            </motion.div>
-
-            <div className="relative z-10 text-center">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ 
-                  opacity: 1, 
-                  scale: 1,
-                  transition: { duration: 1.2 }
-                }}
-                className="mb-8"
-              >
-                <Image 
-                  src="/alanoud-word-light.svg" 
-                  alt="Alanoud Alqadi Atelier" 
-                  width={320} 
-                  height={160} 
-                  priority
-                  className="mx-auto filter brightness-125"
-                  style={{ width: 'auto', height: 'auto' }}
-                />
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ 
-                  opacity: 1,
-                  transition: { duration: 1, delay: 0.5 }
-                }}
-                className="mt-4"
-              >
-                <div className="h-px w-24 bg-white/60 mx-auto mb-4" />
-                <p className="text-white/80 text-sm font-light tracking-widest">SOIRÉE COUTURE</p>
-              </motion.div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Size Selector Modal */}
       {showSizeSelector && selectedProduct && (
@@ -534,7 +458,7 @@ export default function HomePage() {
                   
                   {/* Quantity Selection */}
                   <div className="mb-4">
-                    <h4 className="font-medium mb-3">Quantity</h4>
+                    <h4 className="font-medium mb-3">{t("quantity")}</h4>
                     <div className="flex items-center space-x-3">
                       <motion.button
                         whileHover={{ scale: 1.05 }}
@@ -559,7 +483,7 @@ export default function HomePage() {
 
                   <div className="flex justify-between items-center py-4 border-t border-gray-100">
                     <div>
-                      <span className="text-gray-600">Total:</span>
+                      <span className="text-gray-600">{t("total")}:</span>
                       <span className="text-xl font-medium ml-2">
                         {selectedSize ? (
                           selectedSize.originalPrice && selectedSize.discountedPrice && 
@@ -580,18 +504,19 @@ export default function HomePage() {
                     <Button 
                       onClick={addToCart} 
                       className={`flex items-center rounded-full px-6 py-5 ${
-                        selectedProduct?.isOutOfStock 
+                        selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0)
                           ? 'bg-gray-400 cursor-not-allowed opacity-60' 
                           : 'bg-black hover:bg-gray-800'
                       }`}
                       disabled={
                         selectedProduct?.isOutOfStock ||
-                        (isCustomSizeMode ? (!isMeasurementsValid || !confirmMeasurements) : !selectedSize)
+                        (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ||
+                        (isCustomSizeMode ? !isMeasurementsValid : !selectedSize)
                       }
-                      aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Add to cart"}
+                      aria-label={selectedProduct?.isOutOfStock ? t("outOfStock") : t("addToCart")}
                     >
                       <ShoppingCart className="h-4 w-4 mr-2" />
-                      {selectedProduct?.isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                      {selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ? t("outOfStock") : t("addToCart")}
                     </Button>
                   </div>
                 </div>
@@ -625,24 +550,25 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-black/45" />
         </motion.div>
 
-        {/* Logo Over Hero */}
-        <div 
-          className="text-center z-10 transition-opacity duration-0"
-          style={{ 
-            opacity: isHeroLogoVisible ? 1 : 0,
-            pointerEvents: isHeroLogoVisible ? 'auto' : 'none',
-            display: isLogoVisible ? 'none' : 'block'
-          }}
-        >
-          <Image 
-            src="/Anod-logo-white.png" 
-            alt="Alanod Logo" 
-            width={864} 
-            height={288} 
-            priority
-            className="h-72 w-auto mx-auto"
-          />
-        </div>
+        {/* Logo Over Hero - Only show when not scrolled and logo not visible in header */}
+        {isHeroLogoVisible && !isLogoVisible && (
+          <motion.div 
+            className="text-center z-10"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Image 
+              src="/Anod-logo-white.png" 
+              alt="Alanod Logo" 
+              width={864} 
+              height={288} 
+              priority
+              className="h-72 w-auto mx-auto"
+            />
+          </motion.div>
+        )}
       </motion.section>
 
       {/* Text Content Section - Below Video */}
@@ -668,7 +594,7 @@ export default function HomePage() {
               transition={{ duration: 1, delay: 0.3 }}
               viewport={{ once: true }}
             >
-              Embrace Your
+              {t("embraceYour")}
             </motion.h1>
             <motion.h2 
               className="text-4xl md:text-6xl font-light tracking-wider text-gray-900"
@@ -677,7 +603,7 @@ export default function HomePage() {
               transition={{ duration: 1, delay: 0.5 }}
               viewport={{ once: true }}
             >
-              Soirée Moment
+              {t("soiréeMoment")}
             </motion.h2>
             <motion.p 
               className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed"
@@ -686,7 +612,7 @@ export default function HomePage() {
               transition={{ duration: 1.5, delay: 0.7 }}
               viewport={{ once: true }}
             >
-              Step into gowns that move like poetry. Each Alanoud Alqadi silhouette is draped, beaded, and tailored by hand so every entrance feels cinematic and every celebration unforgettable.
+              {t("homeDescription")}
             </motion.p>
             
             {/* Explore Collections Button */}
@@ -696,34 +622,33 @@ export default function HomePage() {
               transition={{ duration: 0.8, delay: 1.0 }}
               viewport={{ once: true }}
             >
-              <Button
-                onClick={scrollToCollections}
-                className="bg-black text-white hover:bg-gray-800 rounded-full px-8 py-6 text-lg relative overflow-hidden group"
-              >
-                <span className="relative z-10">Explore Collections</span>
-                <ArrowRight className="ml-2 h-5 w-5 relative z-10" />
-                <motion.span 
-                  className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100"
-                  initial={{ x: "-100%" }}
-                  whileHover={{ x: 0 }}
-                  transition={{ duration: 0.4 }}
-                />
-              </Button>
+              <Link href="/products">
+                <Button
+                  className="bg-black text-white hover:bg-gray-800 rounded-full px-8 py-6 text-lg relative overflow-hidden group w-full sm:w-auto"
+                >
+                  <span className="relative z-10">{t("exploreCollections")}</span>
+                  <ArrowRight className="ml-2 h-5 w-5 relative z-10" />
+                  <motion.span 
+                    className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100"
+                    initial={{ x: "-100%" }}
+                    whileHover={{ x: 0 }}
+                    transition={{ duration: 0.4 }}
+                  />
+                </Button>
+              </Link>
             </motion.div>
           </motion.div>
         </div>
       </motion.section>
 
 
-      {/* Products Section - Collections */}
+      {/* All Products Section - Display all products from products page */}
       <motion.section 
-        ref={collectionsRef} 
-        id="collections"
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         transition={{ duration: 1.2 }}
         viewport={{ once: true, amount: 0.3 }}
-        className="py-20 bg-gray-50 overflow-hidden"
+        className="py-20 bg-white overflow-hidden"
       >
         <div className="container mx-auto px-6">
           <motion.div
@@ -733,7 +658,7 @@ export default function HomePage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-4">Couture Capsules</h2>
+            <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-4">{t("allProducts")}</h2>
             <motion.div
               initial={{ width: 0 }}
               whileInView={{ width: "100px" }}
@@ -742,41 +667,91 @@ export default function HomePage() {
               className="h-1 bg-gradient-to-r from-purple-400 to-pink-400 mx-auto my-6 rounded-full"
             />
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Explore four signature worlds of Alanoud Alqadi—each curated for a different kind of celebration, from intimate soirées to grand ballroom affairs.
+              {t("allProductsDesc")}
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {products.map((product, index) => (
-              <motion.div
-                key={product.id}
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: index * 0.2 }}
-                viewport={{ once: true }}
-                whileHover={{ y: -10 }}
-              >
-                <Card 
-                  className="group cursor-pointer border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
-                  onClick={() => handleCollectionClick(product.id, product.category)}
+          {loadingProducts ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">{t("loadingProducts")}</p>
+            </div>
+          ) : allProducts.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">{t("noProducts")}</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+              {allProducts.map((product, index) => (
+                <motion.div
+                  key={product._id}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.8, delay: index * 0.05 }}
+                  viewport={{ once: true }}
+                  className="group relative"
                 >
-                  <CardContent className="p-0">
-                    <div className="relative overflow-hidden">
-                      <Image
-                        src={product.image || "/placeholder.svg"}
-                        alt="Product Collection"
-                        width={300}
-                        height={500}
-                        className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-300" />
-                      
-                                          </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+                  <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
+                    <CardContent className="p-0 h-full flex flex-col">
+                      <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
+                        <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
+                          <Image
+                            src={product.images[0] || "/placeholder.svg"}
+                            alt={product.name}
+                            fill
+                            className="object-cover"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+                        </div>
+                        <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                          <div className="flex items-center mb-1">
+                            <div className="flex items-center">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`h-4 w-4 ${
+                                    i < Math.floor(product.rating) 
+                                      ? "fill-yellow-400 text-yellow-400" 
+                                      : "text-gray-300"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                            <span className="text-xs ml-2">
+                              ({product.rating.toFixed(1)})
+                            </span>
+                          </div>
+                          <h3 className="text-lg font-medium mb-1">
+                            {product.name}
+                          </h3>
+                          <div className="flex items-center justify-between">
+                            <div className="text-left">
+                              {product.sizes && product.sizes.length > 0 && (
+                                <span className="text-lg font-light">
+                                  {formatPrice(Math.min(...product.sizes.map(s => s.discountedPrice || s.originalPrice || 0).filter(p => p > 0)))}
+                                </span>
+                              )}
+                            </div>
+                            <button 
+                              className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                openSizeSelector(product)
+                              }}
+                              aria-label="Add to cart"
+                            >
+                              <ShoppingCart className="h-5 w-5" />
+                            </button>
+                          </div>
+                        </div>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
+          )}
         </div>
       </motion.section>
 
@@ -796,7 +771,7 @@ export default function HomePage() {
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
             >
-              <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-6">The Art of Couture</h2>
+              <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-6">{t("theArtOfCouture")}</h2>
               <motion.p 
                 className="text-gray-600 mb-6 leading-relaxed"
                 initial={{ opacity: 0 }}
@@ -804,7 +779,7 @@ export default function HomePage() {
                 transition={{ duration: 0.8, delay: 0.2 }}
                 viewport={{ once: true }}
               >
-                At Alanoud Alqadi Atelier, every gown begins with a story. Our design house sketches with emotion, sculpts with purpose, and celebrates the grace of the women who wear our work.
+                {t("artOfCoutureDesc1")}
               </motion.p>
               <motion.p 
                 className="text-gray-600 mb-8 leading-relaxed"
@@ -813,7 +788,7 @@ export default function HomePage() {
                 transition={{ duration: 0.8, delay: 0.4 }}
                 viewport={{ once: true }}
               >
-                From the first fitting to the final bow, each piece is hand-finished with couture techniques—intricate draping, delicate embroidery, and luminous beadwork that captures the light with every step.
+                {t("artOfCoutureDesc2")}
               </motion.p>
               <motion.div
                 initial={{ opacity: 0 }}
@@ -826,7 +801,7 @@ export default function HomePage() {
                     variant="outline"
                     className="border-black text-black hover:bg-black hover:text-white bg-transparent rounded-full px-6 py-5 group relative overflow-hidden"
                   >
-                    <span className="relative z-10">Learn More About Us</span>
+                    <span className="relative z-10">{t("learnMoreAboutUs")}</span>
                     <ArrowRight className="ml-2 h-4 w-4 relative z-10" />
                     <motion.span 
                       className="absolute inset-0 bg-black opacity-0 group-hover:opacity-100"
@@ -836,35 +811,19 @@ export default function HomePage() {
                     />
                   </Button>
                 </Link>
+                {/* Alanod Background Image */}
+                <div className="mt-12 w-full h-64 md:h-96 relative">
+                  <Image
+                    src="/Alanod-bg.jpeg"
+                    alt="Alanod Background"
+                    fill
+                    className="object-cover rounded-lg"
+                    priority
+                  />
+                </div>
               </motion.div>
             </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 30, scale: 1.1 }}
-              whileInView={{ opacity: 1, x: 0, scale: 1 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-              className="relative"
-            >
-              <Image
-                src="https://images.unsplash.com/photo-1503341455253-b2e723bb3dbb?auto=format&fit=crop&w=800&q=80"
-                alt="Couture dressmaking studio"
-                width={400}
-                height={500}
-                className="w-full h-96 object-cover rounded-lg shadow-lg"
-              />
-              <motion.div 
-                className="absolute -inset-4 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-lg -z-10"
-                animate={{
-                  rotate: [0, 5, 0, -5, 0],
-                }}
-                transition={{
-                  duration: 10,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-              />
-            </motion.div>
           </div>
         </div>
       </motion.section>
@@ -887,14 +846,14 @@ export default function HomePage() {
               viewport={{ once: true }}
             >
               <Image 
-                src="/alanoud-word-light.svg" 
+                src="/Anod-logo-white.png" 
                 alt="Alanoud Alqadi Atelier" 
-                width={180} 
-                height={90} 
-                className="h-16 w-auto" 
+                width={864} 
+                height={288} 
+                className="h-24 w-auto" 
               />
-              <p className="text-gray-400 text-sm">
-                Couture-crafted soirée dresses inspired by Middle Eastern artistry and modern glamour.
+                      <p className="text-gray-400 text-sm">
+                {t("footerDesc")}
               </p>
             </motion.div>
 
@@ -904,19 +863,19 @@ export default function HomePage() {
               transition={{ duration: 0.6, delay: 0.1 }}
               viewport={{ once: true }}
             >
-              <h3 className="font-medium mb-4">Navigation</h3>
+              <h3 className="font-medium mb-4">{t("navigation")}</h3>
               <div className="space-y-2 text-sm">
                 <Link href="/" className="block text-gray-400 hover:text-white transition-colors">
-                  Home
+                  {t("home")}
                 </Link>
                 <Link href="/about" className="block text-gray-400 hover:text-white transition-colors">
-                  About
+                  {t("about")}
                 </Link>
                 <Link href="/products" className="block text-gray-400 hover:text-white transition-colors">
-                  Products
+                  {t("collections")}
                 </Link>
                 <Link href="/contact" className="block text-gray-400 hover:text-white transition-colors">
-                  Contact
+                  {t("contact")}
                 </Link>
               </div>
             </motion.div>
@@ -927,19 +886,16 @@ export default function HomePage() {
               transition={{ duration: 0.6, delay: 0.2 }}
               viewport={{ once: true }}
             >
-              <h3 className="font-medium mb-4">Collections</h3>
+              <h3 className="font-medium mb-4">{t("collectionsFooter")}</h3>
               <div className="space-y-2 text-sm">
-                <Link href="/products/men" className="block text-gray-400 hover:text-white transition-colors">
-                  Signature Soirée
+                <Link href="/products/winter" className="block text-gray-400 hover:text-white transition-colors">
+                  {t("winterCollection")}
                 </Link>
-                <Link href="/products/women" className="block text-gray-400 hover:text-white transition-colors">
-                  Luminous Couture
+                <Link href="/products/summer" className="block text-gray-400 hover:text-white transition-colors">
+                  {t("summerCollection")}
                 </Link>
-                <Link href="/products/packages" className="block text-gray-400 hover:text-white transition-colors">
-                  Style Capsules
-                </Link>
-                <Link href="/products/outlet" className="block text-gray-400 hover:text-white transition-colors">
-                  Atelier Archive
+                <Link href="/products/fall" className="block text-gray-400 hover:text-white transition-colors">
+                  {t("fallCollection")}
                 </Link>
               </div>
             </motion.div>
@@ -950,10 +906,10 @@ export default function HomePage() {
               transition={{ duration: 0.6, delay: 0.3 }}
               viewport={{ once: true }}
             >
-              <h3 className="font-medium mb-4">Contact</h3>
+              <h3 className="font-medium mb-4">{t("contact")}</h3>
               <div className="space-y-2 text-sm text-gray-400">
                 <p>Email: atelier@alanoudalqadi.com</p>
-                <p className="mb-3">Follow the maison</p>
+                <p className="mb-3">{t("followMaison")}</p>
                 <div className="flex space-x-3">
                   <Link
                     href="https://www.instagram.com/alanoudalqadiofficial"

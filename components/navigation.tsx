@@ -13,6 +13,8 @@ import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
 import { useScroll } from "@/lib/scroll-context"
 import { OffersBanner } from "@/components/offers-banner"
+import { useLocale } from "@/lib/locale-context"
+import { useTranslation } from "@/lib/translations"
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
@@ -23,6 +25,8 @@ export function Navigation() {
   const { state: cartState } = useCart()
   const { state: favoritesState } = useFavorites()
   const pathname = usePathname()
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
 
   // Check if we're on the home page
   const isHomePage = pathname === "/"
@@ -73,7 +77,11 @@ export function Navigation() {
 
   // Determine logo based on page and scroll position
   const getLogo = () => {
-    // Always use the Alanod logo with transparency
+    // On home page, use white logo when not scrolled, black when scrolled
+    if (isHomePage) {
+      return isScrolled ? "/Alanod-logo-black.png" : "/Anod-logo-white.png"
+    }
+    // On other pages, always use black logo
     return "/Alanod-logo-black.png"
   }
 
@@ -220,63 +228,63 @@ export function Navigation() {
                 {/* Desktop Navigation - Left */}
                 <div className="hidden md:flex items-center space-x-8">
                     <Link href="/" className={`relative px-3 py-2 transition-colors ${getTextColors(isActiveLink("/"))}`}>
-                        Home
+                        {t("home")}
                         {isActiveLink("/") && <div className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${getActiveIndicatorColor()}`} />}
                     </Link>
                     <Link href="/about" className={`relative px-3 py-2 transition-colors ${getTextColors(isActiveLink("/about"))}`}>
-                        About
+                        {t("about")}
                         {isActiveLink("/about") && <div className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${getActiveIndicatorColor()}`} />}
                     </Link>
                     <div className="relative group">
                         <Link href="/products" className={`relative px-3 py-2 transition-colors ${getTextColors(isActiveLink("/products"))}`}>
-                            Collections
+                            {t("collections")}
                             {isActiveLink("/products") && <div className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${getActiveIndicatorColor()}`} />}
                         </Link>
                         <div className="absolute top-full left-0 mt-2 w-48 bg-white shadow-lg rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
                             <div className="py-2">
-                                <Link href="/products/men" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">Signature Soirée</Link>
-                                <Link href="/products/women" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">Modern Couture</Link>
-                                <Link href="/products/packages" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">Style Capsules</Link>
-                                <Link href="/products/outlet" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">Atelier Archive</Link>
+                                <Link href="/products/winter" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">{t("winterCollection")}</Link>
+                                <Link href="/products/summer" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">{t("summerCollection")}</Link>
+                                <Link href="/products/fall" className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-black transition-colors">{t("fallCollection")}</Link>
                             </div>
                         </div>
                     </div>
                     <Link href="/contact" className={`relative px-3 py-2 transition-colors ${getTextColors(isActiveLink("/contact"))}`}>
-                        Contact
+                        {t("contact")}
                         {isActiveLink("/contact") && <div className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${getActiveIndicatorColor()}`} />}
                     </Link>
                 </div>
             </div>
 
-            {/* Centered Logo */}
-<div className={`absolute left-1/2 transform -translate-x-1/2 ${isScrolled ? 'mt-2' : 'mt-1'}`}>
-  <div
-    className={`transition-opacity duration-300 ${
-      isHomePage && !isLogoVisible ? "opacity-0 pointer-events-none" : "opacity-100"
-    }`}
-  >
-    <Link href="/">
-      <motion.div
-        whileHover={{ scale: 1.05 }}
-        transition={{ duration: 0.3 }}
-      >
-        <Image
-          src={isScrolled ? "/Alanod-logo-black.png" : "/Anod-logo-white.png"}
-          alt="Alanod"
-          width={864}
-          height={288}
-          className="h-72 w-auto"
-          priority
-          style={{
-            maxWidth: 'none',
-            height: '288px',
-            width: 'auto',
-          }}
-        />
-      </motion.div>
-    </Link>
-  </div>
-</div>
+            {/* Centered Logo - Show on non-home pages or when logo becomes visible on home page */}
+            {(!isHomePage || isLogoVisible) && (
+              <motion.div 
+                className={`absolute left-1/2 transform -translate-x-1/2 ${isScrolled ? 'mt-2' : 'mt-1'}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: isLogoVisible || !isHomePage ? 1 : 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Link href="/">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <Image
+                      src={getLogo()}
+                      alt="Alanod"
+                      width={864}
+                      height={288}
+                      className="h-72 w-auto transition-colors duration-300"
+                      priority
+                      style={{
+                        maxWidth: 'none',
+                        height: '288px',
+                        width: 'auto',
+                      }}
+                    />
+                  </motion.div>
+                </Link>
+              </motion.div>
+            )}
 
             {/* Right Side Icons */}
             <div className="flex-1 flex justify-end items-center space-x-2 md:space-x-4">
@@ -352,7 +360,7 @@ export function Navigation() {
                               onClick={() => setShowUserMenu(false)}
                             >
                               <Settings className="h-4 w-4 mr-2" />
-                              My Account
+                              {t("myAccount")}
                             </Link>
                           )}
 
@@ -363,7 +371,7 @@ export function Navigation() {
                               onClick={() => setShowUserMenu(false)}
                             >
                               <Settings className="h-4 w-4 mr-2" />
-                              Admin Dashboard
+                              {t("adminDashboard")}
                             </Link>
                           )}
 
@@ -372,7 +380,7 @@ export function Navigation() {
                             className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                           >
                             <LogOut className="h-4 w-4 mr-2" />
-                            Sign Out
+                            {t("signOut")}
                           </button>
                         </div>
                       </motion.div>
@@ -387,7 +395,7 @@ export function Navigation() {
                       size="sm" 
                       className={`transition-all ${buttonStyling.signIn}`}
                     >
-                      Sign In
+                      {t("signIn")}
                     </Button>
                   </Link>
                   <Link href="/auth/register">
@@ -395,7 +403,7 @@ export function Navigation() {
                       size="sm" 
                       className={`transition-all ${buttonStyling.signUp}`}
                     >
-                      Sign Up
+                      {t("signUp")}
                     </Button>
                   </Link>
                 </div>
@@ -427,7 +435,7 @@ export function Navigation() {
                          !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
                        }`} />
                      )}
-                    <span className="relative z-10">Home</span>
+                    <span className="relative z-10">{t("home")}</span>
                   </Link>
                   <Link
                     href="/about"
@@ -439,7 +447,7 @@ export function Navigation() {
                          !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
                        }`} />
                      )}
-                    <span className="relative z-10">About</span>
+                    <span className="relative z-10">{t("about")}</span>
                   </Link>
                                                                            <div className="space-y-2 products-dropdown">
                       <div className="flex items-center justify-between">
@@ -453,7 +461,7 @@ export function Navigation() {
                                !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
                              }`} />
                            )}
-                          <span className="relative z-10">All Collections</span>
+                          <span className="relative z-10">{t("collections")}</span>
                         </Link>
                         <button
                           onClick={(e) => {
@@ -480,68 +488,52 @@ export function Navigation() {
                            className="ml-4 space-y-1 overflow-hidden"
                          >
                            <Link
-                             href="/products/men"
+                             href="/products/winter"
                              className={`relative block px-4 py-2 text-sm transition-colors rounded-lg ${
                                !isHomePage || isScrolled 
-                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/men") ? "text-purple-600" : ""}`
-                                 : `text-white/70 hover:text-white ${isActiveLink("/products/men") ? "text-white" : ""}`
+                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/winter") ? "text-purple-600" : ""}`
+                                 : `text-white/70 hover:text-white ${isActiveLink("/products/winter") ? "text-white" : ""}`
                              }`}
                              onClick={() => setIsOpen(false)}
                            >
-                             {isActiveLink("/products/men") && (
+                             {isActiveLink("/products/winter") && (
                                <div className={`absolute inset-0 rounded-xl ${
                                  !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
                                }`} />
                              )}
-                           <span className="relative z-10">Signature Soirée</span>
+                           <span className="relative z-10">{t("winterCollection")}</span>
                            </Link>
                            <Link
-                             href="/products/women"
+                             href="/products/summer"
                              className={`relative block px-4 py-2 text-sm transition-colors rounded-lg ${
                                !isHomePage || isScrolled 
-                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/women") ? "text-purple-600" : ""}`
-                                 : `text-white/70 hover:text-white ${isActiveLink("/products/women") ? "text-white" : ""}`
+                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/summer") ? "text-purple-600" : ""}`
+                                 : `text-white/70 hover:text-white ${isActiveLink("/products/summer") ? "text-white" : ""}`
                              }`}
                              onClick={() => setIsOpen(false)}
                            >
-                             {isActiveLink("/products/women") && (
+                             {isActiveLink("/products/summer") && (
                                <div className={`absolute inset-0 rounded-xl ${
                                  !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
                                }`} />
                              )}
-                           <span className="relative z-10">Modern Couture</span>
+                           <span className="relative z-10">{t("summerCollection")}</span>
                            </Link>
                            <Link
-                             href="/products/packages"
+                             href="/products/fall"
                              className={`relative block px-4 py-2 text-sm transition-colors rounded-lg ${
                                !isHomePage || isScrolled 
-                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/packages") ? "text-purple-600" : ""}`
-                                 : `text-white/70 hover:text-white ${isActiveLink("/products/packages") ? "text-white" : ""}`
+                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/fall") ? "text-purple-600" : ""}`
+                                 : `text-white/70 hover:text-white ${isActiveLink("/products/fall") ? "text-white" : ""}`
                              }`}
                              onClick={() => setIsOpen(false)}
                            >
-                             {isActiveLink("/products/packages") && (
+                             {isActiveLink("/products/fall") && (
                                <div className={`absolute inset-0 rounded-xl ${
                                  !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
                                }`} />
                              )}
-                             <span className="relative z-10">Style Capsules</span>
-                           </Link>
-                           <Link
-                             href="/products/outlet"
-                             className={`relative block px-4 py-2 text-sm transition-colors rounded-lg ${
-                               !isHomePage || isScrolled 
-                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/outlet") ? "text-purple-600" : ""}`
-                                 : `text-white/70 hover:text-white ${isActiveLink("/products/outlet") ? "text-white" : ""}`
-                             }`}
-                             onClick={() => setIsOpen(false)}
-                           >
-                             {isActiveLink("/products/outlet") && (
-                               <div className={`absolute inset-0 rounded-xl ${
-                                 !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                               }`} />
-                             )}
-                             <span className="relative z-10">Atelier Archive</span>
+                             <span className="relative z-10">{t("fallCollection")}</span>
                            </Link>
                          </motion.div>
                        )}
@@ -557,7 +549,7 @@ export function Navigation() {
                          !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
                        }`} />
                      )}
-                    <span className="relative z-10">Contact</span>
+                    <span className="relative z-10">{t("contact")}</span>
                   </Link>
 
                   
@@ -582,7 +574,7 @@ export function Navigation() {
                           variant="ghost" 
                           className={`w-full justify-start relative z-10 transition-all ${buttonStyling.signIn}`}
                         >
-                          Sign In
+                          {t("signIn")}
                         </Button>
                       </Link>
                       <Link 
@@ -598,7 +590,7 @@ export function Navigation() {
                            }`} />
                          )}
                         <Button className={`w-full relative z-10 transition-all ${buttonStyling.signUp}`}>
-                          Sign Up
+                          {t("signUp")}
                         </Button>
                       </Link>
                     </div>
@@ -620,7 +612,7 @@ export function Navigation() {
                                !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
                              }`} />
                            )}
-                          <span className="relative z-10">My Account</span>
+                          <span className="relative z-10">{t("myAccount")}</span>
                         </Link>
                       )}
                       {authState.user?.role === "admin" && (
@@ -634,7 +626,7 @@ export function Navigation() {
                                !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
                              }`} />
                            )}
-                          <span className="relative z-10">Admin Dashboard</span>
+                          <span className="relative z-10">{t("adminDashboard")}</span>
                         </Link>
                       )}
                       <button
@@ -646,7 +638,7 @@ export function Navigation() {
                           !isHomePage || isScrolled ? 'text-red-600 hover:text-red-700' : 'text-red-400 hover:text-red-300'
                         }`}
                       >
-                        Sign Out
+                        {t("signOut")}
                       </button>
                     </div>
                   )}

@@ -30,7 +30,7 @@ try {
   redis = null;
 }
 
-const validCategories = ["men", "women", "packages", "outlet"] as const;
+const validCategories = ["winter", "summer", "fall"] as const;
 type ValidCategory = typeof validCategories[number];
 
 export async function GET(

@@ -51,7 +51,7 @@ interface Product {
   images: string[]
   rating: number
   reviews: number
-  category: "men" | "women" | "packages"
+  category: "winter" | "summer" | "fall"
   isActive: boolean
   isNew: boolean
   isBestseller: boolean
@@ -89,6 +89,19 @@ interface Order {
     name: string
     quantity: number
     price: number
+    size?: string
+    volume?: string
+    customMeasurements?: {
+      unit: "cm" | "inch"
+      values: {
+        shoulder: string
+        bust: string
+        waist: string
+        hips: string
+        sleeve: string
+        length: string
+      }
+    }
   }>
 }
 
@@ -1195,7 +1208,10 @@ export default function AdminDashboard() {
                                         {order.items.length} item(s) • {total.toFixed(0)} EGP
                                     </p>
                                       <p className="text-xs text-gray-500 truncate sm:truncate-none">
-                                      {order.items.map((item) => `${item.name} (${item.quantity})`).join(", ")}
+                                      {order.items.map((item: any) => {
+                                        const sizeInfo = item.size === "custom" ? "Custom Size" : `${item.size} (${item.volume})`
+                                        return `${item.name} - ${sizeInfo} (${item.quantity})`
+                                      }).join(", ")}
                                     </p>
                                   </div>
                                 </div>

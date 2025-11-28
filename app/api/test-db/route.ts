@@ -43,9 +43,9 @@ export async function GET(request: NextRequest) {
       total: await db.collection("products").countDocuments(),
       active: await db.collection("products").countDocuments({ isActive: true }),
       byCategory: {
-        men: await db.collection("products").countDocuments({ category: "men", isActive: true }),
-        women: await db.collection("products").countDocuments({ category: "women", isActive: true }),
-        packages: await db.collection("products").countDocuments({ category: "packages", isActive: true }),
+        winter: await db.collection("products").countDocuments({ category: "winter", isActive: true }),
+        summer: await db.collection("products").countDocuments({ category: "summer", isActive: true }),
+        fall: await db.collection("products").countDocuments({ category: "fall", isActive: true }),
       },
     }
 

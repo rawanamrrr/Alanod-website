@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { translations, useTranslation } from "./translations"
 
 type Language = "en" | "ar"
 
@@ -110,16 +111,107 @@ const createSettings = (config: CountryConfig, language: Language, rate = 1): Lo
   exchangeRate: rate
 })
 
-const fetchExchangeRate = async (currencyCode: string) => {
+// Cache for exchange rates with timestamp
+const RATE_CACHE_KEY = "ala_exchange_rates_cache"
+const CACHE_DURATION = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+
+type RateCache = {
+  [currencyCode: string]: {
+    rate: number
+    timestamp: number
+  }
+}
+
+const getCachedRate = (currencyCode: string): number | null => {
+  if (typeof window === "undefined") return null
   try {
+    const cached = localStorage.getItem(RATE_CACHE_KEY)
+    if (!cached) return null
+    const cache: RateCache = JSON.parse(cached)
+    const cachedData = cache[currencyCode]
+    if (!cachedData) return null
+    // Check if cache is still valid (within 24 hours)
+    if (Date.now() - cachedData.timestamp < CACHE_DURATION) {
+      return cachedData.rate
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+const setCachedRate = (currencyCode: string, rate: number) => {
+  if (typeof window === "undefined") return
+  try {
+    const cached = localStorage.getItem(RATE_CACHE_KEY)
+    const cache: RateCache = cached ? JSON.parse(cached) : {}
+    cache[currencyCode] = {
+      rate,
+      timestamp: Date.now()
+    }
+    localStorage.setItem(RATE_CACHE_KEY, JSON.stringify(cache))
+  } catch {
+    // Ignore cache errors
+  }
+}
+
+const fetchExchangeRate = async (currencyCode: string, fallbackRate?: number): Promise<number> => {
+  try {
+    // USD is always 1
     if (currencyCode === "USD") return 1
-    const response = await fetch(`https://api.exchangerate.host/latest?base=USD&symbols=${currencyCode}`)
-    if (!response.ok) return 1
-    const data = await response.json()
-    return data?.rates?.[currencyCode] ?? 1
+
+    // Check cache first
+    const cachedRate = getCachedRate(currencyCode)
+    if (cachedRate !== null) {
+      return cachedRate
+    }
+
+    // Try primary API: exchangerate.host
+    try {
+      const response = await fetch(`https://api.exchangerate.host/latest?base=USD&symbols=${currencyCode}`, {
+        cache: 'no-store'
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const rate = data?.rates?.[currencyCode]
+        if (rate && typeof rate === 'number' && rate > 0) {
+          setCachedRate(currencyCode, rate)
+          return rate
+        }
+      }
+    } catch (error) {
+      console.warn("Primary exchange rate API failed, trying fallback...", error)
+    }
+
+    // Fallback API: exchangerate-api.com
+    try {
+      const response = await fetch(`https://api.exchangerate-api.com/v4/latest/USD`, {
+        cache: 'no-store'
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const rate = data?.rates?.[currencyCode]
+        if (rate && typeof rate === 'number' && rate > 0) {
+          setCachedRate(currencyCode, rate)
+          return rate
+        }
+      }
+    } catch (error) {
+      console.warn("Fallback exchange rate API failed", error)
+    }
+
+    // If all APIs fail, use fallback rate from storage or default to 1
+    if (fallbackRate && fallbackRate > 0) {
+      console.warn(`Using fallback rate for ${currencyCode}: ${fallbackRate}`)
+      return fallbackRate
+    }
+
+    console.error(`Failed to fetch exchange rate for ${currencyCode}, using default rate of 1`)
+    return 1
   } catch (error) {
     console.error("Failed to fetch exchange rate", error)
-    return 1
+    // Use fallback rate if available, otherwise return 1
+    return fallbackRate && fallbackRate > 0 ? fallbackRate : 1
   }
 }
 
@@ -147,27 +239,31 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
         setSelectLanguage(parsed.language)
         // Refresh exchange rate on load to ensure it's current
         const config = COUNTRY_OPTIONS.find(c => c.code === parsed.countryCode) ?? DEFAULT_COUNTRY
-        fetchExchangeRate(config.currencyCode).then(rate => {
+        // Use stored rate as fallback in case API fails
+        fetchExchangeRate(config.currencyCode, parsed.exchangeRate).then(rate => {
           persist({ ...parsed, exchangeRate: rate })
         })
-        return
       } catch (err) {
         console.warn("Failed to parse locale storage", err)
       }
     }
+    // Always show modal on page load
     setShowModal(true)
   }, [persist])
 
   const refreshRate = useCallback(async () => {
     const config = COUNTRY_OPTIONS.find(c => c.code === settings.countryCode) ?? DEFAULT_COUNTRY
-    const rate = await fetchExchangeRate(config.currencyCode)
+    // Use current stored rate as fallback in case API fails
+    const rate = await fetchExchangeRate(config.currencyCode, settings.exchangeRate)
     persist({ ...settings, exchangeRate: rate })
   }, [persist, settings])
 
   const setSettings = useCallback(async (countryCode: string, language: Language) => {
     const config = COUNTRY_OPTIONS.find(country => country.code === countryCode) ?? DEFAULT_COUNTRY
     setIsSaving(true)
-    const rate = await fetchExchangeRate(config.currencyCode)
+    // Try to get cached rate for the new currency, or use 1 as fallback
+    const cachedRate = getCachedRate(config.currencyCode)
+    const rate = await fetchExchangeRate(config.currencyCode, cachedRate || undefined)
     const next = createSettings(config, language, rate)
     persist(next)
     setShowModal(false)
@@ -193,15 +289,15 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-3xl max-w-lg w-full p-8 shadow-2xl space-y-6">
             <div>
-              <p className="text-sm uppercase tracking-[0.4em] text-gray-400">Welcome</p>
-              <h2 className="text-2xl font-light tracking-wider mt-2">Choose your shipping region</h2>
+              <p className="text-sm uppercase tracking-[0.4em] text-gray-400">{translations[selectLanguage]?.welcome || translations.en.welcome}</p>
+              <h2 className="text-2xl font-light tracking-wider mt-2">{translations[selectLanguage]?.chooseShippingRegion || translations.en.chooseShippingRegion}</h2>
               <p className="text-gray-500 mt-2 text-sm">
-                Select your country and preferred language so we can display local currency and tailor your experience.
+                {translations[selectLanguage]?.selectCountryLanguage || translations.en.selectCountryLanguage}
               </p>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="text-xs uppercase tracking-[0.3em] text-gray-500">Country</label>
+                <label className="text-xs uppercase tracking-[0.3em] text-gray-500">{translations[selectLanguage]?.country || translations.en.country}</label>
                 <select
                   value={selectCountry}
                   onChange={(e) => setSelectCountry(e.target.value)}
@@ -215,7 +311,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
                 </select>
               </div>
               <div>
-                <label className="text-xs uppercase tracking-[0.3em] text-gray-500">Language</label>
+                <label className="text-xs uppercase tracking-[0.3em] text-gray-500">{translations[selectLanguage]?.language || translations.en.language}</label>
                 <div className="mt-3 flex gap-3">
                   {["en", "ar"].map(lang => (
                     <button
@@ -229,7 +325,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
                       }`}
                       disabled={!COUNTRY_OPTIONS.find(c => c.code === selectCountry)?.languages.includes(lang as Language)}
                     >
-                      {lang === "en" ? "English" : "العربية"}
+                      {lang === "en" ? (translations[selectLanguage]?.english || translations.en.english) : (translations[selectLanguage]?.arabic || translations.en.arabic)}
                     </button>
                   ))}
                 </div>
@@ -241,7 +337,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
               className="w-full rounded-2xl bg-black text-white py-3 text-sm tracking-[0.3em] uppercase disabled:opacity-60"
               disabled={isSaving}
             >
-              {isSaving ? "Saving..." : "Continue"}
+              {isSaving ? (translations[selectLanguage]?.saving || translations.en.saving) : (translations[selectLanguage]?.continue || translations.en.continue)}
             </button>
           </div>
         </div>

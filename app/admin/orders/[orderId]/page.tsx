@@ -29,6 +29,17 @@ interface OrderDetails {
     category: string
     quantity: number
     isGiftPackage?: boolean
+    customMeasurements?: {
+      unit: "cm" | "inch"
+      values: {
+        shoulder: string
+        bust: string
+        waist: string
+        hips: string
+        sleeve: string
+        length: string
+      }
+    }
     selectedProducts?: Array<{
       size: string
       volume: string
@@ -247,7 +258,22 @@ export default function AdminOrderDetailsPage() {
                         <Image src={item.image || "/placeholder.svg"} alt={item.name} width={80} height={80} className="rounded-lg object-cover" />
                         <div className="flex-1">
                           <h3 className="font-medium text-lg">{item.name}</h3>
-                          <p className="text-gray-600">{item.size} ({item.volume}) • Quantity: {item.quantity}</p>
+                          <p className="text-gray-600">
+                            {item.size === "custom" ? "Custom Size" : item.size} ({item.volume}) • Quantity: {item.quantity}
+                          </p>
+                          {item.customMeasurements && (
+                            <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                              <p className="text-xs font-medium text-blue-900 mb-1">Custom Measurements ({item.customMeasurements.unit}):</p>
+                              <div className="grid grid-cols-2 gap-1 text-xs text-blue-800">
+                                <span>Shoulder: {item.customMeasurements.values.shoulder}</span>
+                                <span>Bust: {item.customMeasurements.values.bust}</span>
+                                <span>Waist: {item.customMeasurements.values.waist}</span>
+                                <span>Hips: {item.customMeasurements.values.hips}</span>
+                                <span>Sleeve: {item.customMeasurements.values.sleeve}</span>
+                                <span>Length: {item.customMeasurements.values.length}</span>
+                              </div>
+                            </div>
+                          )}
                           <p className="text-sm text-gray-500">Category: {item.category}</p>
 
                           {/* Gift Package Details */}

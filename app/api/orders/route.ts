@@ -121,6 +121,36 @@ export async function POST(request: NextRequest) {
     const db = await getDatabase()
     console.log("✅ [API] Database connection established")
 
+    // Validate stock availability before creating order
+    for (const item of orderData.items as any[]) {
+      // Skip validation for gift packages and custom sizes
+      if (item.isGiftPackage || item.size === "custom") {
+        continue
+      }
+
+      const product = await db.collection("products").findOne({ id: item.productId })
+      if (!product) {
+        return NextResponse.json(
+          { error: `Product ${item.productId} not found` },
+          { status: 404 }
+        )
+      }
+
+      // Find the size in the product
+      const sizeObj = product.sizes?.find((s: any) => s.size === item.size)
+      if (sizeObj && sizeObj.stockCount !== undefined) {
+        // Check if requested quantity exceeds available stock
+        if (item.quantity > sizeObj.stockCount) {
+          return NextResponse.json(
+            { 
+              error: `Insufficient stock for ${item.name} - Size ${item.size}. Available: ${sizeObj.stockCount}, Requested: ${item.quantity}` 
+            },
+            { status: 400 }
+          )
+        }
+      }
+    }
+
     // Generate unique order ID
     const orderId = `order-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     console.log("🆔 [API] Generated order ID:", orderId)
@@ -142,6 +172,8 @@ export async function POST(request: NextRequest) {
         isGiftPackage: item.isGiftPackage || false,
         selectedProducts: item.selectedProducts || undefined,
         packageDetails: item.packageDetails || undefined,
+        // Preserve custom measurements
+        customMeasurements: item.customMeasurements || undefined,
       })),
       total: Number(orderData.total),
       status: "pending",
@@ -185,6 +217,52 @@ export async function POST(request: NextRequest) {
 
     const result = await db.collection<Order>("orders").insertOne(newOrder)
     console.log("✅ [API] Order inserted with MongoDB ID:", result.insertedId)
+
+    // Update stock counts after order creation
+    for (const item of newOrder.items as any[]) {
+      // Skip stock update for gift packages and custom sizes
+      if (item.isGiftPackage || item.size === "custom") {
+        continue
+      }
+
+      const product = await db.collection("products").findOne({ id: item.productId })
+      if (product && product.sizes) {
+        const sizeIndex = product.sizes.findIndex((s: any) => s.size === item.size)
+        if (sizeIndex !== -1 && product.sizes[sizeIndex].stockCount !== undefined) {
+          const newStockCount = product.sizes[sizeIndex].stockCount - item.quantity
+          
+          // Update the stock count for this size
+          const updatePath = `sizes.${sizeIndex}.stockCount`
+          await db.collection("products").updateOne(
+            { id: item.productId },
+            { $set: { [updatePath]: Math.max(0, newStockCount) } }
+          )
+
+          // Check if all sizes are out of stock and update product isOutOfStock flag
+          const allSizesOutOfStock = product.sizes.every((s: any) => 
+            s.stockCount === undefined || s.stockCount <= 0
+          )
+          
+          if (allSizesOutOfStock) {
+            await db.collection("products").updateOne(
+              { id: item.productId },
+              { $set: { isOutOfStock: true } }
+            )
+          } else if (newStockCount <= 0) {
+            // If this specific size is out of stock, check if product should be marked out of stock
+            const hasAvailableSizes = product.sizes.some((s: any, idx: number) => 
+              idx !== sizeIndex && s.stockCount !== undefined && s.stockCount > 0
+            )
+            if (!hasAvailableSizes) {
+              await db.collection("products").updateOne(
+                { id: item.productId },
+                { $set: { isOutOfStock: true } }
+              )
+            }
+          }
+        }
+      }
+    }
 
     // Verify insertion
     const insertedOrder = await db.collection<Order>("orders").findOne({ _id: result.insertedId })

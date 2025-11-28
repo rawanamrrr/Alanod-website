@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Star, Heart, ShoppingCart, Truck, Shield, RotateCcw, ChevronDown, X, Package, Instagram, Facebook, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowLeft, Star, Heart, ShoppingCart, Truck, Shield, RotateCcw, ChevronDown, X, Package, Instagram, Facebook, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react"
 import { useParams } from "next/navigation"
 import { Navigation } from "@/components/navigation"
 import { useCart } from "@/lib/cart-context"
@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
 import { GiftPackageSelector } from "@/components/gift-package-selector"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
 import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
@@ -34,12 +35,13 @@ interface ProductDetail {
     volume: string;
     originalPrice?: number;
     discountedPrice?: number;
+    stockCount?: number;
   }[]
   images: string[]
   rating: number
   reviews: number
   notes: { top: string[]; middle: string[]; base: string[] }
-  category: "men" | "women" | "packages" | "outlet"
+  category: "winter" | "summer" | "fall"
   isNew?: boolean
   isBestseller?: boolean
   isOutOfStock?: boolean
@@ -63,10 +65,9 @@ interface Review {
 }
 
 const categoryTitles = {
-  men: "Signature Soirée",
-  women: "Luminous Couture",
-  packages: "Style Capsules",
-  outlet: "Atelier Archive",
+  winter: "Winter Collection",
+  summer: "Summer Collection",
+  fall: "Fall Collection",
 }
 
 export default function ProductDetailPage() {
@@ -106,6 +107,8 @@ export default function ProductDetailPage() {
   const [selectedRelatedSize, setSelectedRelatedSize] = useState<any>(null)
   const [showGiftPackageSelector, setShowGiftPackageSelector] = useState(false)
   const [showRelatedGiftPackageSelector, setShowRelatedGiftPackageSelector] = useState(false)
+  const [showMainProductSizeSelector, setShowMainProductSizeSelector] = useState(false)
+  const [showCustomSizeConfirmation, setShowCustomSizeConfirmation] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [showFullDescription, setShowFullDescription] = useState(false)
   const touchStartXRef = useRef<number | null>(null)
@@ -205,6 +208,81 @@ export default function ProductDetailPage() {
     return selectedSizeObj?.discountedPrice || selectedSizeObj?.originalPrice || 0
   }
 
+  // Handle adding to cart with custom size support
+  const handleAddToCart = async () => {
+    if (!product || product.isOutOfStock) return
+    
+    if (isCustomSizeMode) {
+      // Validate custom measurements
+      if (!isMeasurementsValid) {
+        return
+      }
+      
+      // Get price from first available size
+      const firstSize = product.sizes[0]
+      const price = firstSize?.discountedPrice || firstSize?.originalPrice || 0
+      
+      dispatch({
+        type: "ADD_ITEM",
+        payload: {
+          id: `${product.id}-custom-${Date.now()}`,
+          productId: product.id,
+          name: product.name,
+          price: price,
+          originalPrice: firstSize?.originalPrice,
+          size: "custom",
+          volume: measurementUnit,
+          image: product.images[0],
+          category: product.category,
+          quantity: quantity,
+          customMeasurements: {
+            unit: measurementUnit,
+            values: {
+              shoulder: measurements.shoulder,
+              bust: measurements.bust,
+              waist: measurements.waist,
+              hips: measurements.hips,
+              sleeve: measurements.sleeve,
+              length: measurements.length,
+            }
+          }
+        },
+      })
+      
+      // Reset custom size mode
+      setIsCustomSizeMode(false)
+      resetMeasurements()
+    } else {
+      // Standard size - validate stock
+      const selectedSizeObj = product.sizes[selectedSize]
+      if (!selectedSizeObj) return
+      
+      // Check stock availability
+      if (selectedSizeObj.stockCount !== undefined && selectedSizeObj.stockCount < quantity) {
+        alert(`Insufficient stock for ${product.name} - Size ${selectedSizeObj.size}. Available: ${selectedSizeObj.stockCount}, Requested: ${quantity}`)
+        return
+      }
+      
+      dispatch({
+        type: "ADD_ITEM",
+        payload: {
+          id: `${product.id}-${selectedSizeObj.size}`,
+          productId: product.id,
+          name: product.name,
+          price: getSelectedPrice(),
+          originalPrice: selectedSizeObj.originalPrice,
+          size: selectedSizeObj.size,
+          volume: selectedSizeObj.volume,
+          image: product.images[0],
+          category: product.category,
+          quantity: quantity
+        },
+      })
+    }
+    
+    setShowMainProductSizeSelector(false)
+  }
+
   const openSizeSelector = (product: any) => {
     setSelectedProduct(product)
     // Auto-select the size with smallest price
@@ -278,6 +356,15 @@ export default function ProductDetailPage() {
       fetchRelatedProducts()
     }
   }, [category, productId])
+
+  // Set custom size mode as default when product loads
+  useEffect(() => {
+    if (product && !product.isGiftPackage) {
+      setIsCustomSizeMode(true)
+      setSelectedSize(-1) // No size selected initially
+      resetMeasurements()
+    }
+  }, [product])
 
   const getBaseProductId = (id: string) => {
     // For gift packages with timestamp suffixes like -1756667891815, remove only the timestamp
@@ -586,6 +673,63 @@ export default function ProductDetailPage() {
 
               <Separator />
 
+              {/* Size Selection - Always Visible */}
+              {!product.isGiftPackage && (
+                <div className="space-y-4">
+                  <h3 className="text-base sm:text-lg font-medium mb-4 text-gray-900">Select Size</h3>
+                  <CustomSizeForm
+                    controller={{
+                      isCustomSizeMode,
+                      setIsCustomSizeMode,
+                      measurementUnit,
+                      setMeasurementUnit,
+                      measurements,
+                      onMeasurementChange: handleMeasurementChange,
+                      confirmMeasurements,
+                      setConfirmMeasurements,
+                      isMeasurementsValid,
+                    }}
+                    sizeChart={sizeChart}
+                    sizes={product.sizes.map(s => ({
+                      size: s.size,
+                      volume: s.volume,
+                      originalPrice: s.originalPrice,
+                      discountedPrice: s.discountedPrice,
+                      stockCount: s.stockCount,
+                    }))}
+                    selectedSize={isCustomSizeMode ? null : (product.sizes[selectedSize] ? {
+                      size: product.sizes[selectedSize].size,
+                      volume: product.sizes[selectedSize].volume,
+                      originalPrice: product.sizes[selectedSize].originalPrice,
+                      discountedPrice: product.sizes[selectedSize].discountedPrice,
+                      stockCount: product.sizes[selectedSize].stockCount,
+                    } : null)}
+                    onSelectSize={(size) => {
+                      const index = product.sizes.findIndex(s => s.size === size.size)
+                      if (index >= 0) {
+                        setSelectedSize(index)
+                        setIsCustomSizeMode(false)
+                      }
+                    }}
+                    formatPrice={formatPrice}
+                  />
+                  
+                  {/* Measurement Alert Message */}
+                  {isCustomSizeMode && (
+                    <div className="flex items-center gap-4 rounded-3xl bg-amber-50 p-4 border border-amber-200">
+                      <div className="relative w-24 h-24 flex-shrink-0">
+                        <Image src="/custom-size-guide.svg" alt="Measurement guide" fill className="object-contain" />
+                      </div>
+                      <p className="text-sm text-amber-800">
+                        <strong className="font-semibold">Important:</strong> Please double-check your measurements before proceeding. Use the illustrated guide to measure shoulder, bust, waist, hips, sleeve, and dress length. Once confirmed, these measurements cannot be changed. Need help? Our atelier concierge will confirm via email.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <Separator />
+
               {/* Design Story */}
               {product.notes && (
                 <div>
@@ -729,14 +873,20 @@ export default function ProductDetailPage() {
                         key={index}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.98 }}
-                        onClick={() => setSelectedSize(index)}
+                        onClick={() => {
+                      setSelectedSize(index)
+                      setIsCustomSizeMode(false)
+                    }}
+                        disabled={size.stockCount !== undefined && size.stockCount === 0}
                         className={`px-2 py-1 border rounded text-xs transition-all flex-shrink-0 ${
-                          selectedSize === index
+                          size.stockCount !== undefined && size.stockCount === 0
+                            ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                            : selectedSize === index
                             ? 'border-black bg-black text-white'
                             : 'border-gray-200 hover:border-gray-400 bg-white'
                         }`}
                       >
-                        {`${size.size} (${size.volume})`}
+                        {`${size.size} (${size.volume})${size.stockCount !== undefined && size.stockCount === 0 ? ' - Out of Stock' : ''}`}
                       </motion.button>
                     ))}
                   </div>
@@ -823,36 +973,27 @@ export default function ProductDetailPage() {
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.98 }}
                     className={`bg-gradient-to-r text-white py-2 px-4 rounded-lg font-medium flex items-center justify-center shadow-md transition-all text-xs ${
-                      product.isOutOfStock 
+                      product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) || (isCustomSizeMode && !isMeasurementsValid)
                         ? 'from-gray-400 to-gray-500 cursor-not-allowed opacity-60' 
                         : 'from-gray-900 to-black hover:shadow-lg'
                     }`}
                     onClick={() => {
-                      // Check if product is out of stock
-                      if (product.isOutOfStock) {
+                      if (product.isOutOfStock) return
+                      if (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) {
+                        alert(`Size ${product.sizes[selectedSize].size} is out of stock`)
                         return
                       }
-                      
-                      dispatch({
-                        type: "ADD_ITEM",
-                        payload: {
-                          id: `${product.id}-${product.sizes[selectedSize].size}`,
-                          productId: product.id,
-                          name: product.name,
-                          price: getSelectedPrice(),
-                          size: product.sizes[selectedSize].size,
-                          volume: product.sizes[selectedSize].volume,
-                          image: product.images[0],
-                          category: category,
-                          quantity: quantity
-                        },
-                      })
+                      if (isCustomSizeMode && !isMeasurementsValid) {
+                        alert("Please complete your custom measurements")
+                        return
+                      }
+                      handleAddToCart()
                     }}
-                    disabled={product.isOutOfStock}
+                    disabled={product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) || (isCustomSizeMode && !isMeasurementsValid)}
                     aria-label={product.isOutOfStock ? "Out of stock" : "Add to cart"}
                   >
                     <ShoppingCart className="mr-1 h-4 w-4" />
-                    {product.isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                    {product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) ? "Out of Stock" : "Add to Cart"}
                   </motion.button>
                 </div>
               </div>
@@ -868,14 +1009,20 @@ export default function ProductDetailPage() {
                     key={index}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => setSelectedSize(index)}
+                    onClick={() => {
+                      setSelectedSize(index)
+                      setIsCustomSizeMode(false)
+                    }}
+                    disabled={size.stockCount !== undefined && size.stockCount === 0}
                         className={`px-4 py-2 border rounded-lg text-center transition-all flex-shrink-0 text-base ${
-                      selectedSize === index
+                      size.stockCount !== undefined && size.stockCount === 0
+                        ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
+                        : selectedSize === index
                         ? 'border-black bg-black text-white shadow-md'
                         : 'border-gray-200 hover:border-gray-400 bg-white'
                     }`}
                   >
-                    <div className="font-medium">{size.size}</div>
+                    <div className="font-medium">{size.size}{size.stockCount !== undefined && size.stockCount === 0 ? ' (Out of Stock)' : ''}</div>
                   </motion.button>
                 ))}
               </div>
@@ -964,36 +1111,27 @@ export default function ProductDetailPage() {
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.98 }}
                   className={`bg-gradient-to-r from-gray-900 to-black text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center shadow-md hover:shadow-lg transition-all ${
-                    product.isOutOfStock 
+                    product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) || (isCustomSizeMode && !isMeasurementsValid)
                       ? 'from-gray-400 to-gray-500 cursor-not-allowed opacity-60' 
                       : 'from-gray-900 to-black hover:shadow-lg'
                   }`}
                   onClick={() => {
-                    // Check if product is out of stock
-                    if (product.isOutOfStock) {
+                    if (product.isOutOfStock) return
+                    if (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) {
+                      alert(`Size ${product.sizes[selectedSize].size} is out of stock`)
                       return
                     }
-                    
-                    dispatch({
-                      type: "ADD_ITEM",
-                      payload: {
-                        id: `${product.id}-${product.sizes[selectedSize].size}`,
-                        productId: product.id,
-                        name: product.name,
-                        price: getSelectedPrice(),
-                        size: product.sizes[selectedSize].size,
-                        volume: product.sizes[selectedSize].volume,
-                        image: product.images[0],
-                        category: category,
-                        quantity: quantity
-                      },
-                    })
+                    if (isCustomSizeMode && !isMeasurementsValid) {
+                      alert("Please complete your custom measurements")
+                      return
+                    }
+                    handleAddToCart()
                   }}
-                  disabled={product.isOutOfStock}
+                  disabled={product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) || (isCustomSizeMode && !isMeasurementsValid)}
                   aria-label={product.isOutOfStock ? "Out of stock" : "Add to cart"}
                 >
                   <ShoppingCart className="mr-2 h-5 w-5" />
-                  {product.isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                  {product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) ? "Out of Stock" : "Add to Cart"}
                 </motion.button>
               </div>
             </div>
@@ -1504,6 +1642,48 @@ export default function ProductDetailPage() {
           </motion.div>
         )}
 
+
+        {/* Custom Size Confirmation Alert */}
+        <AlertDialog open={showCustomSizeConfirmation} onOpenChange={setShowCustomSizeConfirmation}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+                Confirm Custom Measurements
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2 pt-2">
+                <p>Please double-check your custom measurements before proceeding:</p>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-1 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <span><strong>Shoulder:</strong> {measurements.shoulder} {measurementUnit}</span>
+                    <span><strong>Bust:</strong> {measurements.bust} {measurementUnit}</span>
+                    <span><strong>Waist:</strong> {measurements.waist} {measurementUnit}</span>
+                    <span><strong>Hips:</strong> {measurements.hips} {measurementUnit}</span>
+                    <span><strong>Sleeve:</strong> {measurements.sleeve} {measurementUnit}</span>
+                    <span><strong>Length:</strong> {measurements.length} {measurementUnit}</span>
+                  </div>
+                </div>
+                <p className="text-amber-600 font-medium">Once confirmed, these measurements cannot be changed. Please ensure all measurements are accurate.</p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowCustomSizeConfirmation(false)}>
+                Review Again
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  handleAddToCart()
+                  setShowCustomSizeConfirmation(false)
+                  setShowMainProductSizeSelector(false)
+                }}
+                className="bg-black hover:bg-gray-800"
+              >
+                Confirm & Add to Cart
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         {/* Gift Package Selector Modal */}
         {showGiftPackageSelector && product && (
           <GiftPackageSelector
@@ -1568,17 +1748,14 @@ export default function ProductDetailPage() {
               <div>
                 <h3 className="font-medium mb-4">Collections</h3>
                 <div className="space-y-2 text-sm">
-                <Link href="/products/men" className="block text-gray-400 hover:text-white transition-colors">
-                  Signature Soirée
+                <Link href="/products/winter" className="block text-gray-400 hover:text-white transition-colors">
+                  Winter Collection
                   </Link>
-                <Link href="/products/women" className="block text-gray-400 hover:text-white transition-colors">
-                  Luminous Couture
+                <Link href="/products/summer" className="block text-gray-400 hover:text-white transition-colors">
+                  Summer Collection
                   </Link>
-                <Link href="/products/packages" className="block text-gray-400 hover:text-white transition-colors">
-                  Style Capsules
-                  </Link>
-                  <Link href="/products/outlet" className="block text-gray-400 hover:text-white transition-colors">
-                    Outlet Deals
+                <Link href="/products/fall" className="block text-gray-400 hover:text-white transition-colors">
+                  Fall Collection
                   </Link>
                 </div>
               </div>

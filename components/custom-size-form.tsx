@@ -3,7 +3,6 @@
 import Image from "next/image"
 import { motion } from "framer-motion"
 import { Input } from "@/components/ui/input"
-import { Checkbox } from "@/components/ui/checkbox"
 import { measurementLabels, MeasurementFields, MeasurementUnit, useCustomSize } from "@/hooks/use-custom-size"
 
 export interface SizeChartRow {
@@ -18,6 +17,7 @@ export interface ProductSizeLite {
   volume: string
   originalPrice?: number
   discountedPrice?: number
+  stockCount?: number
 }
 
 export interface CustomSizeController {
@@ -118,23 +118,12 @@ export const CustomSizeForm = ({
             ))}
           </div>
 
-          <div className="flex items-start gap-3 rounded-2xl border border-gray-200 p-3">
-            <Checkbox
-              id="confirm-measurements"
-              checked={confirmMeasurements}
-              onCheckedChange={(checked) => setConfirmMeasurements(Boolean(checked))}
-            />
-            <label htmlFor="confirm-measurements" className="text-sm text-gray-600">
-              I have double-checked my measurements and agree that bespoke gowns are tailored exactly to these dimensions.
-            </label>
-          </div>
-
-          <div className="flex items-center gap-4 rounded-3xl bg-gray-50 p-4 border border-gray-100">
+          <div className="flex items-center gap-4 rounded-3xl bg-amber-50 p-4 border border-amber-200">
             <div className="relative w-24 h-24">
               <Image src="/custom-size-guide.svg" alt="Measurement guide" fill />
             </div>
-            <p className="text-sm text-gray-600">
-              Use the illustrated guide to measure shoulder, bust, waist, hips, sleeve, and dress length. Need help? Our atelier concierge will confirm via email.
+            <p className="text-sm text-amber-800">
+              <strong className="font-semibold">Important:</strong> Please double-check your measurements before proceeding. 
             </p>
           </div>
         </div>
@@ -146,12 +135,17 @@ export const CustomSizeForm = ({
                 key={size.size}
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.98 }}
+                disabled={size.stockCount !== undefined && size.stockCount === 0}
                 className={`border-2 rounded-xl p-3 text-center transition-all ${
-                  selectedSize?.size === size.size ? "border-black bg-black text-white shadow-md" : "border-gray-200 hover:border-gray-400"
+                  size.stockCount !== undefined && size.stockCount === 0
+                    ? "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50"
+                    : selectedSize?.size === size.size 
+                    ? "border-black bg-black text-white shadow-md" 
+                    : "border-gray-200 hover:border-gray-400"
                 }`}
                 onClick={() => onSelectSize(size)}
               >
-                <div className="font-medium">{size.size}</div>
+                <div className="font-medium">{size.size}{size.stockCount !== undefined && size.stockCount === 0 ? ' (Out of Stock)' : ''}</div>
                 <div className="text-xs mt-1">{size.volume}</div>
                 <div className="text-sm font-light mt-2">
                   {size.originalPrice && size.discountedPrice && size.discountedPrice < size.originalPrice ? (

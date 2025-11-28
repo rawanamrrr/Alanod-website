@@ -251,7 +251,7 @@ export async function POST(request: NextRequest) {
     // Create product document based on category
     let newProduct: Omit<Product, "_id">
 
-    if (productData.category === "packages") {
+    if (productData.isGiftPackage) {
       // Gift package
       newProduct = {
         id: productId,
@@ -390,7 +390,7 @@ export async function PUT(request: NextRequest) {
     // Prepare update based on category
     let updateData: any
 
-    if (productData.category === "packages") {
+    if (productData.isGiftPackage) {
       // Gift package update
       updateData = {
         name: productData.name,

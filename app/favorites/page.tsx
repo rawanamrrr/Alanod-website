@@ -12,6 +12,9 @@ import { Navigation } from "@/components/navigation"
 import { useFavorites } from "@/lib/favorites-context"
 import { useCart } from "@/lib/cart-context"
 import { GiftPackageSelector } from "@/components/gift-package-selector"
+import { useCurrencyFormatter } from "@/hooks/use-currency"
+import { useCustomSize } from "@/hooks/use-custom-size"
+import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
 
 interface FavoriteItem {
   id: string
@@ -39,12 +42,34 @@ interface FavoriteItem {
 export default function FavoritesPage() {
   const { state: favoritesState, removeFromFavorites, clearFavorites } = useFavorites()
   const { dispatch: cartDispatch } = useCart()
+  const { formatPrice } = useCurrencyFormatter()
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<FavoriteItem | null>(null)
   const [showSizeSelector, setShowSizeSelector] = useState(false)
   const [selectedSize, setSelectedSize] = useState<any>(null)
   const [quantity, setQuantity] = useState(1)
   const [showGiftPackageSelector, setShowGiftPackageSelector] = useState(false)
+  
+  const {
+    isCustomSizeMode,
+    setIsCustomSizeMode,
+    measurementUnit,
+    setMeasurementUnit,
+    measurements,
+    handleMeasurementChange,
+    confirmMeasurements,
+    setConfirmMeasurements,
+    resetMeasurements,
+    isMeasurementsValid,
+  } = useCustomSize()
+  
+  const sizeChart: SizeChartRow[] = [
+    { label: "XS", bust: "80-84", waist: "60-64", hips: "86-90" },
+    { label: "S", bust: "85-89", waist: "65-69", hips: "91-95" },
+    { label: "M", bust: "90-94", waist: "70-74", hips: "96-100" },
+    { label: "L", bust: "95-100", waist: "75-80", hips: "101-106" },
+    { label: "XL", bust: "101-106", waist: "81-86", hips: "107-112" },
+  ]
 
   const addToCart = (item: FavoriteItem) => {
     // Check if product is out of stock
@@ -82,36 +107,76 @@ export default function FavoritesPage() {
     setSelectedSize(null)
     setShowSizeSelector(true)
     setQuantity(1)
+    setIsCustomSizeMode(true)
+    resetMeasurements()
   }
 
   const closeSizeSelector = () => {
     setShowSizeSelector(false)
-    setSelectedProduct(null)
-    setSelectedSize(null)
+    setTimeout(() => {
+      setSelectedProduct(null)
+      setSelectedSize(null)
+      resetMeasurements()
+      setIsCustomSizeMode(true)
+      setMeasurementUnit("cm")
+      setConfirmMeasurements(false)
+    }, 300)
   }
 
-  const addToCartWithSize = (product: FavoriteItem, size: any) => {
-    // For gift packages, use package price; for regular products, use size price
-    const price = product.isGiftPackage && product.packagePrice 
-      ? product.packagePrice 
-      : (size.discountedPrice || size.originalPrice || 0);
-      
+  const addToCartWithSize = () => {
+    if (!selectedProduct) return
+    if (!isCustomSizeMode && !selectedSize) return
+    if (isCustomSizeMode && !isMeasurementsValid) return
+    
+    // Check stock for standard sizes
+    if (!isCustomSizeMode && selectedSize) {
+      if (selectedSize.stockCount !== undefined && selectedSize.stockCount < quantity) {
+        alert(`Insufficient stock for ${selectedProduct.name} - Size ${selectedSize.size}. Available: ${selectedSize.stockCount}, Requested: ${quantity}`)
+        return
+      }
+      if (selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) {
+        alert(`Size ${selectedSize.size} is out of stock`)
+        return
+      }
+    }
+    
+    let firstSize: any = null
+    if (selectedProduct.sizes && selectedProduct.sizes.length > 0) {
+      firstSize = selectedProduct.sizes[0]
+    }
+    const fallbackSize: any = {
+      size: "custom",
+      volume: measurementUnit,
+      discountedPrice: selectedProduct.packagePrice || (firstSize ? (firstSize.discountedPrice ?? 0) : 0),
+      originalPrice: firstSize ? (firstSize.originalPrice ?? 0) : 0
+    }
+    const baseSize: any = selectedSize || firstSize || fallbackSize
+
+    const computedPrice = baseSize.discountedPrice || baseSize.originalPrice || selectedProduct.packagePrice || 0
+
     cartDispatch({
       type: "ADD_ITEM",
       payload: {
-        id: `${product.id}-${size.size}`,
-        productId: product.id,
-        name: product.name,
-        price: price,
-        originalPrice: product.isGiftPackage ? product.packageOriginalPrice : size.originalPrice,
-        size: size.size,
-        volume: size.volume,
-        image: product.image,
-        category: product.category,
-        quantity: quantity
-      },
+        id: `${selectedProduct.id}-${isCustomSizeMode ? "custom" : baseSize.size}`,
+        productId: selectedProduct.id,
+        name: selectedProduct.name,
+        price: computedPrice,
+        originalPrice: baseSize.originalPrice,
+        size: isCustomSizeMode ? "custom" : baseSize.size,
+        volume: isCustomSizeMode ? measurementUnit : baseSize.volume,
+        image: selectedProduct.image,
+        category: selectedProduct.category,
+        quantity,
+        customMeasurements: isCustomSizeMode
+          ? {
+              unit: measurementUnit,
+              values: measurements,
+            }
+          : undefined,
+      }
     })
-    setShowSizeSelector(false)
+    
+    closeSizeSelector()
   }
 
   const handleClearFavorites = () => {
@@ -239,61 +304,27 @@ export default function FavoritesPage() {
               </div>
               
               <div className="mb-6">
-                <h4 className="font-medium mb-3">Available Sizes</h4>
-                <div className="grid grid-cols-3 gap-3">
-                  {selectedProduct.sizes?.map((size) => (
-                    <motion.button
-                      key={size.size}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.98 }}
-                      className={`border-2 rounded-xl p-3 text-center transition-all ${
-                        selectedSize?.size === size.size
-                          ? 'border-black bg-black text-white shadow-md'
-                          : 'border-gray-200 hover:border-gray-400'
-                      }`}
-                      onClick={() => setSelectedSize(size)}
-                      aria-label={`Select size ${size.size} - ${size.volume}`}
-                    >
-                      <div className="font-medium">{size.size}</div>
-                      <div className="text-xs mt-1">{size.volume}</div>
-                      <div className="text-xs mt-1 font-medium">
-                        {(() => {
-                          // Handle gift packages - show package price instead of size price
-                          if (selectedProduct?.isGiftPackage) {
-                            const packagePrice = selectedProduct.packagePrice || 0;
-                            const packageOriginalPrice = selectedProduct.packageOriginalPrice || 0;
-                            
-                            if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
-                              return (
-                                <>
-                                  <span className="line-through text-gray-400">EGP{packageOriginalPrice}</span>
-                                  <br />
-                                  <span className="text-red-600">EGP{packagePrice}</span>
-                                </>
-                              );
-                            } else {
-                              return <>EGP{packagePrice}</>;
-                            }
-                          }
-                          
-                          // Handle regular products with size pricing
-                          if (size.originalPrice && size.discountedPrice && 
-                              size.discountedPrice < size.originalPrice) {
-                            return (
-                              <>
-                                <span className="line-through text-gray-400">EGP{size.originalPrice}</span>
-                                <br />
-                                <span className="text-red-600">EGP{size.discountedPrice}</span>
-                              </>
-                            );
-                          } else {
-                            return <>EGP{size.discountedPrice || size.originalPrice || 0}</>;
-                          }
-                        })()}
-                      </div>
-                    </motion.button>
-                  ))}
-                </div>
+                <CustomSizeForm
+                  controller={{
+                    isCustomSizeMode,
+                    setIsCustomSizeMode,
+                    measurementUnit,
+                    setMeasurementUnit,
+                    measurements,
+                    onMeasurementChange: handleMeasurementChange,
+                    confirmMeasurements,
+                    setConfirmMeasurements,
+                    isMeasurementsValid,
+                  }}
+                  sizeChart={sizeChart}
+                  sizes={selectedProduct.sizes || []}
+                  selectedSize={selectedSize}
+                  onSelectSize={(size) => {
+                    setIsCustomSizeMode(false)
+                    setSelectedSize(size)
+                  }}
+                  formatPrice={formatPrice}
+                />
               </div>
               
               {/* Quantity Selection */}
@@ -334,12 +365,12 @@ export default function FavoritesPage() {
                         if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
                           return (
                             <>
-                              <span className="line-through text-gray-400 mr-2 text-lg">EGP{packageOriginalPrice}</span>
-                              <span className="text-red-600 font-bold">EGP{packagePrice}</span>
+                              <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(packageOriginalPrice)}</span>
+                              <span className="text-red-600 font-bold">{formatPrice(packagePrice)}</span>
                             </>
                           );
                         } else {
-                          return <>EGP{packagePrice}</>;
+                          return <>{formatPrice(packagePrice)}</>;
                         }
                       }
                       
@@ -349,29 +380,39 @@ export default function FavoritesPage() {
                             selectedSize.discountedPrice < selectedSize.originalPrice) {
                           return (
                             <>
-                              <span className="line-through text-gray-400 mr-2 text-lg">EGP{selectedSize.originalPrice}</span>
-                              <span className="text-red-600 font-bold">EGP{selectedSize.discountedPrice}</span>
+                              <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(selectedSize.originalPrice)}</span>
+                              <span className="text-red-600 font-bold">{formatPrice(selectedSize.discountedPrice)}</span>
                             </>
                           );
                         } else {
-                          return <>EGP{selectedSize.discountedPrice || selectedSize.originalPrice || 0}</>;
+                          return <>{formatPrice(selectedSize.discountedPrice || selectedSize.originalPrice || 0)}</>;
                         }
                       }
                       
+                      // For custom size, use first size price
+                      if (isCustomSizeMode && selectedProduct.sizes && selectedProduct.sizes.length > 0) {
+                        const firstSize = selectedProduct.sizes[0]
+                        return <>{formatPrice(firstSize.discountedPrice || firstSize.originalPrice || 0)}</>;
+                      }
+                      
                       // Fallback to smallest price from sizes
-                      return <>EGP{getSmallestPrice(selectedProduct?.sizes || [])}</>;
+                      return <>{formatPrice(getSmallestPrice(selectedProduct?.sizes || []))}</>;
                     })()}
                   </div>
                 </div>
                 
                 <Button 
-                  onClick={() => selectedSize && addToCartWithSize(selectedProduct, selectedSize)} 
+                  onClick={addToCartWithSize} 
                   className={`flex items-center rounded-full px-6 py-5 relative overflow-hidden group ${
-                    selectedProduct?.isOutOfStock 
+                    selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0)
                       ? 'bg-gray-400 cursor-not-allowed opacity-60' 
                       : 'bg-black hover:bg-gray-800'
                   }`}
-                  disabled={!selectedSize || selectedProduct?.isOutOfStock}
+                  disabled={
+                    selectedProduct?.isOutOfStock ||
+                    (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ||
+                    (isCustomSizeMode ? !isMeasurementsValid : !selectedSize)
+                  }
                   aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Add to cart"}
                 >
                   <span className="relative z-10">
@@ -631,34 +672,39 @@ export default function FavoritesPage() {
                                     if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
                                       return (
                                         <>
-                                          <span className="line-through text-gray-300 mr-2 text-base">EGP{packageOriginalPrice}</span>
-                                          <span className="text-red-500 font-bold">EGP{packagePrice}</span>
+                                          <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(packageOriginalPrice)}</span>
+                                          <span className="text-red-500 font-bold">{formatPrice(packagePrice)}</span>
                                         </>
                                       );
                                     } else {
-                                      return <>EGP{packagePrice}</>;
+                                      return <>{formatPrice(packagePrice)}</>;
                                     }
                                   }
                                   
                                   // Handle regular products with sizes
                                   if (item.sizes && item.sizes.length > 0) {
                                     const smallestPrice = getSmallestPrice(item.sizes);
+                                    const getSmallestOriginalPrice = (sizes: any[]) => {
+                                      if (!sizes || sizes.length === 0) return 0
+                                      const prices = sizes.map(size => size.originalPrice || 0)
+                                      return Math.min(...prices.filter(price => price > 0))
+                                    }
                                     const smallestOriginalPrice = getSmallestOriginalPrice(item.sizes);
                                     
                                     if (smallestOriginalPrice > 0 && smallestPrice < smallestOriginalPrice) {
                                       return (
                                         <>
-                                          <span className="line-through text-gray-300 mr-2 text-base">EGP{smallestOriginalPrice}</span>
-                                          <span className="text-red-500 font-bold">EGP{smallestPrice}</span>
+                                          <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(smallestOriginalPrice)}</span>
+                                          <span className="text-red-500 font-bold">{formatPrice(smallestPrice)}</span>
                                         </>
                                       );
                                     } else {
-                                      return <>EGP{smallestPrice}</>;
+                                      return <>{formatPrice(smallestPrice)}</>;
                                     }
                                   }
                                   
                                   // Fallback to item price
-                                  return <>EGP {item.price}</>;
+                                  return <>{formatPrice(item.price)}</>;
                                 })()}
                               </div>
                               

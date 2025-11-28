@@ -16,12 +16,15 @@ import useEmblaCarousel from 'embla-carousel-react'
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
 import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
+import { useLocale } from "@/lib/locale-context"
+import { useTranslation } from "@/lib/translations"
 
 interface ProductSize {
   size: string
   volume: string
   originalPrice?: number
   discountedPrice?: number
+  stockCount?: number
 }
 
 interface Product {
@@ -33,7 +36,7 @@ interface Product {
   images: string[]
   rating: number
   reviews: number
-  category: "men" | "women" | "packages" | "outlet"
+  category: "winter" | "summer" | "fall"
   sizes: ProductSize[]
   isActive: boolean
   isNew: boolean
@@ -72,6 +75,8 @@ export default function ProductsPage() {
     isMeasurementsValid,
   } = useCustomSize()
   const { formatPrice } = useCurrencyFormatter()
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
   const sizeChart: SizeChartRow[] = [
     { label: "XS", bust: "80-84", waist: "60-64", hips: "86-90" },
     { label: "S", bust: "85-89", waist: "65-69", hips: "91-95" },
@@ -174,10 +179,9 @@ useEffect(() => {
 
 
   const categorizedProducts = {
-    men: products.filter((p) => p.category === "men" && p.isActive),
-    women: products.filter((p) => p.category === "women" && p.isActive),
-    packages: products.filter((p) => p.category === "packages" && p.isActive),
-    outlet: products.filter((p) => p.category === "outlet" && p.isActive),
+    winter: products.filter((p) => p.category === "winter" && p.isActive),
+    summer: products.filter((p) => p.category === "summer" && p.isActive),
+    fall: products.filter((p) => p.category === "fall" && p.isActive),
   }
 
   const openSizeSelector = (product: Product) => {
@@ -186,11 +190,11 @@ useEffect(() => {
       setSelectedProduct(product)
       setShowGiftPackageSelector(true)
     } else {
-    setSelectedProduct(product)
-    setSelectedSize(product.sizes.length > 0 ? product.sizes[0] : null)
-    setQuantity(1)
-    setShowSizeSelector(true)
-      setIsCustomSizeMode(true)
+      setSelectedProduct(product)
+      setSelectedSize(null) // Start with no size selected - user must choose
+      setQuantity(1)
+      setShowSizeSelector(true)
+      setIsCustomSizeMode(true) // Default to custom size mode
       resetMeasurements()
     }
   }
@@ -208,14 +212,26 @@ useEffect(() => {
 
   const addToCart = () => {
     if (!selectedProduct) return
-    if (isCustomSizeMode && (!isMeasurementsValid || !confirmMeasurements)) return
+    if (isCustomSizeMode && !isMeasurementsValid) return
     if (!isCustomSizeMode && !selectedSize) return
+    
+    // Check stock for standard sizes
+    if (!isCustomSizeMode && selectedSize) {
+      if (selectedSize.stockCount !== undefined && selectedSize.stockCount < quantity) {
+        alert(`Insufficient stock for ${selectedProduct.name} - Size ${selectedSize.size}. Available: ${selectedSize.stockCount}, Requested: ${quantity}`)
+        return
+      }
+      if (selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) {
+        alert(`Size ${selectedSize.size} is out of stock`)
+        return
+      }
+    }
     
     const baseSize = selectedSize || selectedProduct.sizes[0] || {
       size: "custom",
       volume: measurementUnit,
-      discountedPrice: selectedProduct.packagePrice || selectedProduct.sizes?.[0]?.discountedPrice,
-      originalPrice: selectedProduct.sizes?.[0]?.originalPrice,
+      discountedPrice: selectedProduct.packagePrice || (selectedProduct.sizes?.[0] as ProductSize | undefined)?.discountedPrice,
+      originalPrice: (selectedProduct.sizes?.[0] as ProductSize | undefined)?.originalPrice,
     }
 
     cartDispatch({
@@ -377,7 +393,7 @@ useEffect(() => {
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <h3 className="text-xl font-medium">{selectedProduct.name}</h3>
-                  <p className="text-gray-600 text-sm">Select your preferred size</p>
+                  <p className="text-gray-600 text-sm">{t("selectSize")}</p>
                 </div>
                 <div className="flex">
                   <button
@@ -465,7 +481,7 @@ useEffect(() => {
               
               {/* Quantity Selection */}
               <div className="mb-4">
-                <h4 className="font-medium mb-3">Quantity</h4>
+                <h4 className="font-medium mb-3">{t("quantity")}</h4>
                 <div className="flex items-center space-x-3">
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -527,12 +543,12 @@ useEffect(() => {
                   }`}
                   disabled={
                     selectedProduct?.isOutOfStock ||
-                    (isCustomSizeMode ? (!isMeasurementsValid || !confirmMeasurements) : !selectedSize)
+                        (isCustomSizeMode ? !isMeasurementsValid : !selectedSize)
                   }
                   aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Add to cart"}
                 >
                   <ShoppingCart className="h-4 w-4 mr-2" />
-                  {selectedProduct?.isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                  {selectedProduct?.isOutOfStock ? t("outOfStock") : t("addToCart")}
                 </Button>
               </div>
             </div>
@@ -592,7 +608,7 @@ useEffect(() => {
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <h2 className="text-4xl font-light tracking-wider bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent" style={{ fontFamily: 'var(--font-playfair-display), var(--font-crimson-text), "Playfair Display", "Crimson Text", "Bodoni Moda", "Bodoni MT", Didot, serif' }}>
-                    Signature Soirée
+                    Winter Collection
                   </h2>
                   <motion.div
                     initial={{ width: 0 }}
@@ -603,7 +619,7 @@ useEffect(() => {
                   />
                 </div>
                 <div className="hidden sm:block text-sm text-gray-500 font-light tracking-wide">
-                  Tailored & Dramatic
+                  Elegant Winter Pieces
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -616,7 +632,7 @@ useEffect(() => {
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh
                 </Button>
-                <Link href="/products/men">
+                <Link href="/products/winter">
                   <Button
                     variant="outline"
                     className="border-black text-black hover:bg-black hover:text-white bg-transparent"
@@ -631,7 +647,7 @@ useEffect(() => {
             <div className="md:hidden">
               <div className="overflow-hidden" ref={emblaRefMen}>
                 <div className="flex">
-                  {categorizedProducts.men.map((product, index) => (
+                  {categorizedProducts.winter?.slice(0, 8).map((product, index) => (
                     <div key={product._id} className="flex-[0_0_80%] min-w-0 pl-4 relative h-full">
                       <div className="group relative h-full">
                         {/* Favorite Button */}
@@ -757,7 +773,7 @@ useEffect(() => {
                 </div>
               </div>
               <div className="flex justify-center mt-4 md:hidden">
-                {categorizedProducts.men.map((_, index) => (
+                {categorizedProducts.winter?.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => scrollToMen(index)}
@@ -772,7 +788,7 @@ useEffect(() => {
 
             {/* Desktop Grid */}
             <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {categorizedProducts.men.map((product, index) => (
+              {categorizedProducts.winter?.slice(0, 8).map((product, index) => (
                 <motion.div
                   key={product._id}
                   initial={{ opacity: 0, y: 30 }}
@@ -925,7 +941,7 @@ useEffect(() => {
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <h2 className="text-4xl font-light tracking-wider bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent" style={{ fontFamily: 'var(--font-playfair-display), var(--font-crimson-text), "Playfair Display", "Crimson Text", "Bodoni Moda", "Bodoni MT", Didot, serif' }}>
-                    Luminous Couture
+                    Summer Collection
                   </h2>
                   <motion.div
                     initial={{ width: 0 }}
@@ -936,7 +952,7 @@ useEffect(() => {
                   />
                 </div>
                 <div className="hidden sm:block text-sm text-gray-500 font-light tracking-wide">
-                  Fluid & Radiant
+                  Light & Airy Designs
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -949,7 +965,7 @@ useEffect(() => {
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh
                 </Button>
-                <Link href="/products/women">
+                <Link href="/products/summer">
                   <Button
                     variant="outline"
                     className="border-black text-black hover:bg-black hover:text-white bg-transparent"
@@ -964,7 +980,7 @@ useEffect(() => {
             <div className="md:hidden">
               <div className="overflow-hidden" ref={emblaRefWomen}>
                 <div className="flex">
-                  {categorizedProducts.women.map((product, index) => (
+                  {categorizedProducts.summer?.slice(0, 8).map((product, index) => (
                     <div key={product._id} className="flex-[0_0_80%] min-w-0 pl-4 relative h-full">
                       <div className="group relative h-full">
                         {/* Favorite Button */}
@@ -1090,7 +1106,7 @@ useEffect(() => {
                 </div>
               </div>
               <div className="flex justify-center mt-4 md:hidden">
-                {categorizedProducts.women.map((_, index) => (
+                  {categorizedProducts.summer?.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => scrollToWomen(index)}
@@ -1105,7 +1121,7 @@ useEffect(() => {
 
             {/* Desktop Grid */}
             <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {categorizedProducts.women.map((product, index) => (
+              {categorizedProducts.summer?.slice(0, 8).map((product, index) => (
                 <motion.div
                   key={product._id}
                   initial={{ opacity: 0, y: 30 }}
@@ -1258,7 +1274,7 @@ useEffect(() => {
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <h2 className="text-4xl font-light tracking-wider bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent" style={{ fontFamily: 'var(--font-playfair-display), var(--font-crimson-text), "Playfair Display", "Crimson Text", "Bodoni Moda", "Bodoni MT", Didot, serif' }}>
-                    Style Capsules
+                    Fall Collection
                   </h2>
                   <motion.div
                     initial={{ width: 0 }}
@@ -1269,7 +1285,7 @@ useEffect(() => {
                   />
                 </div>
                 <div className="hidden sm:block text-sm text-gray-500 font-light tracking-wide">
-                  Curated Ensembles
+                  Rich Textures & Warm Tones
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -1282,7 +1298,7 @@ useEffect(() => {
                   <RefreshCw className="h-4 w-4 mr-2" />
                   Refresh
                 </Button>
-                <Link href="/products/packages">
+                <Link href="/products/fall">
                   <Button
                     variant="outline"
                     className="border-black text-black hover:bg-black hover:text-white bg-transparent"
@@ -1297,7 +1313,7 @@ useEffect(() => {
             <div className="md:hidden">
               <div className="overflow-hidden" ref={emblaRefPackages}>
                 <div className="flex">
-                  {categorizedProducts.packages.map((product, index) => (
+                  {categorizedProducts.fall?.slice(0, 8).map((product, index) => (
                     <div key={product._id} className="flex-[0_0_80%] min-w-0 pl-4 relative h-full">
                       <div className="group relative h-full">
                         {/* Favorite Button */}
@@ -1423,7 +1439,7 @@ useEffect(() => {
                 </div>
               </div>
               <div className="flex justify-center mt-4 md:hidden">
-                {categorizedProducts.packages.map((_, index) => (
+                {categorizedProducts.fall?.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => scrollToPackages(index)}
@@ -1438,7 +1454,7 @@ useEffect(() => {
 
             {/* Desktop Grid */}
             <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {categorizedProducts.packages.map((product, index) => (
+              {categorizedProducts.fall?.map((product, index) => (
                 <motion.div
                   key={product._id}
                   initial={{ opacity: 0, y: 30 }}
@@ -1577,338 +1593,6 @@ useEffect(() => {
         </div>
       </section>
 
-      {/* Atelier Archive */}
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            viewport={{ once: true }}
-            className="mb-12"
-          >
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <h2 className="text-4xl font-light tracking-wider bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent" style={{ fontFamily: 'var(--font-playfair-display), var(--font-crimson-text), "Playfair Display", "Crimson Text", "Bodoni Moda", "Bodoni MT", Didot, serif' }}>
-                    Atelier Archive
-                  </h2>
-                  <motion.div
-                    initial={{ width: 0 }}
-                    whileInView={{ width: "100%" }}
-                    transition={{ duration: 0.8, delay: 0.2 }}
-                    viewport={{ once: true }}
-                    className="h-0.5 bg-gradient-to-r from-purple-400 to-pink-400 mt-2 rounded-full"
-                  />
-                </div>
-                <div className="hidden sm:block text-sm text-gray-500 font-light tracking-wide">
-                  Limited Editions & Finale Pieces
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Button
-                  onClick={fetchProducts}
-                  variant="outline"
-                  size="sm"
-                  className="border-gray-300 text-gray-600 hover:bg-gray-50"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
-                </Button>
-                <Link href="/products/outlet">
-                  <Button
-                    variant="outline"
-                    className="border-black text-black hover:bg-black hover:text-white bg-transparent"
-                  >
-                    View All
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Mobile Carousel */}
-            <div className="md:hidden">
-              <div className="overflow-hidden" ref={emblaRefOutlet}>
-                <div className="flex">
-                  {categorizedProducts.outlet.map((product, index) => (
-                    <div key={product._id} className="flex-[0_0_80%] min-w-0 pl-4 relative h-full">
-                      <div className="group relative h-full">
-                        {/* Favorite Button */}
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation()
-                            await toggleFavorite(product)
-                          }}
-                          className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-                          aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
-                        >
-                          <Heart 
-                            className={`h-5 w-5 ${
-                              isFavorite(product.id) 
-                                ? "text-red-500 fill-red-500" 
-                                : "text-gray-700"
-                            }`} 
-                          />
-                        </button>
-                        
-                        {/* Badges */}
-                        <div className="absolute top-4 left-4 z-10 space-y-2">
-                          {product.isOutOfStock && (
-                            <Badge className="bg-red-600 text-white">Out of Stock</Badge>
-                          )}
-                          {product.isBestseller && (
-                            <Badge className="bg-black text-white">Bestseller</Badge>
-                          )}
-                          {product.isNew && !product.isBestseller && (
-                            <Badge variant="secondary">New</Badge>
-                          )}
-                        </div>
-                        
-                        {/* Product Card - Outlet Mobile */}
-                        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full mr-4">
-                          <CardContent className="p-0 h-full flex flex-col">
-                            <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
-                              <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
-                                <Image
-                                  src={product.images[0] || "/placeholder.svg"}
-                                  alt={product.name}
-                                  fill
-                                  className="object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                                <div className="flex items-center mb-1">
-                                  <div className="flex items-center">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={`h-4 w-4 ${
-                                          i < Math.floor(product.rating) 
-                                            ? "fill-yellow-400 text-yellow-400" 
-                                            : "text-gray-300"
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                  <span className="text-xs ml-2">
-                                    ({product.rating.toFixed(1)})
-                                  </span>
-                                </div>
-
-                                <h3 className="text-lg font-medium mb-1">
-                                  {product.name}
-                                </h3>
-                                
-                                <div className="flex items-center justify-between">
-                                  <div className="text-left">
-                                    {(() => {
-                                      // Handle gift packages
-                                      if (product.isGiftPackage) {
-                                        const packagePrice = product.packagePrice || 0;
-                                        const packageOriginalPrice = product.packageOriginalPrice || 0;
-                                        
-                                        if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
-                                          return (
-                                            <>
-                                              <span className="line-through text-gray-300 text-sm block">{formatPrice(packageOriginalPrice)}</span>
-                                              <span className="text-lg font-light text-red-400">{formatPrice(packagePrice)}</span>
-                                            </>
-                                          );
-                                        } else {
-                                          return <span className="text-lg font-light">{formatPrice(packagePrice)}</span>;
-                                        }
-                                      }
-                                      
-                                      // Handle regular products
-                                      if (getSmallestOriginalPrice(product.sizes) > 0 && getSmallestPrice(product.sizes) < getSmallestOriginalPrice(product.sizes)) {
-                                        return (
-                                      <>
-                                        <span className="line-through text-gray-300 text-sm block">{formatPrice(getSmallestOriginalPrice(product.sizes))}</span>
-                                        <span className="text-lg font-light text-red-400">{formatPrice(getSmallestPrice(product.sizes))}</span>
-                                      </>
-                                        );
-                                      } else {
-                                        return <span className="text-lg font-light">{formatPrice(getSmallestPrice(product.sizes))}</span>;
-                                      }
-                                    })()}
-                                  </div>
-                                  
-                                  <button 
-                                    className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      e.stopPropagation()
-                                      openSizeSelector(product)
-                                    }}
-                                    aria-label="Add to cart"
-                                  >
-                                    <ShoppingCart className="h-5 w-5" />
-                                  </button>
-                                </div>
-                              </div>
-                            </Link>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              <div className="flex justify-center mt-4 md:hidden">
-                {categorizedProducts.outlet.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => scrollToOutlet(index)}
-                    className={`w-2 h-2 mx-1 rounded-full transition-colors ${
-                      index === selectedIndexOutlet ? 'bg-black' : 'bg-gray-300'
-                    }`}
-                    aria-label={`Go to slide ${index + 1}`}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Desktop Grid */}
-            <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {categorizedProducts.outlet.map((product, index) => (
-                <motion.div
-                  key={product._id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <div className="group relative h-full">
-                    {/* Favorite Button */}
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        await toggleFavorite(product)
-                      }}
-                      className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-                      aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      <Heart 
-                        className={`h-5 w-5 ${
-                          isFavorite(product.id) 
-                            ? "text-red-500 fill-red-500" 
-                            : "text-gray-700"
-                        }`} 
-                      />
-                    </button>
-                    
-                    {/* Badges */}
-                    <div className="absolute top-4 left-4 z-10 space-y-2">
-                      {product.isBestseller && (
-                        <Badge className="bg-black text-white">Bestseller</Badge>
-                      )}
-                      {product.isNew && !product.isBestseller && (
-                        <Badge variant="secondary">New</Badge>
-                      )}
-                    </div>
-                    
-                    {/* Product Card - Outlet Desktop */}
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
-                      <CardContent className="p-0 h-full flex flex-col">
-                        <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
-                          <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
-                            <Image
-                              src={product.images[0] || "/placeholder.svg"}
-                              alt={product.name}
-                              fill
-                              className="object-cover"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                            <div className="flex items-center mb-1">
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-4 w-4 ${
-                                      i < Math.floor(product.rating) 
-                                        ? "fill-yellow-400 text-yellow-400" 
-                                        : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-xs ml-2">
-                                ({product.rating.toFixed(1)})
-                              </span>
-                            </div>
-
-                            <h3 className="text-lg font-medium mb-1">
-                              {product.name}
-                            </h3>
-                            
-                            <div className="flex items-center justify-between">
-                              <div className="text-left">
-                                {(() => {
-                                  // Handle gift packages
-                                  if (product.isGiftPackage) {
-                                    const packagePrice = product.packagePrice || 0;
-                                    const packageOriginalPrice = product.packageOriginalPrice || 0;
-                                    
-                                    if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
-                                      return (
-                                        <>
-                                          <span className="line-through text-gray-300 text-sm block">{formatPrice(packageOriginalPrice)}</span>
-                                          <span className="text-lg font-light text-red-400">{formatPrice(packagePrice)}</span>
-                                        </>
-                                      );
-                                    } else {
-                                      return <span className="text-lg font-light">{formatPrice(packagePrice)}</span>;
-                                    }
-                                  }
-                                  
-                                  // Handle regular products
-                                  if (getSmallestOriginalPrice(product.sizes) > 0 && getSmallestPrice(product.sizes) < getSmallestOriginalPrice(product.sizes)) {
-                                    return (
-                                  <>
-                                    <span className="line-through text-gray-300 text-sm block">{formatPrice(getSmallestOriginalPrice(product.sizes))}</span>
-                                    <span className="text-lg font-light text-red-400">{formatPrice(getSmallestPrice(product.sizes))}</span>
-                                  </>
-                                    );
-                                  } else {
-                                    return <span className="text-lg font-light">{formatPrice(getSmallestPrice(product.sizes))}</span>;
-                                  }
-                                })()}
-                              </div>
-                              
-                              <button 
-                                className={`p-2 backdrop-blur-sm rounded-full transition-colors ${
-                                  product.isGiftPackage 
-                                    ? "bg-gradient-to-r from-gray-800/30 to-black/30 hover:from-gray-800/50 hover:to-black/50" 
-                                    : "bg-white/20 hover:bg-white/30"
-                                }`}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  openSizeSelector(product)
-                                }}
-                                aria-label={product.isGiftPackage ? "Customize Package" : "Add to cart"}
-                              >
-                                {product.isGiftPackage ? (
-                                  <Package className="h-4 w-4 sm:h-5 sm:w-5" />
-                                ) : (
-                                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        </Link>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      </section>
 
       {/* Gift Package Selector Modal */}
       {showGiftPackageSelector && selectedProduct && (
@@ -1995,17 +1679,14 @@ useEffect(() => {
             >
               <h3 className="font-medium mb-4">Collections</h3>
               <div className="space-y-2 text-sm">
-                <Link href="/products/men" className="block text-gray-400 hover:text-white transition-colors">
-                  Signature Soirée
+                <Link href="/products/winter" className="block text-gray-400 hover:text-white transition-colors">
+                  Winter Collection
                 </Link>
-                <Link href="/products/women" className="block text-gray-400 hover:text-white transition-colors">
-                  Luminous Couture
+                <Link href="/products/summer" className="block text-gray-400 hover:text-white transition-colors">
+                  Summer Collection
                 </Link>
-                <Link href="/products/packages" className="block text-gray-400 hover:text-white transition-colors">
-                  Style Capsules
-                </Link>
-                <Link href="/products/outlet" className="block text-gray-400 hover:text-white transition-colors">
-                  Outlet Deals
+                <Link href="/products/fall" className="block text-gray-400 hover:text-white transition-colors">
+                  Fall Collection
                 </Link>
               </div>
             </motion.div>

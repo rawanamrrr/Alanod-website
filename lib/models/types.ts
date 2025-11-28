@@ -20,12 +20,12 @@ export interface Product {
   price: number
   beforeSalePrice?: number // original price before sale
   afterSalePrice?: number  // discounted price after sale
-  sizes: { size: string; volume: string; originalPrice?: number; discountedPrice?: number }[]
+  sizes: { size: string; volume: string; originalPrice?: number; discountedPrice?: number; stockCount?: number }[]
   images: string[]
   rating: number
   reviews: number
   notes: { top: string[]; middle: string[]; base: string[] }
-  category: "men" | "women" | "packages" | "outlet"
+  category: "winter" | "summer" | "fall"
   isNew?: boolean
   isBestseller?: boolean
   isActive: boolean
@@ -40,6 +40,7 @@ export interface Product {
 
 export interface OrderItem {
   id: string
+  productId?: string
   name: string
   price: number
   size: string
@@ -47,6 +48,20 @@ export interface OrderItem {
   image: string
   category: string
   quantity: number
+  isGiftPackage?: boolean
+  selectedProducts?: any[]
+  packageDetails?: any
+  customMeasurements?: {
+    unit: "cm" | "inch"
+    values: {
+      shoulder: string
+      bust: string
+      waist: string
+      hips: string
+      sleeve: string
+      length: string
+    }
+  }
 }
 
 export interface Order {
