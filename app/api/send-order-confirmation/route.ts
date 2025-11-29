@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
         <p style="line-height: 1.8; margin: 0;">
           <strong>${shippingAddress.name || 'N/A'}</strong><br>
           ${shippingAddress.address || 'N/A'}<br>
-          ${shippingAddress.city || 'N/A'}${shippingAddress.governorate ? `, ${shippingAddress.governorate}` : ''}<br>
+          ${shippingAddress.city || 'N/A'}${shippingAddress.country ? `, ${shippingAddress.country}` : shippingAddress.governorate ? `, ${shippingAddress.governorate}` : ''}<br>
           ${shippingAddress.postalCode ? `${shippingAddress.postalCode}<br>` : ''}
           <strong>Phone:</strong> ${shippingAddress.phone || 'N/A'}
         </p>

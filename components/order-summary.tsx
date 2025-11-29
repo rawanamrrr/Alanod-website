@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Tag, Shield, Truck, Package, ChevronDown, ChevronUp, Sparkles } from "lucide-react"
+import { useCurrencyFormatter } from "@/hooks/use-currency"
 
 interface OrderSummaryProps {
   items: Array<{
@@ -71,6 +72,7 @@ export const OrderSummary = ({
   formError
 }: OrderSummaryProps) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const { formatPrice } = useCurrencyFormatter()
 
   return (
     <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden">
@@ -165,14 +167,14 @@ export const OrderSummary = ({
                     {item.originalPrice && item.originalPrice > item.price ? (
                       <>
                         <div className="line-through text-gray-400 text-xs">
-                          {(item.originalPrice * item.quantity).toFixed(2)} EGP
+                          {formatPrice(item.originalPrice * item.quantity)}
                         </div>
                         <div className="text-red-600 font-bold">
-                          {(item.price * item.quantity).toFixed(2)} EGP
+                          {formatPrice(item.price * item.quantity)}
                         </div>
                       </>
                     ) : (
-                      <div>{(item.price * item.quantity).toFixed(2)} EGP</div>
+                      <div>{formatPrice(item.price * item.quantity)}</div>
                     )}
                   </div>
                 </div>
@@ -244,14 +246,14 @@ export const OrderSummary = ({
                 {item.originalPrice && item.originalPrice > item.price ? (
                   <>
                     <div className="line-through text-gray-400 text-xs">
-                      {(item.originalPrice * item.quantity).toFixed(2)} EGP
+                      {formatPrice(item.originalPrice * item.quantity)}
                     </div>
                     <div className="text-red-600 font-bold">
-                      {(item.price * item.quantity).toFixed(2)} EGP
+                      {formatPrice(item.price * item.quantity)}
                     </div>
                   </>
                 ) : (
-                  <div>{(item.price * item.quantity).toFixed(2)} EGP</div>
+                  <div>{formatPrice(item.price * item.quantity)}</div>
                 )}
               </div>
             </div>
@@ -330,7 +332,7 @@ export const OrderSummary = ({
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>{subtotal.toFixed(2)} EGP</span>
+            <span>{formatPrice(subtotal)}</span>
           </div>
           {appliedDiscount && (
             <div className="flex justify-between text-green-600">
@@ -340,16 +342,16 @@ export const OrderSummary = ({
                   ? `${appliedDiscount.value}%`
                   : appliedDiscount.type === "buyXgetX"
                   ? `BUY ${appliedDiscount.buyX} GET ${appliedDiscount.getX}`
-                  : `${appliedDiscount.value} EGP`}
+                  : formatPrice(appliedDiscount.value)}
                 )
               </span>
-              <span>-{appliedDiscount.discountAmount.toFixed(2)} EGP</span>
+              <span>-{formatPrice(appliedDiscount.discountAmount)}</span>
             </div>
           )}
           <div className="flex justify-between">
             <span>Shipping</span>
             <span>
-              {!governorate ? "Not specified" : shipping === 0 ? "Free" : `${shipping} EGP`}
+              {!governorate ? "Not specified" : shipping === 0 ? "Free" : formatPrice(shipping)}
             </span>
           </div>
         </div>
@@ -358,7 +360,7 @@ export const OrderSummary = ({
 
         <div className="flex justify-between text-lg font-medium">
           <span>Total</span>
-          <span>{total.toFixed(2)} EGP</span>
+          <span>{formatPrice(total)}</span>
         </div>
 
         {/* Form Error Message */}

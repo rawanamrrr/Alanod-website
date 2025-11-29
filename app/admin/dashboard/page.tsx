@@ -81,7 +81,9 @@ interface Order {
   createdAt: string
   shippingAddress: {
     name: string
-    governorate: string 
+    governorate?: string
+    country?: string
+    countryCode?: string
     phone?: string
     secondaryPhone: string
   }
@@ -623,39 +625,6 @@ export default function AdminDashboard() {
     return Math.min(...prices)
   }
 
-  const getShippingCost = (governorate: string): number => {
-    const shippingRates: { [key: string]: number } = {
-      Dakahlia: 35, // Base governorate - lowest cost
-      Gharbia: 90,
-      "Kafr El Sheikh": 90,
-      Damietta: 90,
-      Sharqia: 90,
-      Qalyubia: 90,
-      Monufia: 90,
-      Cairo: 90,
-      Giza: 90,
-      Beheira: 90,
-      Alexandria: 90,
-      Ismailia: 90,
-      "Port Said": 90,
-      Suez: 90,
-      "Beni Suef": 110,
-      Faiyum: 90,
-      Minya: 110,
-      Asyut: 110,
-      Sohag: 110,
-      Qena: 110,
-      Luxor: 110,
-      Aswan: 110,
-      "Red Sea": 130,
-      "New Valley": 110,
-      Matrouh: 110,
-      "North Sinai": 130,
-      "South Sinai": 130,
-    }
-    return shippingRates[governorate] || 85
-  }
-
   if (authState.isLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -1186,9 +1155,9 @@ export default function AdminDashboard() {
                       <div className="space-y-4">
                         {orders.map((order) => {
                           const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-                          const shipping = subtotal > 2000 ? 0 : getShippingCost(order.shippingAddress.governorate)
                           const discount = order.discountAmount || 0
-                          const total = subtotal - discount + shipping
+                          const shipping = order.total - (subtotal - discount)
+                          const total = order.total
                           return (
                             <div key={order._id} className="p-3 sm:p-4 border rounded-lg">
                               {/* Mobile-optimized order layout */}

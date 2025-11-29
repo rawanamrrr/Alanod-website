@@ -6,6 +6,7 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Minus, Plus, Trash2, Heart } from "lucide-react"
+import { useCurrencyFormatter } from "@/hooks/use-currency"
 
 interface CartItemProps {
   item: {
@@ -61,6 +62,7 @@ export const CartItem = ({
   onMoveToWishlist 
 }: CartItemProps) => {
   const [isRemoving, setIsRemoving] = useState(false)
+  const { formatPrice } = useCurrencyFormatter()
 
   const handleRemove = () => {
     setIsRemoving(true)
@@ -143,11 +145,11 @@ export const CartItem = ({
                 <div className="text-sm font-medium">
                   {item.originalPrice && item.originalPrice > item.price ? (
                     <>
-                      <span className="line-through text-gray-400 mr-2">{item.originalPrice} EGP</span>
-                      <span className="text-red-600 font-bold">{item.price} EGP</span>
+                      <span className="line-through text-gray-400 mr-2">{formatPrice(item.originalPrice)}</span>
+                      <span className="text-red-600 font-bold">{formatPrice(item.price)}</span>
                     </>
                   ) : (
-                    <>{item.price} EGP</>
+                    <>{formatPrice(item.price)}</>
                   )}
                 </div>
               </div>
@@ -177,7 +179,7 @@ export const CartItem = ({
 
               <div className="flex items-center space-x-2">
                 <div className="text-right">
-                  <p className="font-medium text-sm">{(item.price * item.quantity).toFixed(2)} EGP</p>
+                  <p className="font-medium text-sm">{formatPrice(item.price * item.quantity)}</p>
                 </div>
                 <div className="flex space-x-1">
                   {onMoveToWishlist && (
@@ -237,11 +239,11 @@ export const CartItem = ({
               <div className="text-lg font-light">
                 {item.originalPrice && item.originalPrice > item.price ? (
                   <>
-                    <span className="line-through text-gray-400 mr-2 text-base">{item.originalPrice} EGP</span>
-                    <span className="text-red-600 font-bold">{item.price} EGP</span>
+                    <span className="line-through text-gray-400 mr-2 text-base">{formatPrice(item.originalPrice)}</span>
+                    <span className="text-red-600 font-bold">{formatPrice(item.price)}</span>
                   </>
                 ) : (
-                  <>{item.price} EGP</>
+                  <>{formatPrice(item.price)}</>
                 )}
               </div>
             </div>
@@ -267,7 +269,7 @@ export const CartItem = ({
             </div>
 
             <div className="text-right">
-              <p className="font-medium text-lg mb-2">{(item.price * item.quantity).toFixed(2)} EGP</p>
+              <p className="font-medium text-lg mb-2">{formatPrice(item.price * item.quantity)}</p>
               <div className="flex space-x-2">
                 {onMoveToWishlist && (
                   <Button

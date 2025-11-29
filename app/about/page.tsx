@@ -14,19 +14,19 @@ export default function AboutPage() {
       <Navigation />
 
       {/* Hero Section */}
-      <section className="pt-28 md:pt-24 pb-16 bg-gradient-to-b from-gray-50 to-white">
+      <section className="pt-32 md:pt-28 pb-20 bg-gradient-to-b from-gray-50 via-white to-gray-50">
         <div className="container mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-center mb-16 max-w-4xl mx-auto"
           >
             <Link href="/" className="inline-flex items-center text-gray-600 hover:text-black mb-8 transition-colors">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Home
             </Link>
-            <h1 className="text-4xl md:text-5xl font-light tracking-wider mb-6">Our Story</h1>
+            <h1 className="text-4xl md:text-5xl font-light tracking-[0.35em] font-serif uppercase mb-6">Our Story</h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
               Alanoud Alqadi Atelier is a tribute to the women who command every room. Our maison blends Middle Eastern opulence with contemporary couture techniques to craft gowns that feel like heirlooms in motion.
             </p>
@@ -44,7 +44,7 @@ export default function AboutPage() {
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
             >
-              <h2 className="text-3xl font-light tracking-wider mb-6">A New Chapter: Alanoud Alqadi Atelier</h2>
+              <h2 className="text-3xl font-light tracking-wider font-serif mb-6">A New Chapter: Alanoud Alqadi Atelier</h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
                 Founded in Riyadh and inspired by global runways, our atelier was created to celebrate the ritual of dressing up. Alanoud envisioned a house where the grace of traditional craftsmanship meets the audacity of modern silhouettes, delivering dresses that feel personal, poetic, and powerful.
               </p>
@@ -61,6 +61,7 @@ export default function AboutPage() {
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
+              className="order-2 md:order-1"
             >
               <Image
                 src="https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=900&q=80"
@@ -70,15 +71,13 @@ export default function AboutPage() {
                 className="w-full h-80 object-cover rounded-lg shadow-lg"
               />
             </motion.div>
-          </div>
 
-          <div className="grid md:grid-cols-2 gap-12 items-center">
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
-              className="order-2 md:order-1"
+              className="order-1 md:order-2"
             >
               <Image
                 src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=900&q=80"
@@ -94,9 +93,9 @@ export default function AboutPage() {
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
-              className="order-1 md:order-2"
+              className="order-2 md:order-1"
             >
-              <h2 className="text-3xl font-light tracking-wider mb-6">Our Philosophy</h2>
+              <h2 className="text-3xl font-light tracking-wider font-serif mb-6">Our Philosophy</h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
                 We believe couture should feel effortless. Each dress is engineered to balance structure and softness, giving you the confidence to move, laugh, and dance without compromise.
               </p>
@@ -118,7 +117,7 @@ export default function AboutPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-6">Our Values</h2>
+            <h2 className="text-3xl md:text-4xl font-light tracking-wider font-serif mb-6">Our Values</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
               The principles that guide our craft and define our commitment to excellence.
             </p>
@@ -135,7 +134,7 @@ export default function AboutPage() {
               <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-6">
                 <Award className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-xl font-medium mb-4">Excellence</h3>
+              <h3 className="text-xl font-medium font-serif tracking-wide mb-4">Excellence</h3>
               <p className="text-gray-600 leading-relaxed">
                 We pursue perfection in every stitch—from the first muslin fitting to the final press before a gown is delivered to its muse.
               </p>
@@ -151,7 +150,7 @@ export default function AboutPage() {
               <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-6">
                 <Heart className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-xl font-medium mb-4">Passion</h3>
+              <h3 className="text-xl font-medium font-serif tracking-wide mb-4">Passion</h3>
               <p className="text-gray-600 leading-relaxed">
                 Our love for couture is personal. We spend hours hand-selecting crystals, mapping out drapes, and crafting pieces that feel like second skin.
               </p>
@@ -167,7 +166,7 @@ export default function AboutPage() {
               <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-6">
                 <Sparkles className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-xl font-medium mb-4">Innovation</h3>
+              <h3 className="text-xl font-medium font-serif tracking-wide mb-4">Innovation</h3>
               <p className="text-gray-600 leading-relaxed">
                 We experiment with modular trains, detachable sleeves, and luminous threadwork to keep pushing the language of modern eveningwear.
               </p>
@@ -185,7 +184,7 @@ export default function AboutPage() {
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-6">Experience Our Craft</h2>
+            <h2 className="text-3xl md:text-4xl font-light tracking-wider font-serif mb-6">Experience Our Craft</h2>
             <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
               Explore the silhouettes, fabrics, and bespoke details waiting inside our latest collections.
             </p>
@@ -203,7 +202,7 @@ export default function AboutPage() {
         <div className="container mx-auto px-6">
           <div className="grid md:grid-cols-4 gap-8">
             <div className="space-y-4">
-              <Image src="/alanoud-word-light.svg" alt="Alanoud Alqadi Atelier" width={180} height={90} className="h-16 w-auto" />
+              <Image src="/Anod-logo-white.png" alt="Alanoud Alqadi Atelier" width={864} height={288} className="h-24 w-auto" />
               <p className="text-gray-400 text-sm">
                 Couture-crafted soirée dresses inspired by Middle Eastern artistry and modern glamour.
               </p>

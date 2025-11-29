@@ -7,7 +7,7 @@ import { useScroll } from "@/lib/scroll-context"
 import { motion, useViewportScroll, useTransform, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { ArrowRight, Sparkles, Star, ShoppingCart, Heart, X, Instagram, Facebook, Package } from "lucide-react"
+import { ArrowRight, Sparkles, Star, ShoppingCart, Heart, X, Instagram, Facebook, Package, AlertCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { Badge } from "@/components/ui/badge"
 import { useFavorites } from "@/lib/favorites-context"
@@ -19,6 +19,7 @@ import { useCustomSize } from "@/hooks/use-custom-size"
 import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
 import { useLocale } from "@/lib/locale-context"
 import { useTranslation } from "@/lib/translations"
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
 interface ProductSize {
   size: string
@@ -74,6 +75,7 @@ export default function HomePage() {
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [showSizeSelector, setShowSizeSelector] = useState(false)
+  const [showCustomSizeConfirmation, setShowCustomSizeConfirmation] = useState(false)
   const {
     isCustomSizeMode,
     setIsCustomSizeMode,
@@ -502,7 +504,18 @@ export default function HomePage() {
                     </div>
                     
                     <Button 
-                      onClick={addToCart} 
+                      onClick={() => {
+                        if (!selectedProduct || selectedProduct.isOutOfStock) return
+                        if (!isCustomSizeMode) {
+                          addToCart()
+                          return
+                        }
+                        if (!isMeasurementsValid) {
+                          alert("Please complete your custom measurements")
+                          return
+                        }
+                        setShowCustomSizeConfirmation(true)
+                      }} 
                       className={`flex items-center rounded-full px-6 py-5 ${
                         selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0)
                           ? 'bg-gray-400 cursor-not-allowed opacity-60' 
@@ -525,6 +538,46 @@ export default function HomePage() {
           )}
         </>
       )}
+
+      {/* Custom Size Confirmation Alert */}
+      <AlertDialog open={showCustomSizeConfirmation} onOpenChange={setShowCustomSizeConfirmation}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              Confirm Your Custom Size
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 pt-2">
+              <p>These are the custom measurements we will use for this gown. Please review them carefully:</p>
+              <div className="bg-gray-50 p-4 rounded-lg space-y-1 text-sm">
+                <div className="grid grid-cols-2 gap-2">
+                  <span><strong>Shoulder:</strong> {measurements.shoulder} {measurementUnit}</span>
+                  <span><strong>Bust:</strong> {measurements.bust} {measurementUnit}</span>
+                  <span><strong>Waist:</strong> {measurements.waist} {measurementUnit}</span>
+                  <span><strong>Hips:</strong> {measurements.hips} {measurementUnit}</span>
+                  <span><strong>Sleeve:</strong> {measurements.sleeve} {measurementUnit}</span>
+                  <span><strong>Length:</strong> {measurements.length} {measurementUnit}</span>
+                </div>
+              </div>
+              <p className="text-amber-600 font-medium">If anything looks incorrect, choose "Review Again" to adjust your measurements before adding to cart.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowCustomSizeConfirmation(false)}>
+              Review Again
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                addToCart()
+                setShowCustomSizeConfirmation(false)
+              }}
+              className="bg-black hover:bg-gray-800"
+            >
+              Confirm & Add to Cart
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Hero Section */}
       <motion.section 

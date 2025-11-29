@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
@@ -9,7 +9,6 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -19,74 +18,26 @@ import { useCart } from "@/lib/cart-context"
 import { useAuth } from "@/lib/auth-context"
 import { CheckoutProgress } from "@/components/checkout-progress"
 import { OrderSummary } from "@/components/order-summary"
+import { useLocale } from "@/lib/locale-context"
 
-const egyptianGovernorates = [
-  "Cairo",
-  "Alexandria",
-  "Giza",
-  "Shubra El Kheima",
-  "Port Said",
-  "Suez",
-  "Luxor",
-  "Aswan",
-  "Asyut",
-  "Beheira",
-  "Beni Suef",
-  "Dakahlia",
-  "Damietta",
-  "Faiyum",
-  "Gharbia",
-  "Ismailia",
-  "Kafr El Sheikh",
-  "Matrouh",
-  "Minya",
-  "Monufia",
-  "New Valley",
-  "North Sinai",
-  "Qalyubia",
-  "Qena",
-  "Red Sea",
-  "Sharqia",
-  "Sohag",
-  "South Sinai",
+// Shipping costs by country (base currency units).
+const getShippingCost = (countryCode: string): number => {
+  if (!countryCode) return 0
 
-]
-
-// Shipping costs based on distance from Dakahlia (70-100 EGP range)
-const getShippingCost = (governorate: string): number => {
-  if (!governorate) return 0 // Return 0 if no governorate selected
-
-  const shippingRates: { [key: string]: number } = {
-    Dakahlia: 35, // Base governorate - lowest cost
-    Gharbia: 90,
-    "Kafr El Sheikh": 90,
-    Damietta: 90,
-    Sharqia: 90,
-    Qalyubia: 90,
-    Monufia: 90,
-    Cairo: 90,
-    Giza: 90,
-    Beheira: 90,
-    Alexandria: 90,
-    Ismailia: 90,
-    "Port Said": 90,
-    Suez: 90,
-    "Beni Suef": 110,
-    Faiyum: 90,
-    Minya: 110,
-    Asyut: 110,
-    Sohag: 110,
-    Qena: 110,
-    Luxor: 110,
-    Aswan: 110,
-    "Red Sea": 130,
-    "New Valley": 110,
-    Matrouh: 110,
-    "North Sinai": 130,
-    "South Sinai": 130,
+  switch (countryCode) {
+    case "EG":
+      return 90
+    case "SA":
+    case "AE":
+    case "KW":
+    case "QA":
+      return 130
+    case "GB":
+    case "US":
+      return 150
+    default:
+      return 150
   }
-
-  return shippingRates[governorate] || 85
 }
 
 
@@ -94,6 +45,7 @@ const getShippingCost = (governorate: string): number => {
 export default function CheckoutPage() {
   const { state: cartState, dispatch: cartDispatch } = useCart()
   const { state: authState } = useAuth()
+  const { settings } = useLocale()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -118,17 +70,25 @@ export default function CheckoutPage() {
     altPhone: "",
     address: "",
     city: "",
-    governorate: "",
+    country: "",
     postalCode: "",
 
     // Payment Information
     paymentMethod: "cod",
   })
 
+  // Keep shipping region in sync with the currently selected country from locale settings
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      country: settings.countryName,
+    }))
+  }, [settings.countryName])
+
 // Correct order of calculations:
 const subtotal = cartState.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
 const discountAmount = appliedDiscount?.discountAmount || 0;
-const shipping = (subtotal - discountAmount) > 2000 ? 0 : getShippingCost(formData.governorate);
+const shipping = (subtotal - discountAmount) > 2000 ? 0 : getShippingCost(settings.countryCode);
 const total = subtotal + shipping - discountAmount;
 
 
@@ -189,7 +149,7 @@ const total = subtotal + shipping - discountAmount;
   };
 
   const validateForm = () => {
-    const required = ["firstName", "lastName", "email", "phone", "altPhone", "address", "city", "governorate"]
+    const required = ["firstName", "lastName", "email", "phone", "altPhone", "address", "city"]
 
     for (const field of required) {
       if (!formData[field as keyof typeof formData]) {
@@ -249,7 +209,8 @@ const total = subtotal + shipping - discountAmount;
           secondaryPhone: formData.altPhone,
           address: formData.address,
           city: formData.city,
-          governorate: formData.governorate,
+          country: settings.countryName,
+          countryCode: settings.countryCode,
           postalCode: formData.postalCode,
         },
         paymentMethod: formData.paymentMethod,
@@ -507,22 +468,13 @@ const total = subtotal + shipping - discountAmount;
                           />
                         </div>
                         <div>
-                          <Label htmlFor="governorate" className="text-sm font-medium">Governorate *</Label>
-                          <Select
-                            value={formData.governorate}
-                            onValueChange={(value) => handleInputChange("governorate", value)}
-                          >
-                            <SelectTrigger className="mt-1 border-gray-200 focus:border-purple-500 focus:ring-purple-500">
-                              <SelectValue placeholder="Select governorate" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {egyptianGovernorates.map((gov) => (
-                                <SelectItem key={gov} value={gov}>
-                                  {gov}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <Label htmlFor="country" className="text-sm font-medium">Country</Label>
+                          <Input
+                            id="country"
+                            value={settings.countryName}
+                            disabled
+                            className="mt-1 border-gray-200 bg-gray-100 text-gray-700"
+                          />
                         </div>
                         <div>
                           <Label htmlFor="postalCode" className="text-sm font-medium">Postal Code</Label>
@@ -618,7 +570,7 @@ const total = subtotal + shipping - discountAmount;
                       onRemoveDiscount={removeDiscount}
                       onSubmit={(e) => handleSubmit(e)}
                       loading={loading}
-                      governorate={formData.governorate}
+                      governorate={settings.countryName}
                       formError={error}
                     />
                   </div>

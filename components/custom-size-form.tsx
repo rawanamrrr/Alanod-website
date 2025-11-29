@@ -117,15 +117,6 @@ export const CustomSizeForm = ({
               </div>
             ))}
           </div>
-
-          <div className="flex items-center gap-4 rounded-3xl bg-amber-50 p-4 border border-amber-200">
-            <div className="relative w-24 h-24">
-              <Image src="/custom-size-guide.svg" alt="Measurement guide" fill />
-            </div>
-            <p className="text-sm text-amber-800">
-              <strong className="font-semibold">Important:</strong> Please double-check your measurements before proceeding. 
-            </p>
-          </div>
         </div>
       ) : (
         <div className="space-y-4">

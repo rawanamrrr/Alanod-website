@@ -74,7 +74,9 @@ interface OrderDetails {
     secondaryPhone: string
     address: string
     city: string
-    governorate: string
+    governorate?: string
+    country?: string
+    countryCode?: string
     postalCode: string
   }
   paymentMethod: "cod" | "visa" | "mastercard"
@@ -203,9 +205,9 @@ export default function AdminOrderDetailsPage() {
   }
 
   const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const shipping = subtotal > 2000 ? 0 : getShippingCost(order.shippingAddress.governorate)
   const discount = order.discountAmount || 0
-  const total = subtotal - discount + shipping
+  const shipping = order.total - (subtotal - discount)
+  const total = order.total
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -376,7 +378,14 @@ export default function AdminOrderDetailsPage() {
                 <CardContent>
                   <div className="text-sm space-y-1">
                     <p>{order.shippingAddress.address}</p>
-                    <p>{order.shippingAddress.city}, {order.shippingAddress.governorate}</p>
+                    <p>
+                      {order.shippingAddress.city}
+                      {order.shippingAddress.country
+                        ? `, ${order.shippingAddress.country}`
+                        : order.shippingAddress.governorate
+                        ? `, ${order.shippingAddress.governorate}`
+                        : ""}
+                    </p>
                     {order.shippingAddress.postalCode && <p>Postal Code: {order.shippingAddress.postalCode}</p>}
                   </div>
                 </CardContent>
@@ -440,38 +449,3 @@ export default function AdminOrderDetailsPage() {
     </div>
   )
 }
-
-function getShippingCost(governorate: string): number {
-  const shippingRates: { [key: string]: number } = {
-    Dakahlia: 35, // Base governorate - lowest cost
-    Gharbia: 90,
-    "Kafr El Sheikh": 90,
-    Damietta: 90,
-    Sharqia: 90,
-    Qalyubia: 90,
-    Monufia: 90,
-    Cairo: 90,
-    Giza: 90,
-    Beheira: 90,
-    Alexandria: 90,
-    Ismailia: 90,
-    "Port Said": 90,
-    Suez: 90,
-    "Beni Suef": 110,
-    Faiyum: 90,
-    Minya: 110,
-    Asyut: 110,
-    Sohag: 110,
-    Qena: 110,
-    Luxor: 110,
-    Aswan: 110,
-    "Red Sea": 130,
-    "New Valley": 110,
-    Matrouh: 110,
-    "North Sinai": 130,
-    "South Sinai": 130,
-  }
-  return shippingRates[governorate] || 85
-}
-
-

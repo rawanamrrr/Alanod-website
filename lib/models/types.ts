@@ -78,7 +78,9 @@ export interface Order {
     secondaryPhone: string
     address: string
     city: string
-    governorate: string
+    country: string
+    countryCode?: string
+    governorate?: string
     postalCode: string
   }
   paymentMethod: "cod" | "visa" | "mastercard"

@@ -7,9 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { X, ShoppingCart, Check } from "lucide-react"
 import { useCart } from "@/lib/cart-context"
+import { useCurrencyFormatter } from "@/hooks/use-currency"
 
 export function CartSuccessNotification() {
   const { state, hideNotification } = useCart()
+  const { formatPrice } = useCurrencyFormatter()
 
   return (
     <AnimatePresence>
@@ -68,7 +70,7 @@ export function CartSuccessNotification() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-gray-900 truncate">{state.lastAddedItem.name}</p>
                           <p className="text-xs text-gray-500">
-                            {state.lastAddedItem.size} • {state.lastAddedItem.price} EGP
+                            {state.lastAddedItem.size} • {formatPrice(state.lastAddedItem.price)}
                           </p>
                         </div>
                       </div>

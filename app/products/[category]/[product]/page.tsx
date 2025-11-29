@@ -109,6 +109,7 @@ export default function ProductDetailPage() {
   const [showRelatedGiftPackageSelector, setShowRelatedGiftPackageSelector] = useState(false)
   const [showMainProductSizeSelector, setShowMainProductSizeSelector] = useState(false)
   const [showCustomSizeConfirmation, setShowCustomSizeConfirmation] = useState(false)
+  const [showRelatedCustomSizeConfirmation, setShowRelatedCustomSizeConfirmation] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
   const [showFullDescription, setShowFullDescription] = useState(false)
   const touchStartXRef = useRef<number | null>(null)
@@ -285,11 +286,11 @@ export default function ProductDetailPage() {
 
   const openSizeSelector = (product: any) => {
     setSelectedProduct(product)
-    // Auto-select the size with smallest price
-    const smallestPriceSize = getSizeWithSmallestPrice(product.sizes)
-    setSelectedRelatedSize(smallestPriceSize)
+    setSelectedRelatedSize(null)
     setShowSizeSelector(true)
     setQuantity(1)
+    setIsCustomSizeMode(true)
+    resetMeasurements()
   }
 
   // Function to get the size with smallest price
@@ -713,18 +714,6 @@ export default function ProductDetailPage() {
                     }}
                     formatPrice={formatPrice}
                   />
-                  
-                  {/* Measurement Alert Message */}
-                  {isCustomSizeMode && (
-                    <div className="flex items-center gap-4 rounded-3xl bg-amber-50 p-4 border border-amber-200">
-                      <div className="relative w-24 h-24 flex-shrink-0">
-                        <Image src="/custom-size-guide.svg" alt="Measurement guide" fill className="object-contain" />
-                      </div>
-                      <p className="text-sm text-amber-800">
-                        <strong className="font-semibold">Important:</strong> Please double-check your measurements before proceeding. Use the illustrated guide to measure shoulder, bust, waist, hips, sleeve, and dress length. Once confirmed, these measurements cannot be changed. Need help? Our atelier concierge will confirm via email.
-                      </p>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -979,15 +968,20 @@ export default function ProductDetailPage() {
                     }`}
                     onClick={() => {
                       if (product.isOutOfStock) return
-                      if (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) {
-                        alert(`Size ${product.sizes[selectedSize].size} is out of stock`)
+                      if (!isCustomSizeMode) {
+                        if (selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) {
+                          alert(`Size ${product.sizes[selectedSize].size} is out of stock`)
+                          return
+                        }
+                        handleAddToCart()
                         return
                       }
-                      if (isCustomSizeMode && !isMeasurementsValid) {
+                      // Custom size flow
+                      if (!isMeasurementsValid) {
                         alert("Please complete your custom measurements")
                         return
                       }
-                      handleAddToCart()
+                      setShowCustomSizeConfirmation(true)
                     }}
                     disabled={product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) || (isCustomSizeMode && !isMeasurementsValid)}
                     aria-label={product.isOutOfStock ? "Out of stock" : "Add to cart"}
@@ -1117,15 +1111,20 @@ export default function ProductDetailPage() {
                   }`}
                   onClick={() => {
                     if (product.isOutOfStock) return
-                    if (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) {
-                      alert(`Size ${product.sizes[selectedSize].size} is out of stock`)
+                    if (!isCustomSizeMode) {
+                      if (selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) {
+                        alert(`Size ${product.sizes[selectedSize].size} is out of stock`)
+                        return
+                      }
+                      handleAddToCart()
                       return
                     }
-                    if (isCustomSizeMode && !isMeasurementsValid) {
+                    // Custom size flow
+                    if (!isMeasurementsValid) {
                       alert("Please complete your custom measurements")
                       return
                     }
-                    handleAddToCart()
+                    setShowCustomSizeConfirmation(true)
                   }}
                   disabled={product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) || (isCustomSizeMode && !isMeasurementsValid)}
                   aria-label={product.isOutOfStock ? "Out of stock" : "Add to cart"}
@@ -1545,37 +1544,48 @@ export default function ProductDetailPage() {
                 </div>
                 
                 <div className="mb-6">
-                  <h4 className="font-medium mb-3">Available Sizes</h4>
-                  <div className="flex flex-wrap gap-3 justify-center">
-                    {selectedProduct.sizes?.map((size) => (
-                      <motion.button
-                        key={size.size}
-                        whileHover={{ scale: 1.03 }}
-                        whileTap={{ scale: 0.98 }}
-                        className={`border-2 rounded-xl p-3 text-center transition-all flex-shrink-0 min-w-[100px] ${
-                          selectedRelatedSize?.size === size.size
-                            ? 'border-black bg-black text-white shadow-md'
-                            : 'border-gray-200 hover:border-gray-400'
-                        }`}
-                        onClick={() => setSelectedRelatedSize(size)}
-                      >
-                        <div className="font-medium">{size.size}</div>
-                        <div className="text-xs mt-1">{size.volume}</div>
-                        <div className="text-sm font-light mt-2">
-                          {size.originalPrice && size.discountedPrice && 
-                           size.discountedPrice < size.originalPrice ? (
-                            <>
-                              <span className="line-through text-gray-400">{formatPrice(size.originalPrice || 0)}</span>
-                              <br />
-                              <span className="text-red-600">{formatPrice(size.discountedPrice || 0)}</span>
-                            </>
-                          ) : (
-                            <>{formatPrice(size.discountedPrice || size.originalPrice || 0)}</>
-                          )}
-                        </div>
-                      </motion.button>
-                    ))}
-                  </div>
+                  <CustomSizeForm
+                    controller={{
+                      isCustomSizeMode,
+                      setIsCustomSizeMode,
+                      measurementUnit,
+                      setMeasurementUnit,
+                      measurements,
+                      onMeasurementChange: handleMeasurementChange,
+                      confirmMeasurements,
+                      setConfirmMeasurements,
+                      isMeasurementsValid,
+                    }}
+                    sizeChart={sizeChart}
+                    sizes={selectedProduct.sizes.map((s) => ({
+                      size: s.size,
+                      volume: s.volume,
+                      originalPrice: s.originalPrice,
+                      discountedPrice: s.discountedPrice,
+                      stockCount: s.stockCount,
+                    }))}
+                    selectedSize={
+                      isCustomSizeMode
+                        ? null
+                        : selectedRelatedSize
+                        ? {
+                            size: selectedRelatedSize.size,
+                            volume: selectedRelatedSize.volume,
+                            originalPrice: selectedRelatedSize.originalPrice,
+                            discountedPrice: selectedRelatedSize.discountedPrice,
+                            stockCount: selectedRelatedSize.stockCount,
+                          }
+                        : null
+                    }
+                    onSelectSize={(size) => {
+                      const found = selectedProduct.sizes.find((s) => s.size === size.size)
+                      if (found) {
+                        setSelectedRelatedSize(found)
+                        setIsCustomSizeMode(false)
+                      }
+                    }}
+                    formatPrice={formatPrice}
+                  />
                 </div>
                 
                 {/* Quantity Selection */}
@@ -1607,7 +1617,13 @@ export default function ProductDetailPage() {
                   <div>
                     <span className="text-gray-600">Total:</span>
                     <span className="text-xl font-medium ml-2">
-                      {selectedRelatedSize ? (
+                      {isCustomSizeMode ? (
+                        selectedProduct.sizes && selectedProduct.sizes.length > 0 ? (
+                          <>{formatPrice(getSmallestPrice(selectedProduct.sizes))}</>
+                        ) : (
+                          <>{formatPrice(0)}</>
+                        )
+                      ) : selectedRelatedSize ? (
                         selectedRelatedSize.originalPrice && selectedRelatedSize.discountedPrice && 
                         selectedRelatedSize.discountedPrice < selectedRelatedSize.originalPrice ? (
                           <>
@@ -1624,13 +1640,29 @@ export default function ProductDetailPage() {
                   </div>
                   
                   <Button 
-                    onClick={() => selectedRelatedSize && addToCartFromRelated(selectedProduct, selectedRelatedSize)} 
+                    onClick={() => {
+                      if (!selectedProduct || selectedProduct.isOutOfStock) return
+                      if (!isCustomSizeMode) {
+                        if (!selectedRelatedSize) return
+                        addToCartFromRelated(selectedProduct, selectedRelatedSize)
+                        return
+                      }
+                      if (!isMeasurementsValid) {
+                        alert("Please complete your custom measurements")
+                        return
+                      }
+                      setShowRelatedCustomSizeConfirmation(true)
+                    }} 
                     className={`flex items-center bg-black hover:bg-gray-800 rounded-full px-6 py-5 ${
                       selectedProduct?.isOutOfStock 
                         ? 'cursor-not-allowed opacity-60' 
                         : ''
                     }`}
-                    disabled={!selectedRelatedSize || selectedProduct?.isOutOfStock}
+                    disabled={
+                      selectedProduct?.isOutOfStock ||
+                      (!isCustomSizeMode && !selectedRelatedSize) ||
+                      (isCustomSizeMode && !isMeasurementsValid)
+                    }
                     aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Add to cart"}
                   >
                     <ShoppingCart className="h-4 w-4 mr-2" />
@@ -1643,16 +1675,16 @@ export default function ProductDetailPage() {
         )}
 
 
-        {/* Custom Size Confirmation Alert */}
+        {/* Custom Size Confirmation Alert - Main Product */}
         <AlertDialog open={showCustomSizeConfirmation} onOpenChange={setShowCustomSizeConfirmation}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-amber-500" />
-                Confirm Custom Measurements
+                Confirm Your Custom Size
               </AlertDialogTitle>
               <AlertDialogDescription className="space-y-2 pt-2">
-                <p>Please double-check your custom measurements before proceeding:</p>
+                <p>These are the custom measurements we will use for this gown. Please review them carefully:</p>
                 <div className="bg-gray-50 p-4 rounded-lg space-y-1 text-sm">
                   <div className="grid grid-cols-2 gap-2">
                     <span><strong>Shoulder:</strong> {measurements.shoulder} {measurementUnit}</span>
@@ -1663,7 +1695,7 @@ export default function ProductDetailPage() {
                     <span><strong>Length:</strong> {measurements.length} {measurementUnit}</span>
                   </div>
                 </div>
-                <p className="text-amber-600 font-medium">Once confirmed, these measurements cannot be changed. Please ensure all measurements are accurate.</p>
+                <p className="text-amber-600 font-medium">If anything looks incorrect, choose "Review Again" to adjust your measurements before adding to cart.</p>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -1675,6 +1707,84 @@ export default function ProductDetailPage() {
                   handleAddToCart()
                   setShowCustomSizeConfirmation(false)
                   setShowMainProductSizeSelector(false)
+                }}
+                className="bg-black hover:bg-gray-800"
+              >
+                Confirm & Add to Cart
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Custom Size Confirmation Alert - Related Products */}
+        <AlertDialog open={showRelatedCustomSizeConfirmation} onOpenChange={setShowRelatedCustomSizeConfirmation}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-500" />
+                Confirm Your Custom Size
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2 pt-2">
+                <p>These are the custom measurements we will use for this gown. Please review them carefully:</p>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-1 text-sm">
+                  <div className="grid grid-cols-2 gap-2">
+                    <span><strong>Shoulder:</strong> {measurements.shoulder} {measurementUnit}</span>
+                    <span><strong>Bust:</strong> {measurements.bust} {measurementUnit}</span>
+                    <span><strong>Waist:</strong> {measurements.waist} {measurementUnit}</span>
+                    <span><strong>Hips:</strong> {measurements.hips} {measurementUnit}</span>
+                    <span><strong>Sleeve:</strong> {measurements.sleeve} {measurementUnit}</span>
+                    <span><strong>Length:</strong> {measurements.length} {measurementUnit}</span>
+                  </div>
+                </div>
+                <p className="text-amber-600 font-medium">If anything looks incorrect, choose \"Review Again\" to adjust your measurements before adding to cart.</p>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowRelatedCustomSizeConfirmation(false)}>
+                Review Again
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (!selectedProduct) {
+                    setShowRelatedCustomSizeConfirmation(false)
+                    return
+                  }
+                  if (!isMeasurementsValid) {
+                    setShowRelatedCustomSizeConfirmation(false)
+                    return
+                  }
+                  const firstSize = selectedProduct.sizes[0]
+                  const price = firstSize?.discountedPrice || firstSize?.originalPrice || 0
+                  
+                  dispatch({
+                    type: "ADD_ITEM",
+                    payload: {
+                      id: `${selectedProduct.id}-custom-${Date.now()}`,
+                      productId: selectedProduct.id,
+                      name: selectedProduct.name,
+                      price: price,
+                      originalPrice: firstSize?.originalPrice,
+                      size: "custom",
+                      volume: measurementUnit,
+                      image: selectedProduct.images[0],
+                      category: selectedProduct.category,
+                      quantity: quantity,
+                      customMeasurements: {
+                        unit: measurementUnit,
+                        values: {
+                          shoulder: measurements.shoulder,
+                          bust: measurements.bust,
+                          waist: measurements.waist,
+                          hips: measurements.hips,
+                          sleeve: measurements.sleeve,
+                          length: measurements.length,
+                        }
+                      }
+                    },
+                  })
+                  
+                  setShowRelatedCustomSizeConfirmation(false)
+                  setShowSizeSelector(false)
                 }}
                 className="bg-black hover:bg-gray-800"
               >
@@ -1721,7 +1831,7 @@ export default function ProductDetailPage() {
           <div className="container mx-auto px-6">
             <div className="grid md:grid-cols-4 gap-8">
               <div className="space-y-4">
-              <Image src="/alanoud-word-light.svg" alt="Alanoud Alqadi Atelier" width={180} height={90} className="h-16 w-auto" />
+              <Image src="/Anod-logo-white.png" alt="Alanoud Alqadi Atelier" width={864} height={288} className="h-24 w-auto" />
               <p className="text-gray-400 text-sm">
                 Couture-crafted soirée dresses inspired by Middle Eastern artistry and modern glamour.
               </p>

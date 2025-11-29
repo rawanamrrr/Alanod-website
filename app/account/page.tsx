@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator"
 import { Package, ShoppingCart, User, MapPin, ArrowLeft, Eye, Edit, Star, RefreshCw, X } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { useCurrencyFormatter } from "@/hooks/use-currency"
 
 // Add this helper function to get the auth token
 const getAuthToken = (): string | null => {
@@ -28,43 +29,6 @@ const getAuthToken = (): string | null => {
     return null;
   }
 };
-
-// Shipping costs based on distance from Dakahlia (70-100 EGP range)
-const getShippingCost = (governorate: string): number => {
-  if (!governorate) return 0 // Return 0 if no governorate selected
-
-  const shippingRates: { [key: string]: number } = {
-    Dakahlia: 35, // Base governorate - lowest cost
-    Gharbia: 90,
-    "Kafr El Sheikh": 90,
-    Damietta: 90,
-    Sharqia: 90,
-    Qalyubia: 90,
-    Monufia: 90,
-    Cairo: 90,
-    Giza: 90,
-    Beheira: 90,
-    Alexandria: 90,
-    Ismailia: 90,
-    "Port Said": 90,
-    Suez: 90,
-    "Beni Suef": 110,
-    Faiyum: 90,
-    Minya: 110,
-    Asyut: 110,
-    Sohag: 110,
-    Qena: 110,
-    Luxor: 110,
-    Aswan: 110,
-    "Red Sea": 130,
-    "New Valley": 110,
-    Matrouh: 110,
-    "North Sinai": 130,
-    "South Sinai": 130,
-  }
-
-  return shippingRates[governorate] || 85
-}
 
 export default function MyAccountPage() {
   const { state: authState } = useAuth()
@@ -83,6 +47,7 @@ export default function MyAccountPage() {
   const [orderDetailsOpen, setOrderDetailsOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<any>(null)
   const [activeTab, setActiveTab] = useState<'orders' | 'reviews'>('orders')
+  const { formatPrice } = useCurrencyFormatter()
 
   useEffect(() => {
     // Wait for auth state to be fully loaded before making decisions
@@ -401,7 +366,7 @@ export default function MyAccountPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs sm:text-sm text-gray-600">Total Spent</p>
-                      <p className="text-xl sm:text-2xl font-light">{totalSpent.toFixed(2)} EGP</p>
+                      <p className="text-xl sm:text-2xl font-light">{formatPrice(totalSpent)}</p>
                     </div>
                     <User className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
                   </div>
@@ -519,7 +484,7 @@ export default function MyAccountPage() {
                                 <Badge className={`text-xs ${getStatusColor(order.status)}`}>
                                   {getStatusText(order.status)}
                                 </Badge>
-                                <p className="text-sm font-medium">{(order.total || 0).toFixed(2)} EGP</p>
+                                <p className="text-sm font-medium">{formatPrice(order.total || 0)}</p>
                               </div>
                             </div>
 
@@ -552,7 +517,7 @@ export default function MyAccountPage() {
                                     </div>
                                   </div>
                                   <div className="flex items-center justify-between sm:justify-end gap-3 sm:flex-shrink-0">
-                                    <p className="text-sm font-medium">{((item.price || 0) * (item.quantity || 1)).toFixed(2)} EGP</p>
+                                    <p className="text-sm font-medium">{formatPrice((item.price || 0) * (item.quantity || 1))}</p>
                                     {order.status === "delivered" && (
                                       item.review ? (
                                         <div className="flex items-center text-xs text-gray-500 bg-gray-100 px-3 py-2 rounded border border-gray-200 transition-all duration-200">
@@ -576,18 +541,81 @@ export default function MyAccountPage() {
                               ))}
                             </div>
 
-                            <Separator className="my-3" />
+<Separator className="my-3" />
 
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                              <div className="flex items-center text-xs sm:text-sm text-gray-600 min-w-0">
-                                <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-                                <span className="truncate">{order.shippingAddress?.city || 'N/A'}, {order.shippingAddress?.governorate || 'N/A'}</span>
-                              </div>
-                              <div className="flex-shrink-0">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  className="bg-transparent w-full sm:w-auto min-h-[36px] touch-manipulation"
+<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+<div className="flex items-center text-xs sm:text-sm text-gray-600 min-w-0">
+<MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+<span className="truncate">
+{order.shippingAddress?.city || 'N/A'}, {order.shippingAddress?.country || order.shippingAddress?.governorate || 'N/A'}
+</span>
+</div>
+<div className="flex-shrink-0">
+<Button 
+size="sm" 
+variant="outline" 
+className="bg-transparent w-full sm:w-auto min-h-[36px] touch-manipulation"
+onClick={() => handleViewDetails(order)}
+>
+<Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+View Details
+</Button>
+</div>
+</div>
+</div>
+))}
+</div>
+)}
+</div>
+) : (
+<div id="reviews-panel" role="tabpanel" aria-labelledby="reviews-tab">
+<div className="space-y-4">
+{userReviews.length === 0 ? (
+<div className="text-center py-8">
+<Star className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+<p className="text-gray-600 mb-4">No reviews yet</p>
+<p className="text-sm text-gray-500">Your product reviews will appear here</p>
+</div>
+) : (
+userReviews.map((review) => (
+<div key={review._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+<div className="flex items-start">
+<div className="flex-1">
+<div className="flex items-center mb-2">
+{[...Array(5)].map((_, i) => (
+<Star
+key={i}
+className={`h-5 w-5 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+/>
+))}
+<span className="ml-2 text-sm text-gray-500">
+{new Date(review.createdAt).toLocaleDateString()}
+</span>
+</div>
+{review.comment && (
+<p className="text-gray-700 mb-3">{review.comment}</p>
+)}
+{review.productId && (
+<div className="flex items-center">
+<div className="text-sm text-gray-600">
+Reviewed product: {review.productName || 'Product #' + review.productId}
+</div>
+</div>
+)}
+</div>
+</div>
+</div>
+))
+)}
+</div>
+</div>
+)}
+</CardContent>
+</Card>
+</motion.div>
+</div>
+</div>
+</section>
                                   onClick={() => handleViewDetails(order)}
                                 >
                                   <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
@@ -847,8 +875,8 @@ export default function MyAccountPage() {
                         )}
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">{((item.price || 0) * (item.quantity || 1)).toFixed(2)} EGP</p>
-                        <p className="text-sm text-gray-600">{(item.price || 0).toFixed(2)} EGP each</p>
+                        <p className="font-medium">{formatPrice((item.price || 0) * (item.quantity || 1))}</p>
+                        <p className="text-sm text-gray-600">{formatPrice(item.price || 0)} each</p>
                       </div>
                     </div>
                   ))}
@@ -858,25 +886,32 @@ export default function MyAccountPage() {
               <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-600">Subtotal:</span>
-                  <span>{selectedOrder.items?.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0).toFixed(2)} EGP</span>
+                  <span>{formatPrice(selectedOrder.items?.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0) || 0)}</span>
                 </div>
                 <div className="flex justify-between mb-2">
                   <span className="text-gray-600">Shipping:</span>
                   <span>
-                    {selectedOrder.items?.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0) > 2000
-                      ? "Free"
-                      : `${getShippingCost(selectedOrder.shippingAddress?.governorate || '')} EGP`}
+                    {(() => {
+                      const subtotal = selectedOrder.items?.reduce(
+                        (sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1),
+                        0,
+                      ) || 0
+                      const discount = selectedOrder.discountAmount || 0
+                      const shipping = (selectedOrder.total || 0) - (subtotal - discount)
+                      if (shipping <= 0) return "Free"
+                      return formatPrice(shipping)
+                    })()}
                   </span>
                 </div>
                 {selectedOrder.discountAmount > 0 && (
                   <div className="flex justify-between text-green-600 mb-2">
                     <span>Discount</span>
-                    <span>-{selectedOrder.discountAmount.toFixed(2)} EGP</span>
+                    <span>-{formatPrice(selectedOrder.discountAmount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-medium text-lg">
                   <span>Total:</span>
-                  <span>{(selectedOrder.total || 0).toFixed(2)} EGP</span>
+                  <span>{formatPrice(selectedOrder.total || 0)}</span>
                 </div>
               </div>
             </div>

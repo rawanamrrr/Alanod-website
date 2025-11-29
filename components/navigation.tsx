@@ -212,7 +212,7 @@ export function Navigation() {
         <div className="container mx-auto px-6 relative">
           <div className="flex items-center justify-between h-16 relative">
           {/* Left side */}
-          <div className="flex-1 flex justify-start items-center">
+          <div className="flex-1 flex justify-start items-center space-x-2">
                 {/* Mobile Menu Button */}
                 <div className="md:hidden">
                     <button
@@ -224,6 +224,78 @@ export function Navigation() {
                         {isOpen ? <X className="h-4 w-4 md:h-5 md:w-5" /> : <Menu className="h-4 w-4 md:h-5 md:w-5" />}
                     </button>
                 </div>
+
+                {/* Mobile Account Button - Moved to left */}
+                {authState.isAuthenticated ? (
+                  <div className="md:hidden relative">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowUserMenu(!showUserMenu)
+                      }}
+                      className={`p-2 transition-colors ${getIconColors()}`}
+                    >
+                      <User className="h-4 w-4" />
+                    </button>
+
+                    <AnimatePresence>
+                      {showUserMenu && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute left-0 top-full mt-1 w-48 bg-white shadow-lg rounded-lg border border-gray-200 z-50"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="py-2">
+                            <div className="px-4 py-2 border-b border-gray-100">
+                              <p className="text-sm font-medium text-gray-900">{authState.user?.name}</p>
+                              <p className="text-xs text-gray-500">{authState.user?.email}</p>
+                            </div>
+                            {authState.user?.role !== "admin" && (
+                              <Link
+                                href="/account"
+                                className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                onClick={() => setShowUserMenu(false)}
+                              >
+                                <Settings className="h-4 w-4 mr-2" />
+                                {t("myAccount")}
+                              </Link>
+                            )}
+                            {authState.user?.role === "admin" && (
+                              <Link
+                                href="/admin/dashboard"
+                                className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                onClick={() => setShowUserMenu(false)}
+                              >
+                                <Settings className="h-4 w-4 mr-2" />
+                                {t("adminDashboard")}
+                              </Link>
+                            )}
+                            <button
+                              onClick={handleLogout}
+                              className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              <LogOut className="h-4 w-4 mr-2" />
+                              {t("signOut")}
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <Link href="/auth/login" className="md:hidden">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className={`h-8 w-8 p-0 ${getIconColors()}`}
+                    >
+                      <User className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                )}
 
                 {/* Desktop Navigation - Left */}
                 <div className="hidden md:flex items-center space-x-8">
@@ -324,9 +396,9 @@ export function Navigation() {
                  )}
               </Link>
 
-              {/* User Menu */}
+              {/* User Menu - Desktop */}
               {authState.isAuthenticated ? (
-                <div className="relative">
+                <div className="relative hidden md:block">
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
