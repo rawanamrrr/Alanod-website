@@ -15,8 +15,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Eye, EyeOff } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { useLocale } from "@/lib/locale-context"
+import { useTranslation } from "@/lib/translations"
 
 export default function RegisterPage() {
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -36,12 +40,12 @@ export default function RegisterPage() {
     setError("")
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match")
+      setError(t("passwordsDoNotMatch"))
       return
     }
 
     if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long")
+      setError(t("passwordTooShort"))
       return
     }
 
@@ -50,7 +54,7 @@ export default function RegisterPage() {
       // Redirect to provided path (defaults to home) after successful registration
       router.push(redirectPath)
     } else {
-      setError("Email already exists")
+      setError(t("emailAlreadyExists"))
     }
   }
 
@@ -73,9 +77,9 @@ export default function RegisterPage() {
             transition={{ duration: 0.8 }}
             className="mb-8"
           >
-            <Link href="/" className="inline-flex items-center text-gray-600 hover:text-black transition-colors">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
+            <Link href="/" className={`inline-flex items-center text-gray-600 hover:text-black transition-colors ${settings.language === "ar" ? "flex-row-reverse" : ""}`}>
+              <ArrowLeft className={`h-4 w-4 ${settings.language === "ar" ? "ml-2 rotate-180" : "mr-2"}`} />
+              {t("backToHome")}
             </Link>
           </motion.div>
 
@@ -87,8 +91,8 @@ export default function RegisterPage() {
               className="text-center mb-8"
             >
               <Image src="/alanoud-word-dark.svg" alt="Alanoud Alqadi Atelier" width={220} height={110} className="mx-auto mb-6" />
-              <h1 className="text-3xl font-light tracking-wider mb-2">Join the Atelier</h1>
-              <p className="text-gray-600">Create your account to access bespoke styling and private releases.</p>
+              <h1 className="text-3xl font-light tracking-wider mb-2">{t("joinTheAtelier")}</h1>
+              <p className="text-gray-600">{t("createAccountDesc")}</p>
             </motion.div>
 
             <motion.div
@@ -98,7 +102,7 @@ export default function RegisterPage() {
             >
               <Card className="shadow-lg border-0">
                 <CardHeader>
-                  <CardTitle className="text-center text-xl font-light">Sign Up</CardTitle>
+                  <CardTitle className="text-center text-xl font-light">{t("signUp")}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleSubmit} className="space-y-6">
@@ -110,7 +114,7 @@ export default function RegisterPage() {
 
                     <div>
                       <Label htmlFor="name" className="text-sm font-medium mb-2 block">
-                        Full Name
+                        {t("fullName")}
                       </Label>
                       <Input
                         id="name"
@@ -118,7 +122,7 @@ export default function RegisterPage() {
                         type="text"
                         value={formData.name}
                         onChange={handleChange}
-                        placeholder="Your full name"
+                        placeholder={t("yourFullName")}
                         required
                         className="border-gray-300 focus:border-black"
                       />
@@ -126,7 +130,7 @@ export default function RegisterPage() {
 
                     <div>
                       <Label htmlFor="email" className="text-sm font-medium mb-2 block">
-                        Email Address
+                        {t("emailAddress")}
                       </Label>
                       <Input
                         id="email"
@@ -134,7 +138,7 @@ export default function RegisterPage() {
                         type="email"
                         value={formData.email}
                         onChange={handleChange}
-                        placeholder="your@email.com"
+                        placeholder={t("yourEmail")}
                         required
                         className="border-gray-300 focus:border-black"
                       />
@@ -142,7 +146,7 @@ export default function RegisterPage() {
 
                     <div>
                       <Label htmlFor="password" className="text-sm font-medium mb-2 block">
-                        Password
+                        {t("password")}
                       </Label>
                       <div className="relative">
                         <Input
@@ -151,14 +155,14 @@ export default function RegisterPage() {
                           type={showPassword ? "text" : "password"}
                           value={formData.password}
                           onChange={handleChange}
-                          placeholder="Create a password"
+                          placeholder={t("createPassword")}
                           required
-                          className="border-gray-300 focus:border-black pr-10"
+                          className={`border-gray-300 focus:border-black ${settings.language === "ar" ? "pl-10" : "pr-10"}`}
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className={`absolute top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 ${settings.language === "ar" ? "left-3" : "right-3"}`}
                         >
                           {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
@@ -167,7 +171,7 @@ export default function RegisterPage() {
 
                     <div>
                       <Label htmlFor="confirmPassword" className="text-sm font-medium mb-2 block">
-                        Confirm Password
+                        {t("confirmPassword")}
                       </Label>
                       <Input
                         id="confirmPassword"
@@ -175,7 +179,7 @@ export default function RegisterPage() {
                         type="password"
                         value={formData.confirmPassword}
                         onChange={handleChange}
-                        placeholder="Confirm your password"
+                        placeholder={t("confirmPasswordPlaceholder")}
                         required
                         className="border-gray-300 focus:border-black"
                       />
@@ -184,18 +188,18 @@ export default function RegisterPage() {
                     <Button
                       type="submit"
                       size="lg"
-                      className="w-full bg-black text-white hover:bg-gray-800"
+                      className={`w-full bg-black text-white hover:bg-gray-800 ${settings.language === "ar" ? "flex-row-reverse" : ""}`}
                       disabled={state.isLoading}
                     >
-                      {state.isLoading ? "Creating Account..." : "Create Account"}
+                      {state.isLoading ? t("creatingAccount") : t("signUp")}
                     </Button>
                   </form>
 
                   <div className="mt-6 text-center">
                     <p className="text-sm text-gray-600">
-                      Already have an account?{" "}
+                      {t("alreadyHaveAccount")}{" "}
                       <Link href="/auth/login" className="text-black hover:underline font-medium">
-                        Sign in
+                        {t("signIn")}
                       </Link>
                     </p>
                   </div>

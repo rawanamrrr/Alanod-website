@@ -16,6 +16,8 @@ import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
 import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { useLocale } from "@/lib/locale-context"
+import { useTranslation } from "@/lib/translations"
 
 interface FavoriteItem {
   id: string
@@ -44,6 +46,8 @@ export default function FavoritesPage() {
   const { state: favoritesState, removeFromFavorites, clearFavorites } = useFavorites()
   const { dispatch: cartDispatch } = useCart()
   const { formatPrice } = useCurrencyFormatter()
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<FavoriteItem | null>(null)
   const [showSizeSelector, setShowSizeSelector] = useState(false)
@@ -76,7 +80,7 @@ export default function FavoritesPage() {
   const addToCart = (item: FavoriteItem) => {
     // Check if product is out of stock
     if (item.isOutOfStock) {
-      alert("This product is out of stock and cannot be added to cart.")
+      alert(t("thisProductOutOfStock"))
       return
     }
     
@@ -495,14 +499,14 @@ export default function FavoritesPage() {
             transition={{ duration: 0.8 }}
             className="mb-8"
           >
-            <Link href="/" className="inline-flex items-center text-gray-600 hover:text-black mb-6 transition-colors">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
+            <Link href="/" className={`inline-flex items-center text-gray-600 hover:text-black mb-6 transition-colors ${settings.language === "ar" ? "flex-row-reverse" : ""}`}>
+              <ArrowLeft className={`h-4 w-4 ${settings.language === "ar" ? "ml-2 rotate-180" : "mr-2"}`} />
+              {t("backToHome")}
             </Link>
 
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-light tracking-wider mb-2">My Favorites</h1>
+                <h1 className="text-3xl font-light tracking-wider mb-2">{t("myFavorites")}</h1>
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: "100px" }}
@@ -511,30 +515,30 @@ export default function FavoritesPage() {
                 />
                 <p className="text-gray-600">
                   {favoritesState.count === 0
-                    ? "You haven't added any favorites yet"
-                    : `${favoritesState.count} item${favoritesState.count === 1 ? "" : "s"} in your favorites`}
+                    ? t("noFavoritesDesc")
+                    : `${favoritesState.count} ${favoritesState.count === 1 ? t("item") || "item" : t("items") || "items"}`}
                 </p>
               </div>
 
               {favoritesState.count > 0 && (
-                <div className="flex items-center space-x-4">
+                <div className={`flex items-center ${settings.language === "ar" ? "space-x-reverse space-x-4" : "space-x-4"}`}>
                   {!showClearConfirm ? (
                     <Button
                       variant="outline"
                       onClick={() => setShowClearConfirm(true)}
-                      className="text-red-600 border-red-200 hover:bg-red-50"
+                      className={`text-red-600 border-red-200 hover:bg-red-50 ${settings.language === "ar" ? "flex-row-reverse" : ""}`}
                     >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Clear All
+                      <Trash2 className={`h-4 w-4 ${settings.language === "ar" ? "ml-2" : "mr-2"}`} />
+                      {t("clearAllFavorites")}
                     </Button>
                   ) : (
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-600">Are you sure?</span>
+                    <div className={`flex items-center ${settings.language === "ar" ? "space-x-reverse space-x-2" : "space-x-2"}`}>
+                      <span className="text-sm text-gray-600">{t("areYouSure")}</span>
                       <Button size="sm" variant="outline" onClick={() => setShowClearConfirm(false)}>
-                        Cancel
+                        {t("cancel")}
                       </Button>
                       <Button size="sm" onClick={handleClearFavorites} className="bg-red-600 hover:bg-red-700">
-                        Clear All
+                        {t("confirm")}
                       </Button>
                     </div>
                   )}
@@ -561,7 +565,7 @@ export default function FavoritesPage() {
                     <Heart className="h-14 w-14 text-purple-400" />
                   </div>
                 </div>
-                <h2 className="text-2xl font-light tracking-wider mb-4 text-purple-700">No Favorites Yet</h2>
+                <h2 className="text-2xl font-light tracking-wider mb-4 text-purple-700">{t("noFavoritesYet")}</h2>
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: "100px" }}
@@ -569,7 +573,7 @@ export default function FavoritesPage() {
                   className="h-1 bg-gradient-to-r from-purple-400 to-pink-400 mx-auto my-6 rounded-full"
                 />
                 <p className="text-gray-600 mb-8 max-w-md mx-auto">
-                  Start exploring our collection and add your favorite gowns to this list for effortless planning.
+                  {t("noFavoritesDesc")}
                 </p>
               </motion.div>
               <motion.div

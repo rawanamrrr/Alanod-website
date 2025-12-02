@@ -6,8 +6,12 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Award, Heart, Sparkles, Instagram, Facebook } from "lucide-react"
 import { Navigation } from "@/components/navigation"
+import { useLocale } from "@/lib/locale-context"
+import { useTranslation } from "@/lib/translations"
 
 export default function AboutPage() {
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
@@ -22,13 +26,13 @@ export default function AboutPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16 max-w-4xl mx-auto"
           >
-            <Link href="/" className="inline-flex items-center text-gray-600 hover:text-black mb-8 transition-colors">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
+            <Link href="/" className={`inline-flex items-center text-gray-600 hover:text-black mb-8 transition-colors ${settings.language === "ar" ? "flex-row-reverse" : ""}`}>
+              <ArrowLeft className={`h-4 w-4 ${settings.language === "ar" ? "ml-2 rotate-180" : "mr-2"}`} />
+              {t("backToHome")}
             </Link>
-            <h1 className="text-4xl md:text-5xl font-light tracking-[0.35em] font-serif uppercase mb-6">Our Story</h1>
+            <h1 className="text-4xl md:text-5xl font-light tracking-[0.35em] font-serif uppercase mb-6">{t("ourStory")}</h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Alanoud Alqadi Atelier is a tribute to the women who command every room. Our maison blends Middle Eastern opulence with contemporary couture techniques to craft gowns that feel like heirlooms in motion.
+              {t("aboutHeroDesc")}
             </p>
           </motion.div>
         </div>
@@ -44,15 +48,15 @@ export default function AboutPage() {
               transition={{ duration: 0.8 }}
               viewport={{ once: true }}
             >
-              <h2 className="text-3xl font-light tracking-wider font-serif mb-6">A New Chapter: Alanoud Alqadi Atelier</h2>
+              <h2 className="text-3xl font-light tracking-wider font-serif mb-6">{t("newChapter")}</h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                Founded in Riyadh and inspired by global runways, our atelier was created to celebrate the ritual of dressing up. Alanoud envisioned a house where the grace of traditional craftsmanship meets the audacity of modern silhouettes, delivering dresses that feel personal, poetic, and powerful.
+                {t("newChapterDesc1")}
               </p>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                Each collection is sketched in-house, sourced from couture mills, and brought to life by artisans who specialize in draping, hand-beading, and corsetry. Satin, silk organza, metallic tulle, and crystal embroidery are sculpted to flatter movement, highlighting every turn on a dance floor or staircase.
+                {t("newChapterDesc2")}
               </p>
               <p className="text-gray-600 leading-relaxed">
-                This is more than eveningwear—it is armor for women who lead. Alanoud Alqadi Atelier exists to honor your milestones, from intimate soirées to once-in-a-lifetime galas.
+                {t("newChapterDesc3")}
               </p>
             </motion.div>
 
@@ -95,12 +99,12 @@ export default function AboutPage() {
               viewport={{ once: true }}
               className="order-2 md:order-1"
             >
-              <h2 className="text-3xl font-light tracking-wider font-serif mb-6">Our Philosophy</h2>
+              <h2 className="text-3xl font-light tracking-wider font-serif mb-6">{t("ourPhilosophy")}</h2>
               <p className="text-gray-600 mb-6 leading-relaxed">
-                We believe couture should feel effortless. Each dress is engineered to balance structure and softness, giving you the confidence to move, laugh, and dance without compromise.
+                {t("philosophyDesc1")}
               </p>
               <p className="text-gray-600 leading-relaxed">
-                Materials are sourced from family-owned mills, embellishments are stitched by hand, and every sketch is tailored to celebrate diverse silhouettes. Sustainability and mindful sourcing remain central to our process, ensuring beauty that lasts beyond the night.
+                {t("philosophyDesc2")}
               </p>
             </motion.div>
           </div>
@@ -117,9 +121,9 @@ export default function AboutPage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-light tracking-wider font-serif mb-6">Our Values</h2>
+            <h2 className="text-3xl md:text-4xl font-light tracking-wider font-serif mb-6">{t("ourValues")}</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              The principles that guide our craft and define our commitment to excellence.
+              {t("valuesDesc")}
             </p>
           </motion.div>
 
@@ -134,9 +138,9 @@ export default function AboutPage() {
               <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-6">
                 <Award className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-xl font-medium font-serif tracking-wide mb-4">Excellence</h3>
+              <h3 className="text-xl font-medium font-serif tracking-wide mb-4">{t("excellence")}</h3>
               <p className="text-gray-600 leading-relaxed">
-                We pursue perfection in every stitch—from the first muslin fitting to the final press before a gown is delivered to its muse.
+                {t("excellenceDesc")}
               </p>
             </motion.div>
 
@@ -150,9 +154,9 @@ export default function AboutPage() {
               <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-6">
                 <Heart className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-xl font-medium font-serif tracking-wide mb-4">Passion</h3>
+              <h3 className="text-xl font-medium font-serif tracking-wide mb-4">{t("passion")}</h3>
               <p className="text-gray-600 leading-relaxed">
-                Our love for couture is personal. We spend hours hand-selecting crystals, mapping out drapes, and crafting pieces that feel like second skin.
+                {t("passionDesc")}
               </p>
             </motion.div>
 
@@ -166,9 +170,9 @@ export default function AboutPage() {
               <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-6">
                 <Sparkles className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-xl font-medium font-serif tracking-wide mb-4">Innovation</h3>
+              <h3 className="text-xl font-medium font-serif tracking-wide mb-4">{t("innovation")}</h3>
               <p className="text-gray-600 leading-relaxed">
-                We experiment with modular trains, detachable sleeves, and luminous threadwork to keep pushing the language of modern eveningwear.
+                {t("innovationDesc")}
               </p>
             </motion.div>
           </div>
@@ -184,13 +188,13 @@ export default function AboutPage() {
             transition={{ duration: 0.8 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl font-light tracking-wider font-serif mb-6">Experience Our Craft</h2>
+            <h2 className="text-3xl md:text-4xl font-light tracking-wider font-serif mb-6">{t("experienceOurCraft")}</h2>
             <p className="text-gray-600 mb-8 max-w-2xl mx-auto">
-              Explore the silhouettes, fabrics, and bespoke details waiting inside our latest collections.
+              {t("experienceDesc")}
             </p>
             <Link href="/products">
               <Button size="lg" className="bg-black text-white hover:bg-gray-800 px-8 py-3">
-                Explore Our Collections
+                {t("exploreCollectionsButton")}
               </Button>
             </Link>
           </motion.div>
@@ -204,48 +208,48 @@ export default function AboutPage() {
             <div className="space-y-4">
               <Image src="/Anod-logo-white.png" alt="Alanoud Alqadi Atelier" width={864} height={288} className="h-24 w-auto" />
               <p className="text-gray-400 text-sm">
-                Couture-crafted soirée dresses inspired by Middle Eastern artistry and modern glamour.
+                {t("footerDesc")}
               </p>
             </div>
 
             <div>
-              <h3 className="font-medium mb-4">Navigation</h3>
+              <h3 className="font-medium mb-4">{t("navigation")}</h3>
               <div className="space-y-2 text-sm">
                 <Link href="/" className="block text-gray-400 hover:text-white transition-colors">
-                  Home
+                  {t("home")}
                 </Link>
                 <Link href="/about" className="block text-gray-400 hover:text-white transition-colors">
-                  About
+                  {t("about")}
                 </Link>
                 <Link href="/products" className="block text-gray-400 hover:text-white transition-colors">
-                  Collections
+                  {t("collections")}
                 </Link>
                 <Link href="/contact" className="block text-gray-400 hover:text-white transition-colors">
-                  Contact
+                  {t("contact")}
                 </Link>
               </div>
             </div>
 
             <div>
-              <h3 className="font-medium mb-4">Collections</h3>
+              <h3 className="font-medium mb-4">{t("collectionsFooter")}</h3>
               <div className="space-y-2 text-sm">
-                <Link href="/products/men" className="block text-gray-400 hover:text-white transition-colors">
-                  Signature Soirée
+                <Link href="/products/winter" className="block text-gray-400 hover:text-white transition-colors">
+                  {t("winterCollection")}
                 </Link>
-                <Link href="/products/women" className="block text-gray-400 hover:text-white transition-colors">
-                  Luminous Couture
+                <Link href="/products/summer" className="block text-gray-400 hover:text-white transition-colors">
+                  {t("summerCollection")}
                 </Link>
-                <Link href="/products/packages" className="block text-gray-400 hover:text-white transition-colors">
-                  Style Capsules
+                <Link href="/products/fall" className="block text-gray-400 hover:text-white transition-colors">
+                  {t("fallCollection")}
                 </Link>
               </div>
             </div>
 
             <div>
-              <h3 className="font-medium mb-4">Contact</h3>
+              <h3 className="font-medium mb-4">{t("contact")}</h3>
               <div className="space-y-2 text-sm text-gray-400">
                 <p>Email: atelier@alanoudalqadi.com</p>
-                <p className="mb-3">Follow the maison</p>
+                <p className="mb-3">{t("followMaison")}</p>
                 <div className="flex space-x-3">
                   <Link
                     href="https://www.instagram.com/alanoudalqadiofficial"

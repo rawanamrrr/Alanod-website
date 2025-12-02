@@ -14,10 +14,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { useLocale } from "@/lib/locale-context"
+import { useTranslation } from "@/lib/translations"
 
 export default function LoginPage() {
   const { dispatch } = useAuth()
   const router = useRouter()
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -74,11 +78,11 @@ export default function LoginPage() {
       }
     } else {
       // Show error message without redirecting
-      setError(data.error || "Login failed. Please check your credentials and try again.")
+      setError(data.error || t("loginFailed"))
     }
   } catch (error) {
     console.error("Login error:", error)
-    setError("An error occurred during login. Please try again.")
+    setError(t("loginError"))
   } finally {
     setLoading(false)
   }
@@ -96,15 +100,15 @@ export default function LoginPage() {
             transition={{ duration: 0.8 }}
             className="max-w-md mx-auto"
           >
-            <Link href="/" className="inline-flex items-center text-gray-600 hover:text-black mb-6 transition-colors">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
+            <Link href="/" className={`inline-flex items-center text-gray-600 hover:text-black mb-6 transition-colors ${settings.language === "ar" ? "flex-row-reverse" : ""}`}>
+              <ArrowLeft className={`h-4 w-4 ${settings.language === "ar" ? "ml-2 rotate-180" : "mr-2"}`} />
+              {t("backToHome")}
             </Link>
 
             <Card>
               <CardHeader className="text-center">
-                <CardTitle className="text-2xl font-light tracking-wider">Welcome Back</CardTitle>
-                <p className="text-gray-600">Sign in to your account</p>
+                <CardTitle className="text-2xl font-light tracking-wider">{t("welcomeBack")}</CardTitle>
+                <p className="text-gray-600">{t("signInToAccount")}</p>
               </CardHeader>
               <CardContent>
                 {error && (
@@ -117,7 +121,7 @@ export default function LoginPage() {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <Label htmlFor="email">Email Address</Label>
+                    <Label htmlFor="email">{t("emailAddress")}</Label>
                     <Input
                       id="email"
                       type="email"
@@ -125,12 +129,12 @@ export default function LoginPage() {
                       onChange={(e) => handleInputChange("email", e.target.value)}
                       required
                       className="mt-1"
-                      placeholder="Enter your email"
+                      placeholder={t("enterYourEmail")}
                     />
                   </div>
 
                   <div>
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password">{t("password")}</Label>
                     <div className="relative mt-1">
                       <Input
                         id="password"
@@ -138,12 +142,12 @@ export default function LoginPage() {
                         value={formData.password}
                         onChange={(e) => handleInputChange("password", e.target.value)}
                         required
-                        placeholder="Enter your password"
+                        placeholder={t("enterYourPassword")}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        className={`absolute top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 ${settings.language === "ar" ? "left-3" : "right-3"}`}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -155,25 +159,25 @@ export default function LoginPage() {
                       href="/auth/forgot-password"
                       className="text-sm text-gray-600 hover:text-black transition-colors"
                     >
-                      Forgot password?
+                      {t("forgotPassword")}
                     </Link>
                   </div>
 
                   <Button
                     type="submit"
-                    className="w-full bg-black text-white hover:bg-gray-800"
+                    className={`w-full bg-black text-white hover:bg-gray-800 ${settings.language === "ar" ? "flex-row-reverse" : ""}`}
                     size="lg"
                     disabled={loading}
                   >
-                    {loading ? "Signing in..." : "Sign In"}
+                    {loading ? t("signingIn") : t("signIn")}
                   </Button>
                 </form>
 
                 <div className="mt-6 text-center">
                   <p className="text-gray-600">
-                    Don't have an account?{" "}
+                    {t("dontHaveAccount")}{" "}
                     <Link href="/auth/register" className="text-black hover:underline font-medium">
-                      Sign up
+                      {t("signUp")}
                     </Link>
                   </p>
                 </div>

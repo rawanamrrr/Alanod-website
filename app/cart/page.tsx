@@ -15,11 +15,15 @@ import { useAuth } from "@/lib/auth-context"
 import { CheckoutProgress } from "@/components/checkout-progress"
 import { CartItem } from "@/components/cart-item"
 import { useCurrencyFormatter } from "@/hooks/use-currency"
+import { useLocale } from "@/lib/locale-context"
+import { useTranslation } from "@/lib/translations"
 
 export default function CartPage() {
   const { state, dispatch } = useCart()
   const { state: authState } = useAuth()
   const { formatPrice } = useCurrencyFormatter()
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
   
 
   const subtotal = state.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -53,14 +57,14 @@ export default function CartPage() {
                     <ShoppingBag className="h-10 w-10 text-purple-400" />
                   </div>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-light tracking-wider mb-4 text-purple-700">Your cart is empty</h1>
+                <h1 className="text-2xl sm:text-3xl font-light tracking-wider mb-4 text-purple-700">{t("yourCartIsEmpty")}</h1>
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: "100px" }}
                   transition={{ duration: 0.8, delay: 0.3 }}
                   className="h-1 bg-gradient-to-r from-purple-400 to-pink-400 mx-auto my-6 rounded-full"
                 />
-                <p className="text-gray-600 mb-8 text-sm sm:text-base">Discover our couture gowns and add your dream look to the cart.</p>
+                <p className="text-gray-600 mb-8 text-sm sm:text-base">{t("cartEmptyDesc")}</p>
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -68,8 +72,8 @@ export default function CartPage() {
                 transition={{ duration: 0.8, delay: 0.5 }}
               >
                 <Link href="/products">
-                  <Button className="bg-black text-white hover:bg-gray-800 rounded-full px-8 py-6 relative overflow-hidden group">
-                    <span className="relative z-10">Continue Shopping</span>
+                  <Button className={`bg-black text-white hover:bg-gray-800 rounded-full px-8 py-6 relative overflow-hidden group ${settings.language === "ar" ? "flex-row-reverse" : ""}`}>
+                    <span className="relative z-10">{t("continueShopping")}</span>
                     <motion.span 
                       className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100"
                       initial={{ x: "-100%" }}
@@ -103,12 +107,12 @@ export default function CartPage() {
           >
             <Link
               href="/products"
-              className="inline-flex items-center text-gray-600 hover:text-black mb-6 transition-colors text-sm sm:text-base"
+              className={`inline-flex items-center text-gray-600 hover:text-black mb-6 transition-colors text-sm sm:text-base ${settings.language === "ar" ? "flex-row-reverse" : ""}`}
             >
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Continue Shopping
+              <ArrowLeft className={`h-4 w-4 ${settings.language === "ar" ? "ml-2 rotate-180" : "mr-2"}`} />
+              {t("continueShopping")}
             </Link>
-            <h1 className="text-2xl sm:text-3xl font-light tracking-wider mb-2">Shopping Cart</h1>
+            <h1 className="text-2xl sm:text-3xl font-light tracking-wider mb-2">{t("shoppingCart")}</h1>
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: "100px" }}
@@ -167,9 +171,9 @@ export default function CartPage() {
                     }}
                   />
                   <CardHeader className="pb-4">
-                    <CardTitle className="text-lg sm:text-xl font-light flex items-center">
-                      <Package className="mr-2 h-5 w-5 text-purple-600" />
-                      Order Summary
+                    <CardTitle className={`text-lg sm:text-xl font-light flex items-center ${settings.language === "ar" ? "flex-row-reverse" : ""}`}>
+                      <Package className={`h-5 w-5 text-purple-600 ${settings.language === "ar" ? "ml-2" : "mr-2"}`} />
+                      {t("orderSummary") || "Order Summary"}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -233,8 +237,8 @@ export default function CartPage() {
                     )}
 
                     <Link href="/checkout">
-                      <Button className="w-full bg-black text-white hover:bg-gray-800 text-base py-3 rounded-full relative overflow-hidden group" size="lg">
-                        <span className="relative z-10">Proceed to Checkout</span>
+                      <Button className={`w-full bg-black text-white hover:bg-gray-800 text-base py-3 rounded-full relative overflow-hidden group ${settings.language === "ar" ? "flex-row-reverse" : ""}`} size="lg">
+                        <span className="relative z-10">{t("proceedToCheckout")}</span>
                         <motion.span 
                           className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100"
                           initial={{ x: "-100%" }}

@@ -13,8 +13,12 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Mail, Phone, MapPin, Clock, Send, Instagram, Facebook } from "lucide-react"
 import { Navigation } from "@/components/navigation"
+import { useLocale } from "@/lib/locale-context"
+import { useTranslation } from "@/lib/translations"
 
 export default function ContactPage() {
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -46,11 +50,11 @@ export default function ContactPage() {
         setTimeout(() => setSuccess(false), 5000)
       } else {
         const errorData = await response.json()
-        setError(errorData.error || "Failed to send message")
+        setError(errorData.error || t("failedToSendMessage"))
       }
     } catch (error) {
       console.error("Contact form error:", error)
-      setError("An error occurred while sending your message")
+      setError(t("anErrorOccurred"))
     } finally {
       setLoading(false)
     }
@@ -76,13 +80,13 @@ export default function ContactPage() {
             transition={{ duration: 0.8 }}
             className="text-center mb-16"
           >
-            <Link href="/" className="inline-flex items-center text-gray-600 hover:text-black mb-8 transition-colors">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Home
+            <Link href="/" className={`inline-flex items-center text-gray-600 hover:text-black mb-8 transition-colors ${settings.language === "ar" ? "flex-row-reverse" : ""}`}>
+              <ArrowLeft className={`h-4 w-4 ${settings.language === "ar" ? "ml-2 rotate-180" : "mr-2"}`} />
+              {t("backToHome")}
             </Link>
-            <h1 className="text-4xl md:text-5xl font-light tracking-[0.35em] font-serif uppercase mb-6">Get in Touch</h1>
+            <h1 className="text-4xl md:text-5xl font-light tracking-[0.35em] font-serif uppercase mb-6">{t("getInTouch")}</h1>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              From bespoke fittings to styling advice, our atelier team is here to help you craft an unforgettable soirée look.
+              {t("contactHeroDesc")}
             </p>
           </motion.div>
         </div>
@@ -101,12 +105,12 @@ export default function ContactPage() {
             >
               <Card className="shadow-lg border-0 rounded-2xl">
                 <CardContent className="p-8">
-                  <h2 className="text-2xl font-light tracking-wider font-serif mb-6">Send us a Message</h2>
+                  <h2 className="text-2xl font-light tracking-wider font-serif mb-6">{t("sendUsMessage")}</h2>
 
                   {success && (
                     <Alert className="mb-6 border-green-200 bg-green-50">
                       <AlertDescription className="text-green-600">
-                        Thank you for your message! We'll get back to you soon.
+                        {t("thankYouMessage")}
                       </AlertDescription>
                     </Alert>
                   )}
@@ -121,21 +125,21 @@ export default function ContactPage() {
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="name" className="text-sm font-medium mb-2 block">
-                          Full Name
+                          {t("fullName")}
                         </Label>
                         <Input
                           id="name"
                           name="name"
                           value={formData.name}
                           onChange={handleChange}
-                          placeholder="Your full name"
+                          placeholder={t("yourFullName")}
                           required
                           className="border-gray-300 focus:border-black"
                         />
                       </div>
                       <div>
                         <Label htmlFor="email" className="text-sm font-medium mb-2 block">
-                          Email Address
+                          {t("emailAddress")}
                         </Label>
                         <Input
                           id="email"
@@ -143,7 +147,7 @@ export default function ContactPage() {
                           type="email"
                           value={formData.email}
                           onChange={handleChange}
-                          placeholder="your@email.com"
+                          placeholder={t("yourEmail")}
                           required
                           className="border-gray-300 focus:border-black"
                         />
@@ -152,14 +156,14 @@ export default function ContactPage() {
 
                     <div>
                       <Label htmlFor="subject" className="text-sm font-medium mb-2 block">
-                        Subject
+                        {t("subject")}
                       </Label>
                       <Input
                         id="subject"
                         name="subject"
                         value={formData.subject}
                         onChange={handleChange}
-                        placeholder="How can we help you?"
+                        placeholder={t("howCanWeHelp")}
                         required
                         className="border-gray-300 focus:border-black"
                       />
@@ -167,14 +171,14 @@ export default function ContactPage() {
 
                     <div>
                       <Label htmlFor="message" className="text-sm font-medium mb-2 block">
-                        Message
+                        {t("message")}
                       </Label>
                       <Textarea
                         id="message"
                         name="message"
                         value={formData.message}
                         onChange={handleChange}
-                        placeholder="Tell us more about your inquiry..."
+                        placeholder={t("tellUsMore")}
                         rows={6}
                         required
                         className="border-gray-300 focus:border-black resize-none"
@@ -184,18 +188,18 @@ export default function ContactPage() {
                     <Button
                       type="submit"
                       size="lg"
-                      className="w-full bg-black text-white hover:bg-gray-800"
+                      className={`w-full bg-black text-white hover:bg-gray-800 ${settings.language === "ar" ? "flex-row-reverse" : ""}`}
                       disabled={loading}
                     >
                       {loading ? (
                         <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Sending...
+                          <div className={`animate-spin rounded-full h-4 w-4 border-b-2 border-white ${settings.language === "ar" ? "ml-2" : "mr-2"}`}></div>
+                          {t("sending")}
                         </>
                       ) : (
                         <>
-                          <Send className="mr-2 h-4 w-4" />
-                          Send Message
+                          <Send className={`h-4 w-4 ${settings.language === "ar" ? "ml-2" : "mr-2"}`} />
+                          {t("sendMessage")}
                         </>
                       )}
                     </Button>
@@ -213,39 +217,39 @@ export default function ContactPage() {
               className="space-y-8"
             >
               <div>
-                <h2 className="text-2xl font-light tracking-wider font-serif mb-6">Contact Information</h2>
+                <h2 className="text-2xl font-light tracking-wider font-serif mb-6">{t("contactInformation")}</h2>
                 <p className="text-gray-600 leading-relaxed mb-8">
-                  Whether you need assistance selecting a gown, booking a fitting, or customizing a look, our stylists and artisans are ready to guide you.
+                  {t("contactInfoDesc")}
                 </p>
               </div>
 
               <div className="space-y-6">
-                <div className="flex items-start space-x-4">
+                <div className={`flex items-start ${settings.language === "ar" ? "flex-row-reverse space-x-reverse" : "space-x-4"}`}>
                   <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <Mail className="h-6 w-6 text-gray-600" />
                   </div>
                   <div>
-                    <h3 className="font-medium mb-1">Email</h3>
+                    <h3 className="font-medium mb-1">{t("email")}</h3>
                     <p className="text-gray-600">atelier@alanoudalqadi.com</p>
                   </div>
                 </div>
 
-                <div className="flex items-start space-x-4">
+                <div className={`flex items-start ${settings.language === "ar" ? "flex-row-reverse space-x-reverse" : "space-x-4"}`}>
                   <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <Clock className="h-6 w-6 text-gray-600" />
                   </div>
                   <div>
-                    <h3 className="font-medium mb-1">Business Hours</h3>
-                    <p className="text-gray-600">Sunday - Thursday: 9:00 AM - 6:00 PM</p>
-                    <p className="text-gray-600">Friday - Saturday: 10:00 AM - 4:00 PM</p>
+                    <h3 className="font-medium mb-1">{t("businessHours")}</h3>
+                    <p className="text-gray-600">{t("businessHoursWeek")}</p>
+                    <p className="text-gray-600">{t("businessHoursWeekend")}</p>
                   </div>
                 </div>
               </div>
 
               <div className="pt-8">
-                <h3 className="font-medium font-serif tracking-wide mb-4">Follow Us</h3>
+                <h3 className="font-medium font-serif tracking-wide mb-4">{t("followUs")}</h3>
                 <p className="text-gray-600 mb-4">
-                  Step behind the scenes for atelier diaries, runway teasers, and styling inspiration.
+                  {t("followUsDesc")}
                 </p>
                 <div className="flex space-x-3">
                   <Link
@@ -297,9 +301,9 @@ export default function ContactPage() {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <h2 className="text-3xl md:text-4xl font-light tracking-wider font-serif mb-6">Frequently Asked Questions</h2>
+            <h2 className="text-3xl md:text-4xl font-light tracking-wider font-serif mb-6">{t("frequentlyAskedQuestions")}</h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Find answers to common questions about fittings, customization, and delivery.
+              {t("faqDesc")}
             </p>
           </motion.div>
 
@@ -311,9 +315,9 @@ export default function ContactPage() {
               viewport={{ once: true }}
               className="space-y-4"
             >
-              <h3 className="font-medium font-serif tracking-wide">How far in advance should I book a fitting?</h3>
+              <h3 className="font-medium font-serif tracking-wide">{t("faq1Question")}</h3>
               <p className="text-gray-600 text-sm">
-                We recommend scheduling your appointment 6–8 weeks before your event to allow time for alterations or bespoke adjustments.
+                {t("faq1Answer")}
               </p>
             </motion.div>
 
@@ -324,9 +328,9 @@ export default function ContactPage() {
               viewport={{ once: true }}
               className="space-y-4"
             >
-              <h3 className="font-medium font-serif tracking-wide">Do you offer custom sizing?</h3>
+              <h3 className="font-medium font-serif tracking-wide">{t("faq2Question")}</h3>
               <p className="text-gray-600 text-sm">
-                Absolutely. Our atelier team tailors each piece to your measurements, ensuring comfort and impeccable fit.
+                {t("faq2Answer")}
               </p>
             </motion.div>
 
@@ -337,9 +341,9 @@ export default function ContactPage() {
               viewport={{ once: true }}
               className="space-y-4"
             >
-              <h3 className="font-medium font-serif tracking-wide">Can I personalize a gown?</h3>
+              <h3 className="font-medium font-serif tracking-wide">{t("faq3Question")}</h3>
               <p className="text-gray-600 text-sm">
-                Yes—choose custom fabrics, sleeve styles, or embellishments. Our stylists will guide you through every detail.
+                {t("faq3Answer")}
               </p>
             </motion.div>
 
@@ -350,9 +354,9 @@ export default function ContactPage() {
               viewport={{ once: true }}
               className="space-y-4"
             >
-              <h3 className="font-medium font-serif tracking-wide">What is the production timeline?</h3>
+              <h3 className="font-medium font-serif tracking-wide">{t("faq4Question")}</h3>
               <p className="text-gray-600 text-sm">
-                Ready-to-wear pieces ship within 7 business days. Custom couture typically takes 4–6 weeks depending on design complexity.
+                {t("faq4Answer")}
               </p>
             </motion.div>
           </div>
@@ -366,48 +370,48 @@ export default function ContactPage() {
             <div className="space-y-4">
               <Image src="/Anod-logo-white.png" alt="Alanoud Alqadi Atelier" width={864} height={288} className="h-24 w-auto" />
               <p className="text-gray-400 text-sm">
-                Couture-crafted soirée dresses inspired by Middle Eastern artistry and modern glamour.
+                {t("footerDesc")}
               </p>
             </div>
 
             <div>
-              <h3 className="font-medium mb-4">Navigation</h3>
+              <h3 className="font-medium mb-4">{t("navigation")}</h3>
               <div className="space-y-2 text-sm">
                 <Link href="/" className="block text-gray-400 hover:text-white transition-colors">
-                  Home
+                  {t("home")}
                 </Link>
                 <Link href="/about" className="block text-gray-400 hover:text-white transition-colors">
-                  About
+                  {t("about")}
                 </Link>
                 <Link href="/products" className="block text-gray-400 hover:text-white transition-colors">
-                  Collections
+                  {t("collections")}
                 </Link>
                 <Link href="/contact" className="block text-gray-400 hover:text-white transition-colors">
-                  Contact
+                  {t("contact")}
                 </Link>
               </div>
             </div>
 
             <div>
-              <h3 className="font-medium mb-4">Collections</h3>
+              <h3 className="font-medium mb-4">{t("collectionsFooter")}</h3>
               <div className="space-y-2 text-sm">
-                <Link href="/products/men" className="block text-gray-400 hover:text-white transition-colors">
-                  Signature Soirée
+                <Link href="/products/winter" className="block text-gray-400 hover:text-white transition-colors">
+                  {t("winterCollection")}
                 </Link>
-                <Link href="/products/women" className="block text-gray-400 hover:text-white transition-colors">
-                  Luminous Couture
+                <Link href="/products/summer" className="block text-gray-400 hover:text-white transition-colors">
+                  {t("summerCollection")}
                 </Link>
-                <Link href="/products/packages" className="block text-gray-400 hover:text-white transition-colors">
-                  Style Capsules
+                <Link href="/products/fall" className="block text-gray-400 hover:text-white transition-colors">
+                  {t("fallCollection")}
                 </Link>
               </div>
             </div>
 
             <div>
-              <h3 className="font-medium mb-4">Contact</h3>
+              <h3 className="font-medium mb-4">{t("contact")}</h3>
               <div className="space-y-2 text-sm text-gray-400">
                 <p>Email: atelier@alanoudalqadi.com</p>
-                <p className="mb-3">Follow the maison</p>
+                <p className="mb-3">{t("followMaison")}</p>
                                  <div className="flex space-x-3">
                   <Link
                     href="https://www.instagram.com/alanoudalqadiofficial"
