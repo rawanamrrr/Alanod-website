@@ -1,5 +1,4 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import { Playfair_Display, Crimson_Text } from 'next/font/google'
 import "./globals.css"
 import { AuthProvider } from "@/lib/auth-context"
@@ -27,8 +26,6 @@ const crimsonText = Crimson_Text({
   display: 'swap',
 })
 
-const inter = Inter({ subsets: ["latin"] })
-
 export const metadata: Metadata = {
   title: "Alanoud Alqadi Atelier – Soirée & Couture Dresses",
   description: "Step into the world of Alanoud Alqadi Atelier. Discover couture-inspired soirée gowns, modern bridal looks, and bespoke eveningwear crafted for unforgettable moments.",
@@ -48,7 +45,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${playfairDisplay.variable} ${crimsonText.variable}`}>
-      <body className={inter.className}>
+      <body className="font-sans">
         <LocaleProvider>
           <HtmlLangWrapper>
             <AuthProvider>

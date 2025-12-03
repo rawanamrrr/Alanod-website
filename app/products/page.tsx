@@ -7,7 +7,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Star, ShoppingCart, X, Heart, Sparkles, RefreshCw, Package, Instagram, Facebook, AlertCircle } from "lucide-react"
+import { Star, ShoppingCart, X, Heart, Sparkles, RefreshCw, Package, Instagram, Facebook, AlertCircle, MessageCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
@@ -479,6 +479,17 @@ useEffect(() => {
                   }}
                   formatPrice={formatPrice}
                 />
+                {isCustomSizeMode && (
+                  <div className="mt-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg flex items-center">
+                    <MessageCircle className="h-5 w-5 mr-3 text-green-500" />
+                    <div>
+                      {t("customSizeAssistance")}
+                      <a href="https://wa.me/971502996885" target="_blank" rel="noopener noreferrer" className="font-medium text-green-600 hover:underline ml-1">
+                        +971 50 299 6885
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Quantity Selection */}

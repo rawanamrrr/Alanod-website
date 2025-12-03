@@ -51,6 +51,7 @@ export const translations = {
     followMaison: "Follow the maison",
     
     // Common
+    customSizeAssistance: "If you need any assistance, you can contact our friendly customer service via whatsapp",
     continue: "Continue",
     saving: "Saving...",
     welcome: "Welcome",
@@ -113,6 +114,7 @@ export const translations = {
     followMaison: "تابع البيت",
     
     // Common
+    customSizeAssistance: "إذا كنت بحاجة إلي أي مساعدة, يمكنك التواصل مع خدمة العملاء الودودة عبر واتساب",
     continue: "متابعة",
     saving: "جاري الحفظ...",
     welcome: "مرحباً",

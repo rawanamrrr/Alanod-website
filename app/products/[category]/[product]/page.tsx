@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Star, Heart, ShoppingCart, Truck, Shield, RotateCcw, ChevronDown, X, Package, Instagram, Facebook, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react"
+import { ArrowLeft, Star, Heart, ShoppingCart, Truck, Shield, RotateCcw, ChevronDown, X, Package, Instagram, Facebook, ChevronLeft, ChevronRight, AlertCircle, MessageCircle } from "lucide-react"
 import { useParams } from "next/navigation"
 import { Navigation } from "@/components/navigation"
 import { useCart } from "@/lib/cart-context"
@@ -22,6 +22,8 @@ import { GiftPackageSelector } from "@/components/gift-package-selector"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
+import { useTranslation } from "@/lib/translations"
+import { useLocale } from "@/lib/locale-context"
 import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
 
 interface ProductDetail {
@@ -80,6 +82,8 @@ export default function ProductDetailPage() {
   const { dispatch } = useCart()
   const { state: favoritesState, addToFavorites, removeFromFavorites } = useFavorites()
   const { formatPrice } = useCurrencyFormatter()
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
   const {
     isCustomSizeMode,
     setIsCustomSizeMode,
@@ -714,6 +718,17 @@ export default function ProductDetailPage() {
                     }}
                     formatPrice={formatPrice}
                   />
+                  {isCustomSizeMode && (
+                    <div className="mt-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg flex items-center">
+                      <MessageCircle className="h-5 w-5 mr-3 text-green-500" />
+                      <div>
+                        {t("customSizeAssistance")}
+                        <a href="https://wa.me/971502996885" target="_blank" rel="noopener noreferrer" className="font-medium text-green-600 hover:underline ml-1">
+                          +971 50 299 6885
+                        </a>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

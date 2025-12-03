@@ -7,13 +7,15 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Heart, ShoppingCart, Trash2, ArrowLeft, Star, X, Sparkles, Package, AlertCircle } from "lucide-react"
+import { Heart, ShoppingCart, Trash2, ArrowLeft, Star, X, Sparkles, Package, AlertCircle, MessageCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useFavorites } from "@/lib/favorites-context"
 import { useCart } from "@/lib/cart-context"
 import { GiftPackageSelector } from "@/components/gift-package-selector"
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
+import { useTranslation } from "@/lib/translations"
+import { useLocale } from "@/lib/locale-context"
 import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 
@@ -44,6 +46,8 @@ export default function FavoritesPage() {
   const { state: favoritesState, removeFromFavorites, clearFavorites } = useFavorites()
   const { dispatch: cartDispatch } = useCart()
   const { formatPrice } = useCurrencyFormatter()
+  const { settings } = useLocale()
+  const t = useTranslation(settings.language)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<FavoriteItem | null>(null)
   const [showSizeSelector, setShowSizeSelector] = useState(false)
@@ -327,6 +331,17 @@ export default function FavoritesPage() {
                   }}
                   formatPrice={formatPrice}
                 />
+                {isCustomSizeMode && (
+                  <div className="mt-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg flex items-center">
+                    <MessageCircle className="h-5 w-5 mr-3 text-green-500" />
+                    <div>
+                      {t("customSizeAssistance")}
+                      <a href="https://wa.me/971502996885" target="_blank" rel="noopener noreferrer" className="font-medium text-green-600 hover:underline ml-1">
+                        +971 50 299 6885
+                      </a>
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* Quantity Selection */}
