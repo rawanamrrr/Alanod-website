@@ -35,18 +35,6 @@ const nextConfig = {
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
-  // Configure API routes
-  api: {
-    bodyParser: {
-      sizeLimit: '25mb',
-    },
-    // Disable body parsing for API routes to handle raw body if needed
-    bodyParser: process.env.NODE_ENV !== 'production' ? {
-      sizeLimit: '25mb'
-    } : false,
-    // Increase response size limit
-    responseLimit: '25mb',
-  },
 
   // Enable React Strict Mode
   reactStrictMode: true,
