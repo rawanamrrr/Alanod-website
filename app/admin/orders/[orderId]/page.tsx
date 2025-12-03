@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, Package, User, MapPin, CreditCard, Calendar, Phone, Mail } from "lucide-react"
+import { ArrowLeft, Package, User, MapPin, CreditCard, Calendar, Phone, Mail, Ruler } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useAuth } from "@/lib/auth-context"
 
@@ -264,15 +264,69 @@ export default function AdminOrderDetailsPage() {
                             {item.size === "custom" ? "Custom Size" : item.size} ({item.volume}) • Quantity: {item.quantity}
                           </p>
                           {item.customMeasurements && (
-                            <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
-                              <p className="text-xs font-medium text-blue-900 mb-1">Custom Measurements ({item.customMeasurements.unit}):</p>
-                              <div className="grid grid-cols-2 gap-1 text-xs text-blue-800">
-                                <span>Shoulder: {item.customMeasurements.values.shoulder}</span>
-                                <span>Bust: {item.customMeasurements.values.bust}</span>
-                                <span>Waist: {item.customMeasurements.values.waist}</span>
-                                <span>Hips: {item.customMeasurements.values.hips}</span>
-                                <span>Sleeve: {item.customMeasurements.values.sleeve}</span>
-                                <span>Length: {item.customMeasurements.values.length}</span>
+                            <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <Ruler className="h-4 w-4 text-blue-600" />
+                                <span className="text-sm font-medium text-blue-800">Custom Measurements</span>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  {item.customMeasurements.unit.toUpperCase()}
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-100">
+                                  <div className="p-1 bg-blue-50 rounded">
+                                    <Ruler className="h-3 w-3 text-blue-500" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Shoulder</p>
+                                    <p className="text-sm font-medium">{item.customMeasurements.values.shoulder}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-100">
+                                  <div className="p-1 bg-blue-50 rounded">
+                                    <Ruler className="h-3 w-3 text-blue-500" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Bust</p>
+                                    <p className="text-sm font-medium">{item.customMeasurements.values.bust}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-100">
+                                  <div className="p-1 bg-blue-50 rounded">
+                                    <Ruler className="h-3 w-3 text-blue-500" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Waist</p>
+                                    <p className="text-sm font-medium">{item.customMeasurements.values.waist}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-100">
+                                  <div className="p-1 bg-blue-50 rounded">
+                                    <Ruler className="h-3 w-3 text-blue-500" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Hips</p>
+                                    <p className="text-sm font-medium">{item.customMeasurements.values.hips}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-100">
+                                  <div className="p-1 bg-blue-50 rounded">
+                                    <Ruler className="h-3 w-3 text-blue-500" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Sleeve</p>
+                                    <p className="text-sm font-medium">{item.customMeasurements.values.sleeve}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center space-x-2 p-2 bg-white rounded border border-gray-100">
+                                  <div className="p-1 bg-blue-50 rounded">
+                                    <Ruler className="h-3 w-3 text-blue-500" />
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500">Length</p>
+                                    <p className="text-sm font-medium">{item.customMeasurements.values.length}</p>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -296,10 +350,6 @@ export default function AdminOrderDetailsPage() {
                               </div>
                             </div>
                           )}
-                        </div>
-                        <div className="text-right">
-                          <p className="font-medium text-lg">{item.price} EGP</p>
-                          <p className="text-sm text-gray-600">Total: {(item.price * item.quantity).toFixed(2)} EGP</p>
                         </div>
                       </div>
                     ))}

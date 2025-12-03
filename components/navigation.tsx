@@ -279,7 +279,7 @@ export function Navigation() {
                             e.stopPropagation();
                             setIsOpen(!isOpen);
                         }}
-                        className="p-2 text-gray-700 hover:text-black transition-colors">
+                        className={`p-2 transition-colors ${getIconColors()}`}>
                         {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                     </button>
                 </div>
@@ -292,7 +292,7 @@ export function Navigation() {
                         e.stopPropagation()
                         setShowUserMenu(!showUserMenu)
                       }}
-                      className="p-2 text-gray-700 hover:text-black transition-colors"
+                      className={`p-2 transition-colors ${getIconColors()}`}
                     >
                       <User className="h-5 w-5" />
                     </button>
@@ -349,7 +349,7 @@ export function Navigation() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="h-8 w-8 p-0 text-gray-700 hover:text-black"
+                      className={`h-8 w-8 p-0 ${getIconColors()}`}
                     >
                       <User className="h-5 w-5" />
                     </Button>
@@ -389,7 +389,7 @@ export function Navigation() {
             {/* Centered Logo - Show on non-home pages or when logo becomes visible on home page */}
             {(!isHomePage || isLogoVisible) && (
               <motion.div 
-                className="absolute left-1/2 transform -translate-x-1/2"
+                className="absolute left-1/2 transform -translate-x-1/2 pt-2"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: isLogoVisible || !isHomePage ? 1 : 0 }}
                 transition={{ duration: 0.3 }}
