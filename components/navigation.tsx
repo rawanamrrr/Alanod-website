@@ -212,7 +212,7 @@ export function Navigation() {
         <div className="container mx-auto px-6 relative">
           <div className="flex items-center justify-between h-16 relative">
           {/* Left side */}
-          <div className="flex-1 flex justify-start items-center space-x-2">
+          <div className="flex-1 flex justify-start items-center space-x-2 max-w-[40%] md:max-w-[45%]">
                 {/* Mobile Menu Button */}
                 <div className="md:hidden">
                     <button
@@ -298,7 +298,7 @@ export function Navigation() {
                 )}
 
                 {/* Desktop Navigation - Left */}
-                <div className="hidden md:flex items-center space-x-8">
+                <div className="hidden md:flex items-center space-x-8 relative z-50">
                     <Link href="/" className={`relative px-3 py-2 transition-colors ${getTextColors(isActiveLink("/"))}`}>
                         {t("home")}
                         {isActiveLink("/") && <div className={`absolute bottom-0 left-0 right-0 h-0.5 rounded-full ${getActiveIndicatorColor()}`} />}
@@ -330,28 +330,24 @@ export function Navigation() {
             {/* Centered Logo - Show on non-home pages or when logo becomes visible on home page */}
             {(!isHomePage || isLogoVisible) && (
               <motion.div 
-                className={`absolute left-1/2 transform -translate-x-1/2 ${isScrolled ? 'mt-2' : 'mt-1'}`}
+                className="absolute left-1/2 transform -translate-x-1/2 z-50 pointer-events-none"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: isLogoVisible || !isHomePage ? 1 : 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <Link href="/">
+                <Link href="/" className="pointer-events-auto">
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     transition={{ duration: 0.3 }}
+                    className="flex items-center justify-center"
                   >
                     <Image
                       src={getLogo()}
                       alt="Alanod"
                       width={864}
                       height={288}
-                      className="h-72 w-auto transition-colors duration-300"
+                      className="h-16 md:h-20 w-auto transition-colors duration-300"
                       priority
-                      style={{
-                        maxWidth: 'none',
-                        height: '288px',
-                        width: 'auto',
-                      }}
                     />
                   </motion.div>
                 </Link>
@@ -359,7 +355,7 @@ export function Navigation() {
             )}
 
             {/* Right Side Icons */}
-            <div className="flex-1 flex justify-end items-center space-x-2 md:space-x-4">
+            <div className="flex-1 flex justify-end items-center space-x-2 md:space-x-4 relative z-50 max-w-[40%] md:max-w-[45%]">
               {/* Favorites */}
               <Link 
                 href="/favorites" 

@@ -602,12 +602,12 @@ useEffect(() => {
                   <span><strong>Length:</strong> {measurements.length} {measurementUnit}</span>
                 </div>
               </div>
-              <p className="text-amber-600 font-medium">If anything looks incorrect, choose "Review Again" to adjust your measurements before adding to cart.</p>
+              <p className="text-amber-600 font-medium">{t("ifAnythingIncorrect")}</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setShowCustomSizeConfirmation(false)}>
-              Review Again
+              {t("reviewAgain")}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
@@ -616,7 +616,7 @@ useEffect(() => {
               }}
               className="bg-black hover:bg-gray-800"
             >
-              Confirm & Add to Cart
+              {t("confirmAddToCart")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -633,7 +633,7 @@ useEffect(() => {
           >
             <div className="relative">
               <h1 className="text-5xl md:text-6xl font-light tracking-wider mb-6 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent" style={{ fontFamily: 'var(--font-playfair-display), var(--font-crimson-text), "Playfair Display", "Crimson Text", "Bodoni Moda", "Bodoni MT", Didot, serif' }}>
-               Collections
+               {t("collectionsTitle")}
               </h1>
               <motion.div
                 initial={{ width: 0 }}
@@ -643,16 +643,16 @@ useEffect(() => {
               />
             </div>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed mb-8">
-              Discover our curated gowns, jumpsuits, and accessories—each designed to spotlight your individuality at every celebration.
+              {t("collectionsDesc")}
             </p>
             <Button
               onClick={fetchProducts}
               variant="outline"
               size="lg"
-              className="border-gray-300 text-gray-600 hover:bg-gray-50 mx-auto"
+              className={`border-gray-300 text-gray-600 hover:bg-gray-50 mx-auto ${settings.language === "ar" ? "flex-row-reverse" : ""}`}
             >
-              <RefreshCw className="h-5 w-5 mr-2" />
-              Refresh All Products
+              <RefreshCw className={`h-5 w-5 ${settings.language === "ar" ? "ml-2" : "mr-2"}`} />
+              {t("refreshAllProducts")}
             </Button>
           </motion.div>
         </div>
@@ -672,7 +672,7 @@ useEffect(() => {
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <h2 className="text-4xl font-light tracking-wider bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent" style={{ fontFamily: 'var(--font-playfair-display), var(--font-crimson-text), "Playfair Display", "Crimson Text", "Bodoni Moda", "Bodoni MT", Didot, serif' }}>
-                    Winter Collection
+                    {t("winterCollection")}
                   </h2>
                   <motion.div
                     initial={{ width: 0 }}
@@ -683,7 +683,7 @@ useEffect(() => {
                   />
                 </div>
                 <div className="hidden sm:block text-sm text-gray-500 font-light tracking-wide">
-                  Elegant Winter Pieces
+                  {t("elegantWinterPieces")}
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -691,17 +691,17 @@ useEffect(() => {
                   onClick={fetchProducts}
                   variant="outline"
                   size="sm"
-                  className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                  className={`border-gray-300 text-gray-600 hover:bg-gray-50 ${settings.language === "ar" ? "flex-row-reverse" : ""}`}
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
+                  <RefreshCw className={`h-4 w-4 ${settings.language === "ar" ? "ml-2" : "mr-2"}`} />
+                  {t("refresh")}
                 </Button>
                 <Link href="/products/winter">
                   <Button
                     variant="outline"
                     className="border-black text-black hover:bg-black hover:text-white bg-transparent"
                   >
-                    View All
+                    {t("viewAll")}
                   </Button>
                 </Link>
               </div>
@@ -1005,7 +1005,7 @@ useEffect(() => {
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <h2 className="text-4xl font-light tracking-wider bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent" style={{ fontFamily: 'var(--font-playfair-display), var(--font-crimson-text), "Playfair Display", "Crimson Text", "Bodoni Moda", "Bodoni MT", Didot, serif' }}>
-                    Summer Collection
+                    {t("summerCollection")}
                   </h2>
                   <motion.div
                     initial={{ width: 0 }}
@@ -1016,7 +1016,7 @@ useEffect(() => {
                   />
                 </div>
                 <div className="hidden sm:block text-sm text-gray-500 font-light tracking-wide">
-                  Light & Airy Designs
+                  {t("elegantSummerPieces")}
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -1024,17 +1024,17 @@ useEffect(() => {
                   onClick={fetchProducts}
                   variant="outline"
                   size="sm"
-                  className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                  className={`border-gray-300 text-gray-600 hover:bg-gray-50 ${settings.language === "ar" ? "flex-row-reverse" : ""}`}
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
+                  <RefreshCw className={`h-4 w-4 ${settings.language === "ar" ? "ml-2" : "mr-2"}`} />
+                  {t("refresh")}
                 </Button>
                 <Link href="/products/summer">
                   <Button
                     variant="outline"
                     className="border-black text-black hover:bg-black hover:text-white bg-transparent"
                   >
-                    View All
+                    {t("viewAll")}
                   </Button>
                 </Link>
               </div>
@@ -1338,7 +1338,7 @@ useEffect(() => {
               <div className="flex items-center space-x-4">
                 <div className="relative">
                   <h2 className="text-4xl font-light tracking-wider bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent" style={{ fontFamily: 'var(--font-playfair-display), var(--font-crimson-text), "Playfair Display", "Crimson Text", "Bodoni Moda", "Bodoni MT", Didot, serif' }}>
-                    Fall Collection
+                    {t("fallCollection")}
                   </h2>
                   <motion.div
                     initial={{ width: 0 }}
@@ -1349,7 +1349,7 @@ useEffect(() => {
                   />
                 </div>
                 <div className="hidden sm:block text-sm text-gray-500 font-light tracking-wide">
-                  Rich Textures & Warm Tones
+                  {t("elegantFallPieces")}
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -1357,17 +1357,17 @@ useEffect(() => {
                   onClick={fetchProducts}
                   variant="outline"
                   size="sm"
-                  className="border-gray-300 text-gray-600 hover:bg-gray-50"
+                  className={`border-gray-300 text-gray-600 hover:bg-gray-50 ${settings.language === "ar" ? "flex-row-reverse" : ""}`}
                 >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh
+                  <RefreshCw className={`h-4 w-4 ${settings.language === "ar" ? "ml-2" : "mr-2"}`} />
+                  {t("refresh")}
                 </Button>
                 <Link href="/products/fall">
                   <Button
                     variant="outline"
                     className="border-black text-black hover:bg-black hover:text-white bg-transparent"
                   >
-                    View All
+                    {t("viewAll")}
                   </Button>
                 </Link>
               </div>
@@ -1724,19 +1724,19 @@ useEffect(() => {
               transition={{ duration: 0.6, delay: 0.1 }}
               viewport={{ once: true }}
             >
-              <h3 className="font-medium mb-4">Navigation</h3>
+              <h3 className="font-medium mb-4">{t("navigation")}</h3>
               <div className="space-y-2 text-sm">
                 <Link href="/" className="block text-gray-400 hover:text-white transition-colors">
-                  Home
+                  {t("home")}
                 </Link>
                 <Link href="/about" className="block text-gray-400 hover:text-white transition-colors">
-                  About
+                  {t("about")}
                 </Link>
                 <Link href="/products" className="block text-gray-400 hover:text-white transition-colors">
-                  Collections
+                  {t("collections")}
                 </Link>
                 <Link href="/contact" className="block text-gray-400 hover:text-white transition-colors">
-                  Contact
+                  {t("contact")}
                 </Link>
               </div>
             </motion.div>
@@ -1747,16 +1747,16 @@ useEffect(() => {
               transition={{ duration: 0.6, delay: 0.2 }}
               viewport={{ once: true }}
             >
-              <h3 className="font-medium mb-4">Collections</h3>
+              <h3 className="font-medium mb-4">{t("collectionsFooter")}</h3>
               <div className="space-y-2 text-sm">
                 <Link href="/products/winter" className="block text-gray-400 hover:text-white transition-colors">
-                  Winter Collection
+                  {t("winterCollection")}
                 </Link>
                 <Link href="/products/summer" className="block text-gray-400 hover:text-white transition-colors">
-                  Summer Collection
+                  {t("summerCollection")}
                 </Link>
                 <Link href="/products/fall" className="block text-gray-400 hover:text-white transition-colors">
-                  Fall Collection
+                  {t("fallCollection")}
                 </Link>
               </div>
             </motion.div>
@@ -1770,7 +1770,7 @@ useEffect(() => {
               <h3 className="font-medium mb-4">Contact</h3>
               <div className="space-y-2 text-sm text-gray-400">
                 <p>Email: atelier@alanoudalqadi.com</p>
-                <p className="mb-3">Follow the maison</p>
+                <p className="mb-3">{t("followMaison")}</p>
                 <div className="flex space-x-3">
                   <Link
                     href="https://www.instagram.com/alanoudalqadiofficial"

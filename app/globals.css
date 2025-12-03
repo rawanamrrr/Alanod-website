@@ -109,9 +109,62 @@
   /* RTL support for Arabic */
   [dir="rtl"] {
     direction: rtl;
+    text-align: right;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Noto Sans Arabic", "Arabic UI Display", "Tahoma", Arial, sans-serif !important;
+    letter-spacing: 0 !important;
   }
+  
   [dir="ltr"] {
     direction: ltr;
+    text-align: left;
+  }
+  
+  /* Better Arabic typography for serif */
+  [dir="rtl"] .font-serif,
+  [dir="rtl"] h1, [dir="rtl"] h2, [dir="rtl"] h3, [dir="rtl"] h4 {
+    font-family: "Cairo", "Noto Serif Arabic", "Arabic Typesetting", "Simplified Arabic", "Amiri", serif !important;
+    letter-spacing: 0 !important;
+    font-weight: 400;
+  }
+  
+  /* RTL spacing fixes using CSS logical properties where possible */
+  [dir="rtl"] * {
+    --spacing-rtl-adjust: 1;
+  }
+  
+  /* RTL text alignment overrides */
+  [dir="rtl"] .text-left {
+    text-align: right !important;
+  }
+  [dir="rtl"] .text-right {
+    text-align: left !important;
+  }
+  
+  /* RTL justify content */
+  [dir="rtl"] .justify-start {
+    justify-content: flex-end;
+  }
+  [dir="rtl"] .justify-end {
+    justify-content: flex-start;
+  }
+  
+  /* RTL float fixes */
+  [dir="rtl"] .float-left {
+    float: right !important;
+  }
+  [dir="rtl"] .float-right {
+    float: left !important;
+  }
+  
+  /* Improve Arabic line height for readability */
+  [dir="rtl"] p, [dir="rtl"] div, [dir="rtl"] span {
+    line-height: 1.8;
+  }
+  
+  /* RTL list styles */
+  [dir="rtl"] ul, [dir="rtl"] ol {
+    padding-right: 1.5rem;
+    padding-left: 0;
   }
 }
 .font-serif {
