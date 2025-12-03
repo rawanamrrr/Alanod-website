@@ -103,6 +103,18 @@ export default function HomePage() {
     setIsHeroLogoVisible(!isLogoVisible)
   }, [isLogoVisible])
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showSizeSelector || showCustomSizeConfirmation) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [showSizeSelector, showCustomSizeConfirmation])
+
   useEffect(() => {
     if (!selectedProduct) return
     if (isCustomSizeMode) {
@@ -362,7 +374,7 @@ export default function HomePage() {
               onClick={closeSizeSelector}
             >
               <motion.div 
-                className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl"
+                className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
                 initial={{ scale: 0.9, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 onClick={(e) => e.stopPropagation()}

@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Menu, X, ShoppingCart, User, Heart, LogOut, Settings, ChevronDown } from "lucide-react"
+import { Menu, X, ShoppingCart, User, Heart, LogOut, Settings, ChevronDown, Search, ChevronRight } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
@@ -20,12 +20,16 @@ export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [productsOpen, setProductsOpen] = useState(false)
+  const [showCurrencySelector, setShowCurrencySelector] = useState(false)
+  const currencySelectorRef = useRef<HTMLDivElement>(null)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const hasScrolledToCurrency = useRef(false)
   const { isScrolled, isLogoVisible } = useScroll()
   const { state: authState, logout } = useAuth()
   const { state: cartState } = useCart()
   const { state: favoritesState } = useFavorites()
   const pathname = usePathname()
-  const { settings } = useLocale()
+  const { settings, setSettings, selectCountry, setSelectCountry, selectLanguage, setSelectLanguage, isSaving } = useLocale()
   const t = useTranslation(settings.language)
 
   // Check if we're on the home page
@@ -50,6 +54,60 @@ export function Navigation() {
       return () => document.removeEventListener("click", handleClickOutside)
     }
   }, [isOpen, showUserMenu])
+
+  // Lock body scroll when mobile menu is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isOpen])
+
+  // Auto-scroll to show currency dropdown when it opens (only once per open)
+  useEffect(() => {
+    if (showCurrencySelector && currencySelectorRef.current && mobileMenuRef.current && !hasScrolledToCurrency.current) {
+      // Delay to allow dropdown animation to complete
+      const timeoutId = setTimeout(() => {
+        const selectorElement = currencySelectorRef.current
+        const menuElement = mobileMenuRef.current
+        
+        if (selectorElement && menuElement) {
+          // Get current scroll position and element positions
+          const selectorRect = selectorElement.getBoundingClientRect()
+          const menuRect = menuElement.getBoundingClientRect()
+          
+          // Estimate dropdown height (7 items * ~45px each = ~315px)
+          const dropdownHeight = 315
+          const selectorBottom = selectorRect.bottom
+          const menuBottom = menuRect.bottom
+          
+          // Check if dropdown would extend beyond visible area
+          if (selectorBottom + dropdownHeight > menuBottom) {
+            // Calculate how much to scroll to show the full dropdown
+            const scrollAmount = (selectorBottom + dropdownHeight) - menuBottom + 40 // Extra padding
+            
+            // Scroll smoothly without preventing manual scrolling
+            menuElement.scrollBy({
+              top: scrollAmount,
+              behavior: 'smooth'
+            })
+          }
+          
+          hasScrolledToCurrency.current = true
+        }
+      }, 350) // Wait for dropdown animation to complete
+      
+      return () => clearTimeout(timeoutId)
+    } else if (!showCurrencySelector) {
+      // Reset the flag when selector closes so it can scroll again next time
+      hasScrolledToCurrency.current = false
+    }
+  }, [showCurrencySelector])
+
 
   const handleLogout = () => {
     logout()
@@ -165,13 +223,14 @@ export function Navigation() {
     }
   }
 
-  // Determine mobile menu styling
+  // Determine mobile menu styling - Always use consistent white background
   const getMobileMenuStyling = () => {
-    if (!isHomePage) {
-      return 'border-t border-gray-200 bg-white'
-    }
-    
-    return isScrolled ? 'border-t border-gray-200 bg-white' : 'border-t border-white/20 bg-black/80 backdrop-blur-md'
+    return 'bg-white'
+  }
+  
+  // Mobile menu text colors - Always use consistent dark colors
+  const getMobileTextColors = (isActive: boolean = false) => {
+    return isActive ? 'text-purple-600 font-medium' : 'text-gray-700 hover:text-black'
   }
 
   // Show loading state while auth is initializing
@@ -220,8 +279,8 @@ export function Navigation() {
                             e.stopPropagation();
                             setIsOpen(!isOpen);
                         }}
-                        className={`p-2 transition-colors ${getIconColors()}`}>
-                        {isOpen ? <X className="h-4 w-4 md:h-5 md:w-5" /> : <Menu className="h-4 w-4 md:h-5 md:w-5" />}
+                        className="p-2 text-gray-700 hover:text-black transition-colors">
+                        {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                     </button>
                 </div>
 
@@ -233,9 +292,9 @@ export function Navigation() {
                         e.stopPropagation()
                         setShowUserMenu(!showUserMenu)
                       }}
-                      className={`p-2 transition-colors ${getIconColors()}`}
+                      className="p-2 text-gray-700 hover:text-black transition-colors"
                     >
-                      <User className="h-4 w-4" />
+                      <User className="h-5 w-5" />
                     </button>
 
                     <AnimatePresence>
@@ -290,9 +349,9 @@ export function Navigation() {
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className={`h-8 w-8 p-0 ${getIconColors()}`}
+                      className="h-8 w-8 p-0 text-gray-700 hover:text-black"
                     >
-                      <User className="h-4 w-4" />
+                      <User className="h-5 w-5" />
                     </Button>
                   </Link>
                 )}
@@ -330,28 +389,25 @@ export function Navigation() {
             {/* Centered Logo - Show on non-home pages or when logo becomes visible on home page */}
             {(!isHomePage || isLogoVisible) && (
               <motion.div 
-                className={`absolute left-1/2 transform -translate-x-1/2 ${isScrolled ? 'mt-2' : 'mt-1'}`}
+                className="absolute left-1/2 transform -translate-x-1/2"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: isLogoVisible || !isHomePage ? 1 : 0 }}
                 transition={{ duration: 0.3 }}
               >
-                <Link href="/">
+                <Link href="/" className="block">
                   <motion.div
                     whileHover={{ scale: 1.05 }}
                     transition={{ duration: 0.3 }}
+                    className="flex items-center justify-center"
                   >
                     <Image
                       src={getLogo()}
                       alt="Alanod"
                       width={864}
                       height={288}
-                      className="h-72 w-auto transition-colors duration-300"
+                      className="h-64 w-auto mx-auto transition-colors duration-300"
+                      style={{ objectFit: 'contain', maxWidth: 'none' }}
                       priority
-                      style={{
-                        maxWidth: 'none',
-                        height: '288px',
-                        width: 'auto',
-                      }}
                     />
                   </motion.div>
                 </Link>
@@ -487,235 +543,279 @@ export function Navigation() {
                      {/* Mobile Navigation */}
            <AnimatePresence>
              {isOpen && (
-               <motion.div
-                 initial={{ opacity: 0, height: 0 }}
-                 animate={{ opacity: 1, height: "auto" }}
-                 exit={{ opacity: 0, height: 0 }}
-                 transition={{ duration: 0.3 }}
-                                  className={`md:hidden mobile-navigation ${getMobileMenuStyling()}`}
-                 onClick={(e) => e.stopPropagation()}
-                 onMouseDown={(e) => e.stopPropagation()}
-               >
-                 <div className="py-4 space-y-4">
-                  <Link
-                    href="/"
-                    className={`relative block px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/"))}`}
-                    onClick={() => setIsOpen(false)}
-                  >
-                                         {isActiveLink("/") && (
-                       <div className={`absolute inset-0 rounded-xl ${
-                         !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                       }`} />
-                     )}
-                    <span className="relative z-10">{t("home")}</span>
-                  </Link>
-                  <Link
-                    href="/about"
-                    className={`relative block px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/about"))}`}
-                    onClick={() => setIsOpen(false)}
-                  >
-                                         {isActiveLink("/about") && (
-                       <div className={`absolute inset-0 rounded-xl ${
-                         !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                       }`} />
-                     )}
-                    <span className="relative z-10">{t("about")}</span>
-                  </Link>
-                                                                           <div className="space-y-2 products-dropdown">
-                      <div className="flex items-center justify-between">
-                        <Link
-                          href="/products"
-                          className={`relative flex-1 px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/products"))}`}
-                          onClick={() => setIsOpen(false)}
-                        >
-                                                     {isActiveLink("/products") && (
-                             <div className={`absolute inset-0 rounded-xl ${
-                               !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                             }`} />
+               <>
+                 {/* Backdrop */}
+                 <motion.div
+                   initial={{ opacity: 0 }}
+                   animate={{ opacity: 1 }}
+                   exit={{ opacity: 0 }}
+                   transition={{ duration: 0.2 }}
+                   className="fixed inset-0 bg-black/60 backdrop-blur-md md:hidden"
+                   onClick={() => setIsOpen(false)}
+                   style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9998 }}
+                 />
+                 
+                 {/* Mobile Menu - Full Screen from Top */}
+                 <motion.div
+                   ref={mobileMenuRef}
+                   initial={{ x: "-100%" }}
+                   animate={{ x: 0 }}
+                   exit={{ x: "-100%" }}
+                   transition={{ duration: 0.3, ease: "easeInOut" }}
+                   className="md:hidden mobile-navigation fixed left-0 top-0 bottom-0 bg-white overflow-y-auto"
+                   style={{ 
+                     position: 'fixed', 
+                     top: 0, 
+                     left: 0,
+                     right: 0,
+                     width: '100%',
+                     maxWidth: '100%',
+                     height: '100vh',
+                     zIndex: 9999 
+                   }}
+                   onClick={(e) => e.stopPropagation()}
+                   onMouseDown={(e) => e.stopPropagation()}
+                 >
+                   {/* Static Header at Top */}
+                   <div className="sticky top-0 bg-white z-10 border-b border-gray-200 px-6 py-4">
+                     <div className="flex items-center justify-between">
+                       {/* Close Button */}
+                       <button
+                         onClick={() => setIsOpen(false)}
+                         className="p-2 -ml-2"
+                       >
+                         <X className="h-6 w-6 text-black" />
+                       </button>
+                       
+                       {/* Brand Name - Centered */}
+                       <Link href="/" onClick={() => setIsOpen(false)} className="flex-1 text-center">
+                         <h1 className="text-xl font-light tracking-widest text-black uppercase" style={{ letterSpacing: '0.2em' }}>
+                           ALANOD
+                         </h1>
+                       </Link>
+                       
+                       {/* Right Icons */}
+                       <div className="flex items-center space-x-4">
+                         <Link href="/favorites" onClick={() => setIsOpen(false)} className="relative p-1">
+                           <Heart className="h-5 w-5 text-black" />
+                           {favoritesState.count > 0 && (
+                             <span className="absolute -top-2 -right-2 h-4 w-4 bg-black text-white text-xs rounded-full flex items-center justify-center">
+                               {favoritesState.count}
+                             </span>
                            )}
-                          <span className="relative z-10">{t("collections")}</span>
-                        </Link>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setProductsOpen(!productsOpen)
-                          }}
-                          className={`p-2 transition-colors ${
-                            !isHomePage || isScrolled ? 'text-gray-600 hover:text-black' : 'text-white/60 hover:text-white'
-                          }`}
-                        >
-                          <ChevronDown className={`h-4 w-4 transition-transform ${productsOpen ? 'rotate-180' : ''}`} />
-                        </button>
-                      </div>
-                     
-                     {/* Product Collections - Collapsible */}
-                     <AnimatePresence>
-                       {productsOpen && (
-                         <motion.div
-                           initial={{ opacity: 0, height: 0 }}
-                           animate={{ opacity: 1, height: "auto" }}
-                           exit={{ opacity: 0, height: 0 }}
-                           transition={{ duration: 0.2 }}
-                           className="ml-4 space-y-1 overflow-hidden"
-                         >
-                           <Link
-                             href="/products/winter"
-                             className={`relative block px-4 py-2 text-sm transition-colors rounded-lg ${
-                               !isHomePage || isScrolled 
-                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/winter") ? "text-purple-600" : ""}`
-                                 : `text-white/70 hover:text-white ${isActiveLink("/products/winter") ? "text-white" : ""}`
-                             }`}
-                             onClick={() => setIsOpen(false)}
-                           >
-                             {isActiveLink("/products/winter") && (
-                               <div className={`absolute inset-0 rounded-xl ${
-                                 !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                               }`} />
-                             )}
-                           <span className="relative z-10">{t("winterCollection")}</span>
-                           </Link>
-                           <Link
-                             href="/products/summer"
-                             className={`relative block px-4 py-2 text-sm transition-colors rounded-lg ${
-                               !isHomePage || isScrolled 
-                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/summer") ? "text-purple-600" : ""}`
-                                 : `text-white/70 hover:text-white ${isActiveLink("/products/summer") ? "text-white" : ""}`
-                             }`}
-                             onClick={() => setIsOpen(false)}
-                           >
-                             {isActiveLink("/products/summer") && (
-                               <div className={`absolute inset-0 rounded-xl ${
-                                 !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                               }`} />
-                             )}
-                           <span className="relative z-10">{t("summerCollection")}</span>
-                           </Link>
-                           <Link
-                             href="/products/fall"
-                             className={`relative block px-4 py-2 text-sm transition-colors rounded-lg ${
-                               !isHomePage || isScrolled 
-                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/fall") ? "text-purple-600" : ""}`
-                                 : `text-white/70 hover:text-white ${isActiveLink("/products/fall") ? "text-white" : ""}`
-                             }`}
-                             onClick={() => setIsOpen(false)}
-                           >
-                             {isActiveLink("/products/fall") && (
-                               <div className={`absolute inset-0 rounded-xl ${
-                                 !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                               }`} />
-                             )}
-                             <span className="relative z-10">{t("fallCollection")}</span>
-                           </Link>
-                         </motion.div>
-                       )}
-                     </AnimatePresence>
+                         </Link>
+                         <Link href="/cart" onClick={() => setIsOpen(false)} className="relative p-1">
+                           <ShoppingCart className="h-5 w-5 text-black" />
+                           {cartState.count > 0 && (
+                             <span className="absolute -top-2 -right-2 h-4 w-4 bg-black text-white text-xs rounded-full flex items-center justify-center">
+                               {cartState.count}
+                             </span>
+                           )}
+                         </Link>
+                       </div>
+                     </div>
                    </div>
-                  <Link
-                    href="/contact"
-                    className={`relative block px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/contact"))}`}
-                    onClick={() => setIsOpen(false)}
-                  >
-                                         {isActiveLink("/contact") && (
-                       <div className={`absolute inset-0 rounded-xl ${
-                         !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                       }`} />
-                     )}
-                    <span className="relative z-10">{t("contact")}</span>
-                  </Link>
 
-                  
-
-                  {!authState.isAuthenticated ? (
-                    <div className={`flex flex-col space-y-2 pt-4 ${
-                      !isHomePage || isScrolled ? 'border-t border-gray-200' : 'border-t border-white/20'
-                    }`}>
-                      <Link 
-                        href="/auth/login" 
-                        onClick={() => setIsOpen(false)}
-                        className={`relative block ${
-                          isActiveLink("/auth/login") ? "opacity-100" : ""
-                        }`}
-                      >
-                                                 {isActiveLink("/auth/login") && (
-                           <div className={`absolute inset-0 rounded-xl ${
-                             !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                           }`} />
-                         )}
-                        <Button 
-                          variant="ghost" 
-                          className={`w-full justify-start relative z-10 transition-all ${buttonStyling.signIn}`}
-                        >
-                          {t("signIn")}
-                        </Button>
-                      </Link>
-                      <Link 
-                        href="/auth/register" 
-                        onClick={() => setIsOpen(false)}
-                        className={`relative block ${
-                          isActiveLink("/auth/register") ? "opacity-100" : ""
-                        }`}
-                      >
-                                                 {isActiveLink("/auth/register") && (
-                           <div className={`absolute inset-0 rounded-xl ${
-                             !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                           }`} />
-                         )}
-                        <Button className={`w-full relative z-10 transition-all ${buttonStyling.signUp}`}>
-                          {t("signUp")}
-                        </Button>
-                      </Link>
-                    </div>
-                  ) : (
-                    <div className={`pt-4 space-y-2 ${
-                      !isHomePage || isScrolled ? 'border-t border-gray-200' : 'border-t border-white/20'
-                    }`}>
-                      <p className={`text-sm font-medium ${
-                        !isHomePage || isScrolled ? 'text-gray-900' : 'text-white'
-                      }`}>{authState.user?.name}</p>
-                      {authState.user?.role !== "admin" && (
-                        <Link
-                          href="/account"
-                          className={`relative block px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/account"))}`}
-                          onClick={() => setIsOpen(false)}
-                        >
-                                                     {isActiveLink("/account") && (
-                             <div className={`absolute inset-0 rounded-xl ${
-                               !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                             }`} />
+                   {/* Menu Content */}
+                   <div className="px-6 py-6 pb-24 space-y-0">
+                     {/* Collection Items with Arrows */}
+                     <Link
+                       href="/products/winter"
+                       className="flex items-center justify-between py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                       onClick={() => setIsOpen(false)}
+                     >
+                       <span className="text-sm font-light tracking-wide text-black uppercase" style={{ letterSpacing: '0.1em' }}>
+                         WINTER COLLECTION
+                       </span>
+                       <ChevronRight className="h-4 w-4 text-gray-400" />
+                     </Link>
+                     
+                     <Link
+                       href="/products/summer"
+                       className="flex items-center justify-between py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                       onClick={() => setIsOpen(false)}
+                     >
+                       <span className="text-sm font-light tracking-wide text-black uppercase" style={{ letterSpacing: '0.1em' }}>
+                         SUMMER COLLECTION
+                       </span>
+                       <ChevronRight className="h-4 w-4 text-gray-400" />
+                     </Link>
+                     
+                     <Link
+                       href="/products/fall"
+                       className="flex items-center justify-between py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                       onClick={() => setIsOpen(false)}
+                     >
+                       <span className="text-sm font-light tracking-wide text-black uppercase" style={{ letterSpacing: '0.1em' }}>
+                         FALL COLLECTION
+                       </span>
+                       <ChevronRight className="h-4 w-4 text-gray-400" />
+                     </Link>
+                     
+                     <Link
+                       href="/products"
+                       className="flex items-center justify-between py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                       onClick={() => setIsOpen(false)}
+                     >
+                       <span className="text-sm font-light tracking-wide text-black uppercase" style={{ letterSpacing: '0.1em' }}>
+                         {t("collections").toUpperCase()}
+                       </span>
+                       <ChevronRight className="h-4 w-4 text-gray-400" />
+                     </Link>
+                     
+                     <Link
+                       href="/about"
+                       className="flex items-center justify-between py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                       onClick={() => setIsOpen(false)}
+                     >
+                       <span className="text-sm font-light tracking-wide text-black uppercase" style={{ letterSpacing: '0.1em' }}>
+                         {t("about").toUpperCase()}
+                       </span>
+                     </Link>
+                     
+                     <Link
+                       href="/contact"
+                       className="flex items-center justify-between py-4 border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                       onClick={() => setIsOpen(false)}
+                     >
+                       <span className="text-sm font-light tracking-wide text-black uppercase" style={{ letterSpacing: '0.1em' }}>
+                         {t("contact").toUpperCase()}
+                       </span>
+                     </Link>
+                     
+                     {/* User Section */}
+                     <div className="pt-6 space-y-4">
+                       {!authState.isAuthenticated ? (
+                         <Link
+                           href="/auth/login"
+                           className="flex items-center py-3 hover:bg-gray-50 transition-colors"
+                           onClick={() => setIsOpen(false)}
+                         >
+                           <User className="h-5 w-5 text-black mr-3" />
+                           <span className="text-sm font-light tracking-wide text-black uppercase" style={{ letterSpacing: '0.1em' }}>
+                             {t("signIn").toUpperCase()}
+                           </span>
+                         </Link>
+                       ) : (
+                         <>
+                           <Link
+                             href="/account"
+                             className="flex items-center py-3 hover:bg-gray-50 transition-colors"
+                             onClick={() => setIsOpen(false)}
+                           >
+                             <User className="h-5 w-5 text-black mr-3" />
+                             <span className="text-sm font-light tracking-wide text-black uppercase" style={{ letterSpacing: '0.1em' }}>
+                               {authState.user?.name || t("myAccount").toUpperCase()}
+                             </span>
+                           </Link>
+                           {authState.user?.role === "admin" && (
+                             <Link
+                               href="/admin/dashboard"
+                               className="flex items-center py-3 hover:bg-gray-50 transition-colors"
+                               onClick={() => setIsOpen(false)}
+                             >
+                               <Settings className="h-5 w-5 text-black mr-3" />
+                               <span className="text-sm font-light tracking-wide text-black uppercase" style={{ letterSpacing: '0.1em' }}>
+                                 {t("adminDashboard").toUpperCase()}
+                               </span>
+                             </Link>
                            )}
-                          <span className="relative z-10">{t("myAccount")}</span>
-                        </Link>
-                      )}
-                      {authState.user?.role === "admin" && (
-                        <Link
-                          href="/admin/dashboard"
-                          className={`relative block px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/admin/dashboard"))}`}
-                          onClick={() => setIsOpen(false)}
-                        >
-                                                     {isActiveLink("/admin/dashboard") && (
-                             <div className={`absolute inset-0 rounded-xl ${
-                               !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                             }`} />
+                           <button
+                             onClick={() => {
+                               handleLogout()
+                               setIsOpen(false)
+                             }}
+                             className="flex items-center w-full py-3 text-red-600 hover:bg-red-50 transition-colors"
+                           >
+                             <LogOut className="h-5 w-5 mr-3" />
+                             <span className="text-sm font-light tracking-wide uppercase" style={{ letterSpacing: '0.1em' }}>
+                               {t("signOut").toUpperCase()}
+                             </span>
+                           </button>
+                         </>
+                       )}
+                       
+                       {/* Currency/Locale Selector */}
+                       <div ref={currencySelectorRef} className="border-t border-gray-200 pt-3">
+                         <button
+                           onClick={() => setShowCurrencySelector(!showCurrencySelector)}
+                           className="flex items-center justify-between w-full py-3 hover:bg-gray-50 transition-colors"
+                         >
+                           <span className="text-sm font-light text-gray-600">
+                             {settings.currencyCode} {settings.countryName ? `| ${settings.countryName}` : ''}
+                           </span>
+                           <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${showCurrencySelector ? 'rotate-180' : ''}`} />
+                         </button>
+                         
+                         {/* Currency Dropdown */}
+                         <AnimatePresence>
+                           {showCurrencySelector && (
+                             <motion.div
+                               initial={{ opacity: 0, height: 0 }}
+                               animate={{ opacity: 1, height: "auto" }}
+                               exit={{ opacity: 0, height: 0 }}
+                               transition={{ duration: 0.2 }}
+                               className="overflow-hidden"
+                             >
+                               <div className="py-3 space-y-2 border-t border-gray-100">
+                                 {[
+                                   { code: "US", name: "United States", currency: "USD", symbol: "$" },
+                                   { code: "SA", name: "Saudi Arabia", currency: "SAR", symbol: "﷼" },
+                                   { code: "AE", name: "United Arab Emirates", currency: "AED", symbol: "د.إ" },
+                                   { code: "KW", name: "Kuwait", currency: "KWD", symbol: "د.ك" },
+                                   { code: "QA", name: "Qatar", currency: "QAR", symbol: "ر.ق" },
+                                   { code: "GB", name: "United Kingdom", currency: "GBP", symbol: "£" },
+                                   { code: "EG", name: "Egypt", currency: "EGP", symbol: "E£" },
+                                 ].map((country) => (
+                                   <button
+                                     key={country.code}
+                                     onClick={async () => {
+                                       await setSettings(country.code, settings.language)
+                                       setShowCurrencySelector(false)
+                                     }}
+                                     disabled={isSaving}
+                                     className={`w-full text-left px-3 py-2 rounded-md text-sm transition-all ${
+                                       settings.countryCode === country.code
+                                         ? "bg-gray-100 text-black font-medium"
+                                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                                     } ${isSaving ? "opacity-50 cursor-not-allowed" : ""}`}
+                                   >
+                                     {country.currency} {country.symbol} | {country.name}
+                                   </button>
+                                 ))}
+                               </div>
+                             </motion.div>
                            )}
-                          <span className="relative z-10">{t("adminDashboard")}</span>
-                        </Link>
-                      )}
-                      <button
-                        onClick={() => {
-                          handleLogout()
-                          setIsOpen(false)
-                        }}
-                        className={`block w-full text-left transition-colors ${
-                          !isHomePage || isScrolled ? 'text-red-600 hover:text-red-700' : 'text-red-400 hover:text-red-300'
-                        }`}
-                      >
-                        {t("signOut")}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+                         </AnimatePresence>
+                       </div>
+                       
+                       {/* Social Media Links */}
+                       <div className="flex items-center space-x-4 pt-2 border-t border-gray-200">
+                         <a 
+                           href="https://instagram.com" 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="text-black hover:opacity-70 transition-opacity"
+                         >
+                           <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                             <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                           </svg>
+                         </a>
+                         <a 
+                           href="https://tiktok.com" 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="text-black hover:opacity-70 transition-opacity"
+                         >
+                           <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+                             <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
+                           </svg>
+                         </a>
+                       </div>
+                     </div>
+                   </div>
+                 </motion.div>
+              </>
             )}
           </AnimatePresence>
         </div>

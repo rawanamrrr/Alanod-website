@@ -129,6 +129,18 @@ export default function FavoritesPage() {
     }, 300)
   }
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showSizeSelector || showGiftPackageSelector || showCustomSizeConfirmation) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [showSizeSelector, showGiftPackageSelector, showCustomSizeConfirmation])
+
   const addToCartWithSize = () => {
     if (!selectedProduct) return
     if (!isCustomSizeMode && !selectedSize) return
@@ -218,7 +230,7 @@ export default function FavoritesPage() {
           onClick={closeSizeSelector}
         >
           <motion.div 
-            className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl relative"
+            className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl relative"
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             onClick={(e) => e.stopPropagation()}

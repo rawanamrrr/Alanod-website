@@ -371,6 +371,18 @@ export default function ProductDetailPage() {
     }
   }, [product])
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showSizeSelector) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [showSizeSelector])
+
   const getBaseProductId = (id: string) => {
     // For gift packages with timestamp suffixes like -1756667891815, remove only the timestamp
     // The pattern seems to be: baseId-timestamp where timestamp is all numbers
@@ -1475,7 +1487,7 @@ export default function ProductDetailPage() {
             onClick={() => setShowSizeSelector(false)}
           >
             <motion.div 
-              className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl"
+              className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               onClick={(e) => e.stopPropagation()}

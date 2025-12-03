@@ -129,6 +129,18 @@ export default function CategoryPage() {
     return () => clearTimeout(handle)
   }, [searchQuery])
 
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (showSizeSelector || showGiftPackageSelector || showCustomSizeConfirmation) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [showSizeSelector, showGiftPackageSelector, showCustomSizeConfirmation])
+
   const fetchProducts = async () => {
     try {
       const response = await fetch(`/api/products?category=${category}&limit=200`)
@@ -324,7 +336,7 @@ export default function CategoryPage() {
           onClick={closeSizeSelector}
         >
           <motion.div 
-            className="bg-white rounded-2xl max-w-md w-full overflow-hidden shadow-2xl"
+            className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             onClick={(e) => e.stopPropagation()}
