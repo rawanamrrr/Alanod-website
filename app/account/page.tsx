@@ -279,7 +279,6 @@ export default function MyAccountPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation />
-
       <section className="pt-32 pb-16">
         <div className="container mx-auto px-4 sm:px-6">
           <motion.div
@@ -464,209 +463,148 @@ export default function MyAccountPage() {
                   ) : activeTab === 'orders' ? (
                     <div id="orders-panel" role="tabpanel" aria-labelledby="orders-tab">
                       {userOrders.length === 0 ? (
-                      <div className="text-center py-8">
-                        <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                        <p className="text-gray-600 mb-4">No orders yet</p>
-                        <Link href="/products">
-                          <Button className="bg-black text-white hover:bg-gray-800">Start Shopping</Button>
-                        </Link>
-                      </div>
-                    ) : (
-                      <div className="space-y-3 sm:space-y-4">
-                        {userOrders.map((order) => (
-                          <div key={order.id} className="border rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 sm:mb-4">
-                              <div className="min-w-0 flex-1">
-                                <p className="font-medium text-sm sm:text-base truncate">Order #{order.id}</p>
-                                <p className="text-xs sm:text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</p>
+                        <div className="text-center py-8">
+                          <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                          <p className="text-gray-600 mb-4">No orders yet</p>
+                          <Link href="/products">
+                            <Button className="bg-black text-white hover:bg-gray-800">Start Shopping</Button>
+                          </Link>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 sm:space-y-4">
+                          {userOrders.map((order) => (
+                            <div key={order.id} className="border rounded-lg p-3 sm:p-4 hover:shadow-md transition-shadow">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3 sm:mb-4">
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-sm sm:text-base truncate">Order #{order.id}</p>
+                                  <p className="text-xs sm:text-sm text-gray-600">{new Date(order.createdAt).toLocaleDateString()}</p>
+                                </div>
+                                <div className="flex flex-row sm:flex-col items-start sm:items-end justify-between sm:justify-start gap-2 sm:gap-1">
+                                  <Badge className={`text-xs ${getStatusColor(order.status)}`}>
+                                    {getStatusText(order.status)}
+                                  </Badge>
+                                  <p className="text-sm font-medium">{formatPrice(order.total || 0)}</p>
+                                </div>
                               </div>
-                              <div className="flex flex-row sm:flex-col items-start sm:items-end justify-between sm:justify-start gap-2 sm:gap-1">
-                                <Badge className={`text-xs ${getStatusColor(order.status)}`}>
-                                  {getStatusText(order.status)}
-                                </Badge>
-                                <p className="text-sm font-medium">{formatPrice(order.total || 0)}</p>
-                              </div>
-                            </div>
 
-                            <div className="space-y-3">
-                              {order.items?.map((item: any, index: number) => (
-                                <div key={index} className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-                                  <div className="flex items-start space-x-3 min-w-0 flex-1">
-                                    <Image
-                                      src={item.image || "/placeholder.svg"}
-                                      alt={item.name}
-                                      width={40}
-                                      height={40}
-                                      className="w-10 h-10 sm:w-12 sm:h-12 object-cover rounded flex-shrink-0"
-                                    />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm font-medium truncate">{item.name}</p>
-                                      <p className="text-xs text-gray-600">
-                                        {item.size} ({item.volume}) × {item.quantity}
-                                      </p>
-                                      {item.review && (
-                                        <div className="flex items-center mt-1">
-                                          {[...Array(5)].map((_, i) => (
-                                            <Star
-                                              key={i}
-                                              className={`h-3 w-3 ${i < item.review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
-                                            />
-                                          ))}
-                                        </div>
+                              <div className="space-y-3">
+                                {order.items?.map((item: any, index: number) => (
+                                  <div key={index} className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                                    <div className="flex items-start space-x-3 min-w-0 flex-1">
+                                      <Image
+                                        src={item.image || "/placeholder.svg"}
+                                        alt={item.name}
+                                        width={40}
+                                        height={40}
+                                        className="w-10 h-10 sm:w-12 sm:h-12 object-cover rounded flex-shrink-0"
+                                      />
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-sm font-medium truncate">{item.name}</p>
+                                        <p className="text-xs text-gray-600">
+                                          {item.size} ({item.volume}) × {item.quantity}
+                                        </p>
+                                        {item.review && (
+                                          <div className="flex items-center mt-1">
+                                            {[...Array(5)].map((_, i) => (
+                                              <Star
+                                                key={i}
+                                                className={`h-3 w-3 ${i < item.review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                                              />
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between sm:justify-end gap-3 sm:flex-shrink-0">
+                                      <p className="text-sm font-medium">{formatPrice((item.price || 0) * (item.quantity || 1))}</p>
+                                      {order.status === "delivered" && (
+                                        item.review ? (
+                                          <div className="flex items-center text-xs text-gray-500 bg-gray-100 px-3 py-2 rounded border border-gray-200 transition-all duration-200">
+                                            <Star className="h-3 w-3 mr-1 fill-yellow-400 text-yellow-400" />
+                                            Already Reviewed ({item.review.rating}/5)
+                                          </div>
+                                        ) : (
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="text-yellow-600 border-yellow-600 hover:bg-yellow-50 bg-transparent text-xs px-3 py-2 min-h-[36px] touch-manipulation"
+                                            onClick={() => handleReviewClick(order, item)}
+                                          >
+                                            <Star className="h-3 w-3 mr-1" />
+                                            Rate
+                                          </Button>
+                                        )
                                       )}
                                     </div>
                                   </div>
-                                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:flex-shrink-0">
-                                    <p className="text-sm font-medium">{formatPrice((item.price || 0) * (item.quantity || 1))}</p>
-                                    {order.status === "delivered" && (
-                                      item.review ? (
-                                        <div className="flex items-center text-xs text-gray-500 bg-gray-100 px-3 py-2 rounded border border-gray-200 transition-all duration-200">
-                                          <Star className="h-3 w-3 mr-1 fill-yellow-400 text-yellow-400" />
-                                          Already Reviewed ({item.review.rating}/5)
-                                        </div>
-                                      ) : (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className="text-yellow-600 border-yellow-600 hover:bg-yellow-50 bg-transparent text-xs px-3 py-2 min-h-[36px] touch-manipulation"
-                                          onClick={() => handleReviewClick(order, item)}
-                                        >
-                                          <Star className="h-3 w-3 mr-1" />
-                                          Rate
-                                        </Button>
-                                      )
-                                    )}
-                                  </div>
+                                ))}
+                              </div>
+
+                              <Separator className="my-3" />
+
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                <div className="flex items-center text-xs sm:text-sm text-gray-600 min-w-0">
+                                  <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+                                  <span className="truncate">
+                                    {order.shippingAddress?.city || 'N/A'}, {order.shippingAddress?.country || order.shippingAddress?.governorate || 'N/A'}
+                                  </span>
                                 </div>
-                              ))}
-                            </div>
-
-<Separator className="my-3" />
-
-<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-<div className="flex items-center text-xs sm:text-sm text-gray-600 min-w-0">
-<MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
-<span className="truncate">
-{order.shippingAddress?.city || 'N/A'}, {order.shippingAddress?.country || order.shippingAddress?.governorate || 'N/A'}
-</span>
-</div>
-<div className="flex-shrink-0">
-<Button 
-size="sm" 
-variant="outline" 
-className="bg-transparent w-full sm:w-auto min-h-[36px] touch-manipulation"
-onClick={() => handleViewDetails(order)}
->
-<Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-View Details
-</Button>
-</div>
-</div>
-</div>
-))}
-</div>
-)}
-</div>
-) : (
-<div id="reviews-panel" role="tabpanel" aria-labelledby="reviews-tab">
-<div className="space-y-4">
-{userReviews.length === 0 ? (
-<div className="text-center py-8">
-<Star className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-<p className="text-gray-600 mb-4">No reviews yet</p>
-<p className="text-sm text-gray-500">Your product reviews will appear here</p>
-</div>
-) : (
-userReviews.map((review) => (
-<div key={review._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-<div className="flex items-start">
-<div className="flex-1">
-<div className="flex items-center mb-2">
-{[...Array(5)].map((_, i) => (
-<Star
-key={i}
-className={`h-5 w-5 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
-/>
-))}
-<span className="ml-2 text-sm text-gray-500">
-{new Date(review.createdAt).toLocaleDateString()}
-</span>
-</div>
-{review.comment && (
-<p className="text-gray-700 mb-3">{review.comment}</p>
-)}
-{review.productId && (
-<div className="flex items-center">
-<div className="text-sm text-gray-600">
-Reviewed product: {review.productName || 'Product #' + review.productId}
-</div>
-</div>
-)}
-</div>
-</div>
-</div>
-))
-)}
-</div>
-</div>
-)}
-</CardContent>
-</Card>
-</motion.div>
-</div>
-</div>
-</section>
-                                  onClick={() => handleViewDetails(order)}
-                                >
-                                  <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                                  View Details
-                                </Button>
+                                <div className="flex-shrink-0">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="bg-transparent w-full sm:w-auto min-h-[36px] touch-manipulation"
+                                    onClick={() => handleViewDetails(order)}
+                                  >
+                                    <Eye className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                                    View Details
+                                  </Button>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   ) : (
                     <div id="reviews-panel" role="tabpanel" aria-labelledby="reviews-tab">
                       <div className="space-y-4">
                         {userReviews.length === 0 ? (
-                        <div className="text-center py-8">
-                          <Star className="h-12 w-12 mx-auto text-gray-300 mb-4" />
-                          <p className="text-gray-600 mb-4">No reviews yet</p>
-                          <p className="text-sm text-gray-500">Your product reviews will appear here</p>
-                        </div>
-                      ) : (
-                        userReviews.map((review) => (
-                          <div key={review._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div className="flex items-start">
-                              <div className="flex-1">
-                                <div className="flex items-center mb-2">
-                                  {[...Array(5)].map((_, i) => (
-                                    <Star
-                                      key={i}
-                                      className={`h-5 w-5 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
-                                    />
-                                  ))}
-                                  <span className="ml-2 text-sm text-gray-500">
-                                    {new Date(review.createdAt).toLocaleDateString()}
-                                  </span>
-                                </div>
-                                {review.comment && (
-                                  <p className="text-gray-700 mb-3">{review.comment}</p>
-                                )}
-                                {review.productId && (
-                                  <div className="flex items-center">
-                                    <div className="text-sm text-gray-600">
-                                      Reviewed product: {review.productName || 'Product #' + review.productId}
-                                    </div>
+                          <div className="text-center py-8">
+                            <Star className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                            <p className="text-gray-600 mb-4">No reviews yet</p>
+                            <p className="text-sm text-gray-500">Your product reviews will appear here</p>
+                          </div>
+                        ) : (
+                          userReviews.map((review) => (
+                            <div key={review._id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                              <div className="flex items-start">
+                                <div className="flex-1">
+                                  <div className="flex items-center mb-2">
+                                    {[...Array(5)].map((_, i) => (
+                                      <Star
+                                        key={i}
+                                        className={`h-5 w-5 ${i < review.rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
+                                      />
+                                    ))}
+                                    <span className="ml-2 text-sm text-gray-500">
+                                      {new Date(review.createdAt).toLocaleDateString()}
+                                    </span>
                                   </div>
-                                )}
+                                  {review.comment && (
+                                    <p className="text-gray-700 mb-3">{review.comment}</p>
+                                  )}
+                                  {review.productId && (
+                                    <div className="flex items-center">
+                                      <div className="text-sm text-gray-600">
+                                        Reviewed product: {review.productName || 'Product #' + review.productId}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))
+                          ))
                         )}
                       </div>
                     </div>
@@ -918,8 +856,6 @@ Reviewed product: {review.productName || 'Product #' + review.productId}
           </motion.div>
         </motion.div>
       )}
-
-
     </div>
   )
 }

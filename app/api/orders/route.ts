@@ -84,8 +84,6 @@ export async function POST(request: NextRequest) {
     console.log("🔐 [API] Token present:", !!token)
 
     // Parse request body first
-    // Increase body size limit to handle large orders
-    ;(request as unknown as { [k: string]: unknown })["__NEXT_PRIVATE_BODY_SIZE_LIMIT"] = "25mb"
     const orderData = await request.json()
     console.log("📝 [API] Order data received:")
     console.log("   Items count:", orderData.items?.length || 0)
