@@ -487,178 +487,237 @@ export function Navigation() {
                      {/* Mobile Navigation */}
            <AnimatePresence>
              {isOpen && (
-               <>
-                 {/* Backdrop */}
-                 <motion.div
-                   initial={{ opacity: 0 }}
-                   animate={{ opacity: 1 }}
-                   exit={{ opacity: 0 }}
-                   className="fixed inset-0 bg-black/50 z-40 md:hidden"
-                   onClick={() => setIsOpen(false)}
-                 />
-                 {/* Mobile Menu */}
-                 <motion.div
-                   initial={{ x: "-100%" }}
-                   animate={{ x: 0 }}
-                   exit={{ x: "-100%" }}
-                   transition={{ duration: 0.3, ease: "easeInOut" }}
-                   className={`fixed top-0 left-0 h-full w-4/5 max-w-sm z-50 mobile-navigation ${getMobileMenuStyling()}`}
-                   onClick={(e) => e.stopPropagation()}
-                 >
-                   <div className="p-6 flex flex-col h-full">
-                     {/* Menu Header */}
-                     <div className="flex items-center justify-between pb-4 border-b border-white/20">
-                       <Link href="/" onClick={() => setIsOpen(false)}>
-                         <Image
-                           src="/Anod-logo-white.png"
-                           alt="Alanod"
-                           width={120}
-                           height={40}
-                         />
-                       </Link>
-                       <button
-                         onClick={() => setIsOpen(false)}
-                         className="p-2 text-white/80 hover:text-white"
-                       >
-                         <X className="h-5 w-5" />
-                       </button>
-                     </div>
-                     {/* Navigation Links */}
-                     <div className="flex-grow py-6 space-y-2 overflow-y-auto">
-                       <Link
-                         href="/"
-                         className={`block px-4 py-3 rounded-lg text-lg transition-colors ${getTextColors(isActiveLink("/"))}`}
-                         onClick={() => setIsOpen(false)}
-                       >
-                         {t("home")}
-                       </Link>
-                       <Link
-                         href="/about"
-                         className={`block px-4 py-3 rounded-lg text-lg transition-colors ${getTextColors(isActiveLink("/about"))}`}
-                         onClick={() => setIsOpen(false)}
-                       >
-                         {t("about")}
-                       </Link>
-                       {/* Collections Dropdown */}
-                       <div>
-                         <div className="flex items-center justify-between">
+               <motion.div
+                 initial={{ opacity: 0, height: 0 }}
+                 animate={{ opacity: 1, height: "auto" }}
+                 exit={{ opacity: 0, height: 0 }}
+                 transition={{ duration: 0.3 }}
+                                  className={`md:hidden mobile-navigation ${getMobileMenuStyling()}`}
+                 onClick={(e) => e.stopPropagation()}
+                 onMouseDown={(e) => e.stopPropagation()}
+               >
+                 <div className="py-4 space-y-4">
+                  <Link
+                    href="/"
+                    className={`relative block px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/"))}`}
+                    onClick={() => setIsOpen(false)}
+                  >
+                                         {isActiveLink("/") && (
+                       <div className={`absolute inset-0 rounded-xl ${
+                         !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                       }`} />
+                     )}
+                    <span className="relative z-10">{t("home")}</span>
+                  </Link>
+                  <Link
+                    href="/about"
+                    className={`relative block px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/about"))}`}
+                    onClick={() => setIsOpen(false)}
+                  >
+                                         {isActiveLink("/about") && (
+                       <div className={`absolute inset-0 rounded-xl ${
+                         !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                       }`} />
+                     )}
+                    <span className="relative z-10">{t("about")}</span>
+                  </Link>
+                                                                           <div className="space-y-2 products-dropdown">
+                      <div className="flex items-center justify-between">
+                        <Link
+                          href="/products"
+                          className={`relative flex-1 px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/products"))}`}
+                          onClick={() => setIsOpen(false)}
+                        >
+                                                     {isActiveLink("/products") && (
+                             <div className={`absolute inset-0 rounded-xl ${
+                               !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                             }`} />
+                           )}
+                          <span className="relative z-10">{t("collections")}</span>
+                        </Link>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setProductsOpen(!productsOpen)
+                          }}
+                          className={`p-2 transition-colors ${
+                            !isHomePage || isScrolled ? 'text-gray-600 hover:text-black' : 'text-white/60 hover:text-white'
+                          }`}
+                        >
+                          <ChevronDown className={`h-4 w-4 transition-transform ${productsOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                     
+                     {/* Product Collections - Collapsible */}
+                     <AnimatePresence>
+                       {productsOpen && (
+                         <motion.div
+                           initial={{ opacity: 0, height: 0 }}
+                           animate={{ opacity: 1, height: "auto" }}
+                           exit={{ opacity: 0, height: 0 }}
+                           transition={{ duration: 0.2 }}
+                           className="ml-4 space-y-1 overflow-hidden"
+                         >
                            <Link
-                             href="/products"
-                             className={`flex-1 block px-4 py-3 rounded-lg text-lg transition-colors ${getTextColors(isActiveLink("/products"))}`}
+                             href="/products/winter"
+                             className={`relative block px-4 py-2 text-sm transition-colors rounded-lg ${
+                               !isHomePage || isScrolled 
+                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/winter") ? "text-purple-600" : ""}`
+                                 : `text-white/70 hover:text-white ${isActiveLink("/products/winter") ? "text-white" : ""}`
+                             }`}
                              onClick={() => setIsOpen(false)}
                            >
-                             {t("collections")}
+                             {isActiveLink("/products/winter") && (
+                               <div className={`absolute inset-0 rounded-xl ${
+                                 !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                               }`} />
+                             )}
+                           <span className="relative z-10">{t("winterCollection")}</span>
                            </Link>
-                           <button
-                             onClick={() => setProductsOpen(!productsOpen)}
-                             className="p-2 text-white/60 hover:text-white"
+                           <Link
+                             href="/products/summer"
+                             className={`relative block px-4 py-2 text-sm transition-colors rounded-lg ${
+                               !isHomePage || isScrolled 
+                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/summer") ? "text-purple-600" : ""}`
+                                 : `text-white/70 hover:text-white ${isActiveLink("/products/summer") ? "text-white" : ""}`
+                             }`}
+                             onClick={() => setIsOpen(false)}
                            >
-                             <ChevronDown className={`h-5 w-5 transition-transform ${productsOpen ? 'rotate-180' : ''}`} />
-                           </button>
-                         </div>
-                         <AnimatePresence>
-                           {productsOpen && (
-                             <motion.div
-                               initial={{ height: 0, opacity: 0 }}
-                               animate={{ height: "auto", opacity: 1 }}
-                               exit={{ height: 0, opacity: 0 }}
-                               transition={{ duration: 0.2 }}
-                               className="ml-4 mt-2 space-y-1 border-l border-white/20 pl-4"
-                             >
-                               <Link
-                                 href="/products/winter"
-                                 className={`block px-4 py-2 rounded-lg text-base transition-colors ${getTextColors(isActiveLink("/products/winter"))}`}
-                                 onClick={() => setIsOpen(false)}
-                               >
-                                 {t("winterCollection")}
-                               </Link>
-                               <Link
-                                 href="/products/summer"
-                                 className={`block px-4 py-2 rounded-lg text-base transition-colors ${getTextColors(isActiveLink("/products/summer"))}`}
-                                 onClick={() => setIsOpen(false)}
-                               >
-                                 {t("summerCollection")}
-                               </Link>
-                               <Link
-                                 href="/products/fall"
-                                 className={`block px-4 py-2 rounded-lg text-base transition-colors ${getTextColors(isActiveLink("/products/fall"))}`}
-                                 onClick={() => setIsOpen(false)}
-                               >
-                                 {t("fallCollection")}
-                               </Link>
-                             </motion.div>
-                           )}
-                         </AnimatePresence>
-                       </div>
-                       <Link
-                         href="/contact"
-                         className={`block px-4 py-3 rounded-lg text-lg transition-colors ${getTextColors(isActiveLink("/contact"))}`}
-                         onClick={() => setIsOpen(false)}
-                       >
-                         {t("contact")}
-                       </Link>
-                     </div>
-                     {/* Auth/User Section */}
-                     <div className="pt-4 border-t border-white/20">
-                       {!authState.isAuthenticated ? (
-                         <div className="space-y-2">
-                           <Link href="/auth/login" onClick={() => setIsOpen(false)}>
-                             <Button
-                               variant="ghost"
-                               className={`w-full justify-start text-lg ${buttonStyling.signIn}`}
-                             >
-                               {t("signIn")}
-                             </Button>
+                             {isActiveLink("/products/summer") && (
+                               <div className={`absolute inset-0 rounded-xl ${
+                                 !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                               }`} />
+                             )}
+                           <span className="relative z-10">{t("summerCollection")}</span>
                            </Link>
-                           <Link href="/auth/register" onClick={() => setIsOpen(false)}>
-                             <Button
-                               className={`w-full text-lg ${buttonStyling.signUp}`}
-                             >
-                               {t("signUp")}
-                             </Button>
-                           </Link>
-                         </div>
-                       ) : (
-                         <div className="space-y-2">
-                           <div className="px-4 py-2">
-                             <p className="text-base font-medium text-white">{authState.user?.name}</p>
-                             <p className="text-sm text-white/70">{authState.user?.email}</p>
-                           </div>
-                           {authState.user?.role !== "admin" && (
-                             <Link
-                               href="/account"
-                               className={`block px-4 py-3 rounded-lg text-lg transition-colors ${getTextColors(isActiveLink("/account"))}`}
-                               onClick={() => setIsOpen(false)}
-                             >
-                               {t("myAccount")}
-                             </Link>
-                           )}
-                           {authState.user?.role === "admin" && (
-                             <Link
-                               href="/admin/dashboard"
-                               className={`block px-4 py-3 rounded-lg text-lg transition-colors ${getTextColors(isActiveLink("/admin/dashboard"))}`}
-                               onClick={() => setIsOpen(false)}
-                             >
-                               {t("adminDashboard")}
-                             </Link>
-                           )}
-                           <button
-                             onClick={() => {
-                               handleLogout()
-                               setIsOpen(false)
-                             }}
-                             className={`w-full text-left px-4 py-3 rounded-lg text-lg transition-colors text-red-400 hover:bg-white/10`}
+                           <Link
+                             href="/products/fall"
+                             className={`relative block px-4 py-2 text-sm transition-colors rounded-lg ${
+                               !isHomePage || isScrolled 
+                                 ? `text-gray-600 hover:text-black ${isActiveLink("/products/fall") ? "text-purple-600" : ""}`
+                                 : `text-white/70 hover:text-white ${isActiveLink("/products/fall") ? "text-white" : ""}`
+                             }`}
+                             onClick={() => setIsOpen(false)}
                            >
-                             {t("signOut")}
-                           </button>
-                         </div>
+                             {isActiveLink("/products/fall") && (
+                               <div className={`absolute inset-0 rounded-xl ${
+                                 !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                               }`} />
+                             )}
+                             <span className="relative z-10">{t("fallCollection")}</span>
+                           </Link>
+                         </motion.div>
                        )}
-                     </div>
+                     </AnimatePresence>
                    </div>
-                 </motion.div>
-               </>
-             )}
-           </AnimatePresence>
+                  <Link
+                    href="/contact"
+                    className={`relative block px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/contact"))}`}
+                    onClick={() => setIsOpen(false)}
+                  >
+                                         {isActiveLink("/contact") && (
+                       <div className={`absolute inset-0 rounded-xl ${
+                         !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                       }`} />
+                     )}
+                    <span className="relative z-10">{t("contact")}</span>
+                  </Link>
+
+                  
+
+                  {!authState.isAuthenticated ? (
+                    <div className={`flex flex-col space-y-2 pt-4 ${
+                      !isHomePage || isScrolled ? 'border-t border-gray-200' : 'border-t border-white/20'
+                    }`}>
+                      <Link 
+                        href="/auth/login" 
+                        onClick={() => setIsOpen(false)}
+                        className={`relative block ${
+                          isActiveLink("/auth/login") ? "opacity-100" : ""
+                        }`}
+                      >
+                                                 {isActiveLink("/auth/login") && (
+                           <div className={`absolute inset-0 rounded-xl ${
+                             !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                           }`} />
+                         )}
+                        <Button 
+                          variant="ghost" 
+                          className={`w-full justify-start relative z-10 transition-all ${buttonStyling.signIn}`}
+                        >
+                          {t("signIn")}
+                        </Button>
+                      </Link>
+                      <Link 
+                        href="/auth/register" 
+                        onClick={() => setIsOpen(false)}
+                        className={`relative block ${
+                          isActiveLink("/auth/register") ? "opacity-100" : ""
+                        }`}
+                      >
+                                                 {isActiveLink("/auth/register") && (
+                           <div className={`absolute inset-0 rounded-xl ${
+                             !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                           }`} />
+                         )}
+                        <Button className={`w-full relative z-10 transition-all ${buttonStyling.signUp}`}>
+                          {t("signUp")}
+                        </Button>
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className={`pt-4 space-y-2 ${
+                      !isHomePage || isScrolled ? 'border-t border-gray-200' : 'border-t border-white/20'
+                    }`}>
+                      <p className={`text-sm font-medium ${
+                        !isHomePage || isScrolled ? 'text-gray-900' : 'text-white'
+                      }`}>{authState.user?.name}</p>
+                      {authState.user?.role !== "admin" && (
+                        <Link
+                          href="/account"
+                          className={`relative block px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/account"))}`}
+                          onClick={() => setIsOpen(false)}
+                        >
+                                                     {isActiveLink("/account") && (
+                             <div className={`absolute inset-0 rounded-xl ${
+                               !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                             }`} />
+                           )}
+                          <span className="relative z-10">{t("myAccount")}</span>
+                        </Link>
+                      )}
+                      {authState.user?.role === "admin" && (
+                        <Link
+                          href="/admin/dashboard"
+                          className={`relative block px-4 py-3 transition-colors rounded-lg ${getTextColors(isActiveLink("/admin/dashboard"))}`}
+                          onClick={() => setIsOpen(false)}
+                        >
+                                                     {isActiveLink("/admin/dashboard") && (
+                             <div className={`absolute inset-0 rounded-xl ${
+                               !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
+                             }`} />
+                           )}
+                          <span className="relative z-10">{t("adminDashboard")}</span>
+                        </Link>
+                      )}
+                      <button
+                        onClick={() => {
+                          handleLogout()
+                          setIsOpen(false)
+                        }}
+                        className={`block w-full text-left transition-colors ${
+                          !isHomePage || isScrolled ? 'text-red-600 hover:text-red-700' : 'text-red-400 hover:text-red-300'
+                        }`}
+                      >
+                        {t("signOut")}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </nav>
     </>

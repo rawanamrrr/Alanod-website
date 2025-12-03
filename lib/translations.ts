@@ -14,9 +14,9 @@ export const translations = {
     adminDashboard: "Admin Dashboard",
     
     // Home Page
-    embraceYour: "Embrace Your",
-    soiréeMoment: "Soirée Moment",
-    homeDescription: "Step into gowns that move like poetry. Each Alanoud Alqadi silhouette is draped, beaded, and tailored by hand so every entrance feels cinematic and every celebration unforgettable.",
+    embraceYour: "Where Elegance",
+    soiréeMoment: "Meets Evening",
+    homeDescription: "Discover gowns crafted with poetic motion. Each Alanoud Alqadi silhouette is meticulously draped, beaded, and tailored by hand, ensuring every entrance is cinematic and every celebration unforgettable.",
     exploreCollections: "Explore Collections",
     coutureCapsules: "Couture Capsules",
     coutureCapsulesDesc: "Explore four signature worlds of Alanoud Alqadi—each curated for a different kind of celebration, from intimate soirées to grand ballroom affairs.",
@@ -164,8 +164,6 @@ export const translations = {
     // Auth Pages - Forgot Password
     forgotPasswordTitle: "Forgot Password",
     forgotPasswordDesc: "Enter your email to receive a password reset link.",
-    yourEmail: "Your email",
-    sending: "Sending...",
     sendResetLink: "Send Reset Link",
     somethingWentWrong: "Something went wrong.",
     networkError: "Network error. Please try again.",
@@ -212,9 +210,9 @@ export const translations = {
     adminDashboard: "لوحة التحكم",
     
     // Home Page
-    embraceYour: "احتضني",
-    soiréeMoment: "لحظة السواريه",
-    homeDescription: "خطي إلى فساتين تتحرك كالشعر. كل تصميم من تصميمات العنود القاضي يُصنع باليد، ويُطرز بعناية، ويُخاط بدقة حتى يكون كل دخول سينمائياً وكل احتفال لا يُنسى.",
+    embraceYour: "حيث تلتقي الأناقة",
+    soiréeMoment: "بالمساء",
+    homeDescription: "اكتشفي فساتين صُنعت بحركة شاعرية. كل تصميم من توقيع العنود القاضي مُصمم ومُطرز ومُفصل يدويًا بدقة، ليضمن أن يكون كل دخول سينمائيًا وكل احتفال لا يُنسى.",
     exploreCollections: "استكشف المجموعات",
     coutureCapsules: "كبسولات الكوتور",
     coutureCapsulesDesc: "استكشف أربع عوالم مميزة من العنود القاضي—كل واحدة مصممة لنوع مختلف من الاحتفالات، من السواريه الحميمة إلى حفلات القاعة الكبرى.",
@@ -362,8 +360,6 @@ export const translations = {
     // Auth Pages - Forgot Password
     forgotPasswordTitle: "نسيت كلمة المرور",
     forgotPasswordDesc: "أدخلي بريدك الإلكتروني لاستلام رابط إعادة تعيين كلمة المرور.",
-    yourEmail: "بريدك الإلكتروني",
-    sending: "جاري الإرسال...",
     sendResetLink: "إرسال رابط إعادة التعيين",
     somethingWentWrong: "حدث خطأ ما.",
     networkError: "خطأ في الشبكة. يرجى المحاولة مرة أخرى.",
