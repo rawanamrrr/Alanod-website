@@ -185,6 +185,16 @@ export default function AdminDashboard() {
     return date.toISOString().slice(0, 16)
   }
 
+  const formatPriceUSD = (price: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)
+  }
+
+  const formatPriceByCountry = (price: number, countryCode?: string) => {
+    const locale = countryCode === 'EG' ? 'ar-EG' : 'en-US';
+    const currency = countryCode === 'EG' ? 'EGP' : 'USD';
+    return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(price);
+  };
+
   const fetchData = async () => {
     try {
       const token = getAuthToken()
@@ -721,7 +731,7 @@ export default function AdminDashboard() {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div className="mb-2 sm:mb-0">
                       <p className="text-xs sm:text-sm text-gray-600">Total Revenue</p>
-                      <p className="text-lg sm:text-2xl font-light">{totalRevenue.toFixed(0)} EGP</p>
+                      <p className="text-lg sm:text-2xl font-light">{formatPriceUSD(totalRevenue)}</p>
                       <p className="text-xs text-gray-500 hidden sm:block">Excluding shipping</p>
                     </div>
                     <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 self-end sm:self-auto" />
@@ -943,7 +953,7 @@ export default function AdminDashboard() {
                                                 transition={{ duration: 0.4, delay: 0.4 }}
                                                 viewport={{ once: true }}
                                               >
-                                                EGP {packageOriginalPrice.toFixed(0)}
+                                                USD {packageOriginalPrice.toFixed(0)}
                                               </motion.span>
                                               <motion.span 
                                                 className="text-red-600 font-bold text-xl"
@@ -952,7 +962,7 @@ export default function AdminDashboard() {
                                                 transition={{ duration: 0.4, delay: 0.5 }}
                                                 viewport={{ once: true }}
                                               >
-                                                EGP {packagePrice.toFixed(0)}
+                                                USD {packagePrice.toFixed(0)}
                                               </motion.span>
                                               <motion.span 
                                                 className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-full"
@@ -962,7 +972,7 @@ export default function AdminDashboard() {
                                                 viewport={{ once: true }}
                                                 whileHover={{ scale: 1.05 }}
                                               >
-                                                Save EGP {(packageOriginalPrice - packagePrice).toFixed(0)}
+                                                Save USD {(packageOriginalPrice - packagePrice).toFixed(0)}
                                               </motion.span>
                                             </motion.div>
                                           );
@@ -975,7 +985,7 @@ export default function AdminDashboard() {
                                               transition={{ duration: 0.5, delay: 0.3 }}
                                               viewport={{ once: true }}
                                             >
-                                              EGP {packagePrice.toFixed(0)}
+                                              USD {packagePrice.toFixed(0)}
                                             </motion.span>
                                           );
                                         }
@@ -1001,7 +1011,7 @@ export default function AdminDashboard() {
                                               transition={{ duration: 0.4, delay: 0.4 }}
                                               viewport={{ once: true }}
                                             >
-                                              EGP {smallestOriginalPrice.toFixed(0)}
+                                              USD {smallestOriginalPrice.toFixed(0)}
                                             </motion.span>
                                             <motion.span 
                                               className="text-red-600 font-bold text-xl"
@@ -1010,7 +1020,7 @@ export default function AdminDashboard() {
                                               transition={{ duration: 0.4, delay: 0.5 }}
                                               viewport={{ once: true }}
                                             >
-                                              EGP {smallestPrice.toFixed(0)}
+                                              USD {smallestPrice.toFixed(0)}
                                             </motion.span>
                                             <motion.span 
                                               className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-full"
@@ -1020,7 +1030,7 @@ export default function AdminDashboard() {
                                               viewport={{ once: true }}
                                               whileHover={{ scale: 1.05 }}
                                             >
-                                              Save EGP {(smallestOriginalPrice - smallestPrice).toFixed(0)}
+                                              Save USD {(smallestOriginalPrice - smallestPrice).toFixed(0)}
                                             </motion.span>
                                           </motion.div>
                                        );
@@ -1033,7 +1043,7 @@ export default function AdminDashboard() {
                                             transition={{ duration: 0.5, delay: 0.3 }}
                                             viewport={{ once: true }}
                                           >
-                                            EGP {smallestPrice.toFixed(0)}
+                                            USD {smallestPrice.toFixed(0)}
                                           </motion.span>
                                         );
                                      }
@@ -1166,7 +1176,7 @@ export default function AdminDashboard() {
                                   <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
                                     <div className="mb-2 sm:mb-0">
                                       <p className="font-medium text-sm sm:text-base">Order #{order.id}</p>
-                                      <p className="text-xs sm:text-sm text-gray-600">{order.shippingAddress.name}</p>
+                                      <p className="text-sm text-gray-500">Total: {formatPriceByCountry(order.total, order.shippingAddress.countryCode)}</p>
                                       {order.shippingAddress.phone && (
                                         <p className="text-xs sm:text-sm text-gray-600">{order.shippingAddress.phone}{order.shippingAddress.secondaryPhone ? ` / ${order.shippingAddress.secondaryPhone}` : ""}</p>
                                       )}
@@ -1174,7 +1184,7 @@ export default function AdminDashboard() {
                                     </div>
                                   <div className="flex-1">
                                       <p className="text-xs sm:text-sm text-gray-600">
-                                        {order.items.length} item(s) • {total.toFixed(0)} EGP
+                                        {order.items.length} item(s) • {formatPriceByCountry(total, order.shippingAddress.countryCode)}
                                     </p>
                                       <p className="text-xs text-gray-500 truncate sm:truncate-none">
                                       {order.items.map((item: any) => {
@@ -1309,7 +1319,7 @@ export default function AdminDashboard() {
                           {(discountForm.type === "percentage" || discountForm.type === "fixed") && (
                             <div>
                               <Label htmlFor="value" className="text-sm">
-                                Value * {discountForm.type === "percentage" ? "(%)" : "(EGP)"}
+                                Value * {discountForm.type === "percentage" ? "(%)" : "(USD)"}
                               </Label>
                               <Input
                                 id="value"
@@ -1386,7 +1396,7 @@ export default function AdminDashboard() {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
-                            <Label htmlFor="minOrderAmount" className="text-sm">Min Order Amount (EGP)</Label>
+                            <Label htmlFor="minOrderAmount" className="text-sm">Min Order Amount (USD)</Label>
                             <Input
                               id="minOrderAmount"
                               type="number"
@@ -1460,7 +1470,7 @@ export default function AdminDashboard() {
                                     {code.type === "percentage" 
                                       ? `${code.value}%` 
                                       : code.type === "fixed" 
-                                        ? `${code.value} EGP` 
+                                        ? `${code.value} USD` 
                                         : code.type === "buyXgetX"
                                           ? `Buy ${code.buyX} Get ${code.getX}`
                                           : `Buy ${code.buyX} Get ${code.discountPercentage}% Off`}
@@ -1468,7 +1478,7 @@ export default function AdminDashboard() {
                                 </div>
                               </div>
                               <div className="text-xs sm:text-sm text-gray-600 space-y-1">
-                                {code.minOrderAmount && <p>Min order: {code.minOrderAmount} EGP</p>}
+                                {code.minOrderAmount && <p>Min order: {code.minOrderAmount} USD</p>}
                                 {code.maxUses && (
                                   <p>
                                     Uses: {code.currentUses}/{code.maxUses}
@@ -1683,12 +1693,12 @@ export default function AdminDashboard() {
                       <div className="space-y-4">
                         <div className="flex justify-between text-sm">
                           <span>Total Revenue (Excluding Shipping)</span>
-                          <span className="font-medium">{totalRevenue.toFixed(0)} EGP</span>
+                          <span className="font-medium">{totalRevenue.toFixed(0)} USD</span>
                         </div>
                         <div className="flex justify-between text-sm">
                           <span>Average Order Value</span>
                           <span className="font-medium">
-                            {orders.length > 0 ? (totalRevenue / orders.length).toFixed(0) : "0"} EGP
+                            {orders.length > 0 ? (totalRevenue / orders.length).toFixed(0) : "0"} USD
                           </span>
                         </div>
                         <div className="flex justify-between text-sm">

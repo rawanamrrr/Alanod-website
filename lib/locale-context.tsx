@@ -41,7 +41,7 @@ const DEFAULT_COUNTRY: CountryConfig = {
   name: "United States",
   currencyCode: "USD",
   currencySymbol: "$",
-  languages: ["en"],
+  languages: ["en", "ar"],
   locale: "en-US"
 }
 
@@ -84,7 +84,7 @@ const COUNTRY_OPTIONS: CountryConfig[] = [
     name: "United Kingdom",
     currencyCode: "GBP",
     currencySymbol: "£",
-    languages: ["en"],
+    languages: ["en", "ar"],
     locale: "en-GB"
   },
   {

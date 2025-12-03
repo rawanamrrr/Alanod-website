@@ -652,7 +652,7 @@ export default function HomePage() {
             className="text-center space-y-4"
           >
             <motion.h1 
-              className="text-4xl md:text-6xl font-light tracking-wider text-gray-900"
+              className="text-4xl md:text-6xl font-light tracking-wider text-gray-900 font-serif"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.3 }}
@@ -661,7 +661,7 @@ export default function HomePage() {
               {t("embraceYour")}
             </motion.h1>
             <motion.h2 
-              className="text-4xl md:text-6xl font-light tracking-wider text-gray-900"
+              className="text-4xl md:text-6xl font-light tracking-wider text-gray-900 font-serif"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.5 }}
@@ -722,7 +722,7 @@ export default function HomePage() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-4">{t("allProducts")}</h2>
+            <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-4 font-serif">{t("allProducts")}</h2>
             <motion.div
               initial={{ width: 0 }}
               whileInView={{ width: "100px" }}

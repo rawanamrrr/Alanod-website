@@ -18,8 +18,6 @@ import { useTranslation } from "@/lib/translations"
 import { useLocale } from "@/lib/locale-context"
 import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
-import { useLocale } from "@/lib/locale-context"
-import { useTranslation } from "@/lib/translations"
 
 interface FavoriteItem {
   id: string
