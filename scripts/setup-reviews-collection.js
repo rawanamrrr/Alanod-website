@@ -8,7 +8,7 @@ async function setupReviewsCollection() {
     console.log("🔄 Setting up reviews collection...")
 
     await client.connect()
-    const db = client.db("sense_fragrances")
+    const db = client.db("alanod_fragrances")
 
     // Create reviews collection with indexes
     const reviewsCollection = db.collection("reviews")

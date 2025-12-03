@@ -17,7 +17,7 @@ async function runCompleteSetup() {
     const client = new MongoClient(uri)
 
     await client.connect()
-    const db = client.db("sense_fragrances")
+    const db = client.db("alanod_fragrances")
 
     // Check collections
     const collections = await db.listCollections().toArray()

@@ -7,7 +7,7 @@ async function createDiscountCollection() {
     await client.connect()
     console.log("🔄 [Database] Connected to MongoDB")
 
-    const db = client.db("sense_fragrances")
+    const db = client.db("alanod_fragrances")
 
     // Create discount collection
     const discountCollection = db.collection("discount")

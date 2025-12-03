@@ -1,6 +1,6 @@
 const { MongoClient } = require('mongodb');
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/sense";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/alanod";
 
 async function addOutOfStockToFavorites() {
   console.log("🔧 Adding out-of-stock product to favorites...");

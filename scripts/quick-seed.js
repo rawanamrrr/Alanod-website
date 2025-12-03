@@ -1,7 +1,7 @@
 const { MongoClient } = require("mongodb")
 const bcrypt = require("bcryptjs")
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/sense-fragrances"
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/alanod-fragrances"
 
 const sampleProducts = [
   {
@@ -140,7 +140,7 @@ const sampleProducts = [
 
 const sampleUsers = [
   {
-    email: "admin@sensefragrances.com",
+    email: "admin@alanodfragrances.com",
     password: "admin123",
     name: "Admin User",
     role: "admin",
@@ -192,7 +192,7 @@ async function seedDatabase() {
 
     console.log("🎉 Database seeding completed successfully!")
     console.log("\n📋 Login credentials:")
-    console.log("Admin: admin@sensefragrances.com / admin123")
+    console.log("Admin: admin@alanodfragrances.com / admin123")
     console.log("User: user@example.com / user123")
   } catch (error) {
     console.error("❌ Error seeding database:", error)

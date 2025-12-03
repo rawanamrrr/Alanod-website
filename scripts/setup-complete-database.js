@@ -8,7 +8,7 @@ async function setupCompleteDatabase() {
     console.log("🔄 Setting up complete database with all collections...")
 
     await client.connect()
-    const db = client.db("sense_fragrances")
+    const db = client.db("alanod_fragrances")
 
     // 1. Setup Reviews Collection
     console.log("📝 Setting up reviews collection...")

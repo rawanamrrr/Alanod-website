@@ -2,7 +2,7 @@ const { MongoClient } = require("mongodb")
 const bcrypt = require("bcryptjs")
 
 const uri = process.env.MONGODB_URI || "mongodb://localhost:27017"
-const dbName = "sense_fragrances"
+const dbName = "alanod_fragrances"
 
 async function seedDatabase() {
   const client = new MongoClient(uri)
