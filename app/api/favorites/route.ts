@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDatabase } from "@/lib/mongodb";
+import { supabase } from "@/lib/supabase";
 import jwt from "jsonwebtoken";
-import { ObjectId } from "mongodb";
 
 function errorResponse(message: string, status: number = 400) {
   console.error(`API Error [${status}]:`, message);
@@ -55,14 +54,14 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const db = await getDatabase();
-    console.log("Fetching user from database with ID:", decoded.userId);
-
-    const user = await db.collection("users").findOne({ 
-      _id: new ObjectId(decoded.userId) 
-    });
+    // Fetch user from Supabase
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("favorites")
+      .eq("id", decoded.userId)
+      .single();
     
-    if (!user) {
+    if (userError || !user) {
       console.log("User not found in database");
       return errorResponse("User not found", 404);
     }
@@ -77,52 +76,56 @@ export async function GET(request: NextRequest) {
 
     // Fetch product details
     console.log("Fetching favorite products from database...");
-    const products = await db.collection("products").find(
-      { id: { $in: favorites } },
-      {
-        projection: {
-          id: 1,
-          name: 1,
-          sizes: 1,
-          images: 1,
-          category: 1,
-          description: 1,
-          rating: 1,
-          isNew: 1,
-          isBestseller: 1,
-          isOutOfStock: 1,
-          isGiftPackage: 1,
-          packagePrice: 1,
-          packageOriginalPrice: 1,
-          giftPackageSizes: 1,
-        },
-      }
-    ).toArray();
+    const { data: products, error: productsError } = await supabase
+      .from("products")
+      .select(`
+        product_id,
+        name,
+        sizes,
+        images,
+        category,
+        description,
+        rating,
+        is_new,
+        is_bestseller,
+        is_out_of_stock,
+        is_gift_package,
+        package_price,
+        package_original_price,
+        gift_package_sizes
+      `)
+      .in("product_id", favorites);
 
-    console.log(`Found ${products.length} products matching favorites`);
-    console.log("Sample product sizes:", products[0]?.sizes);
+    if (productsError) {
+      console.error("Error fetching products:", productsError);
+      return errorResponse("Failed to fetch products", 500);
+    }
+
+    console.log(`Found ${products?.length || 0} products matching favorites`);
 
     // Transform products to match the expected format
-    const transformedProducts = products.map(product => ({
-      id: product.id,
+    const transformedProducts = (products || []).map((product: any) => ({
+      id: product.product_id,
       name: product.name,
-      price: product.isGiftPackage ? (product.packagePrice || 0) : getSmallestPrice(product.sizes || []),
+      price: product.is_gift_package 
+        ? (product.package_price || 0) 
+        : getSmallestPrice(product.sizes || []),
       image: product.images && product.images.length > 0 ? product.images[0] : "/placeholder.svg",
       category: product.category,
       ...(product.rating !== undefined ? { rating: product.rating } : {}),
-      isNew: product.isNew || false,
-      isBestseller: product.isBestseller || false,
-      isOutOfStock: product.isOutOfStock || false,
-      sizes: product.isGiftPackage ? [] : transformSizes(product.sizes || []),
+      isNew: product.is_new || false,
+      isBestseller: product.is_bestseller || false,
+      isOutOfStock: product.is_out_of_stock || false,
+      sizes: product.is_gift_package ? [] : transformSizes(product.sizes || []),
       // Gift package fields
-      isGiftPackage: product.isGiftPackage || false,
-      packagePrice: product.packagePrice || 0,
-      packageOriginalPrice: product.packageOriginalPrice || 0,
-      giftPackageSizes: product.giftPackageSizes || [],
+      isGiftPackage: product.is_gift_package || false,
+      packagePrice: product.package_price || 0,
+      packageOriginalPrice: product.package_original_price || 0,
+      giftPackageSizes: product.gift_package_sizes || [],
     }));
 
     // Maintain order
-    const productMap = Object.fromEntries(transformedProducts.map((p) => [p.id, p]));
+    const productMap = Object.fromEntries(transformedProducts.map((p: any) => [p.id, p]));
     const ordered = favorites.map((id) => productMap[id]).filter(Boolean);
 
     console.log("Transformed sizes for first product:", ordered[0]?.sizes);
@@ -163,22 +166,31 @@ export async function POST(request: NextRequest) {
       return errorResponse("productId required", 400);
     }
 
-    const db = await getDatabase();
-    const user = await db.collection("users").findOne({ 
-      _id: new ObjectId(decoded.userId) 
-    });
+    // Fetch user
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("favorites")
+      .eq("id", decoded.userId)
+      .single();
     
-    if (!user) {
+    if (userError || !user) {
       return errorResponse("User not found", 404);
     }
 
     const favorites: string[] = user.favorites || [];
     if (!favorites.includes(productId)) {
       const newFavorites = [...favorites, productId];
-      await db.collection("users").updateOne(
-        { _id: new ObjectId(decoded.userId) },
-        { $set: { favorites: newFavorites } }
-      );
+      
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ favorites: newFavorites })
+        .eq("id", decoded.userId);
+
+      if (updateError) {
+        console.error("Error updating favorites:", updateError);
+        return errorResponse("Failed to update favorites", 500);
+      }
+
       console.log(`Added product ${productId} to favorites`);
     }
 
@@ -213,22 +225,29 @@ export async function DELETE(request: NextRequest) {
       return errorResponse("productId required", 400);
     }
 
-    const db = await getDatabase();
-    const user = await db.collection("users").findOne({ 
-      _id: new ObjectId(decoded.userId) 
-    });
+    // Fetch user
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("favorites")
+      .eq("id", decoded.userId)
+      .single();
     
-    if (!user) {
+    if (userError || !user) {
       return errorResponse("User not found", 404);
     }
 
     const favorites: string[] = user.favorites || [];
     const newFavorites = favorites.filter((id) => id !== productId);
 
-    await db.collection("users").updateOne(
-      { _id: new ObjectId(decoded.userId) },
-      { $set: { favorites: newFavorites } }
-    );
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ favorites: newFavorites })
+      .eq("id", decoded.userId);
+
+    if (updateError) {
+      console.error("Error updating favorites:", updateError);
+      return errorResponse("Failed to update favorites", 500);
+    }
     
     console.log(`Removed product ${productId} from favorites`);
     return NextResponse.json({ success: true });

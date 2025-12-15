@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { supabase } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -16,31 +16,27 @@ export async function POST(request: NextRequest) {
     // Verify old token
     const decoded = jwt.verify(oldToken, JWT_SECRET) as { userId: string; email: string };
     
-    // Connect to MongoDB
-    const client = await MongoClient.connect(process.env.MONGODB_URI!);
-    const db = client.db();
-    const usersCollection = db.collection('users');
+    // Find user in Supabase
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, name, role')
+      .eq('id', decoded.userId)
+      .single();
 
-    // Find user
-    const user = await usersCollection.findOne(
-      { _id: new ObjectId(decoded.userId) },
-      { projection: { password: 0 } } // Exclude password
-    );
-
-    if (!user) {
+    if (error || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Create new token
     const newToken = jwt.sign(
-      { userId: user._id.toString(), email: user.email },
+      { userId: user.id, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '1h' }
     );
 
     return NextResponse.json({ 
       user: { 
-        id: user._id.toString(), 
+        id: user.id, 
         email: user.email, 
         name: user.name, 
         role: user.role 

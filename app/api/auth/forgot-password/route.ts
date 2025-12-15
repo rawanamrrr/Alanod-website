@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getDatabase } from "@/lib/mongodb"
+import { supabase } from "@/lib/supabase"
 import jwt from "jsonwebtoken"
 import nodemailer from "nodemailer"
 import type { User } from "@/lib/models/types"
@@ -13,16 +13,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
-    const db = await getDatabase()
-    const user = await db.collection<User>("users").findOne({ email })
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id, email")
+      .eq("email", email)
+      .single()
 
-    if (!user) {
+    if (error || !user) {
       // Don't reveal if user exists or not for security
       return NextResponse.json({ message: "If an account with that email exists, we've sent a reset link." })
     }
 
     // Generate reset token
-    const resetToken = jwt.sign({ userId: user._id, email: user.email }, process.env.JWT_SECRET!, { expiresIn: "1h" })
+    const resetToken = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET!, { expiresIn: "1h" })
 
     // Check environment variables
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {

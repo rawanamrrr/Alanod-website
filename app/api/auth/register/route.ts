@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
-import { getDatabase } from "@/lib/mongodb"
+import { supabase } from "@/lib/supabase"
 import type { User } from "@/lib/models/types"
 
 export async function POST(request: NextRequest) {
@@ -16,10 +16,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
     }
 
-    const db = await getDatabase()
-
     // Check if user already exists
-    const existingUser = await db.collection<User>("users").findOne({ email })
+    const { data: existingUser } = await supabase
+      .from("users")
+      .select("id")
+      .eq("email", email)
+      .single()
+
     if (existingUser) {
       return NextResponse.json({ error: "User already exists" }, { status: 409 })
     }
@@ -28,23 +31,28 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12)
 
     // Create user
-    const newUser: Omit<User, "_id"> = {
-      email,
-      password: hashedPassword,
-      name,
-      role: "user",
-      createdAt: new Date(),
-      updatedAt: new Date(),
+    const { data: newUser, error } = await supabase
+      .from("users")
+      .insert({
+        email,
+        password: hashedPassword,
+        name,
+        role: "user",
+      })
+      .select()
+      .single()
+
+    if (error || !newUser) {
+      console.error("Registration error:", error)
+      return NextResponse.json({ error: "Failed to create user" }, { status: 500 })
     }
 
-    const result = await db.collection<User>("users").insertOne(newUser)
-
-    const token = jwt.sign({ userId: result.insertedId, email, role: "user" }, process.env.JWT_SECRET!, {
+    const token = jwt.sign({ userId: newUser.id, email, role: "user" }, process.env.JWT_SECRET!, {
       expiresIn: "7d",
     })
 
     const userData = {
-      id: result.insertedId.toString(),
+      id: newUser.id,
       email,
       name,
       role: "user" as const,

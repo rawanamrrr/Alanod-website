@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import nodemailer from "nodemailer"
-import { getDatabase } from "@/lib/mongodb"
+import { supabase } from "@/lib/supabase"
 import { createEmailTemplate, createEmailSection } from "@/lib/email-templates"
 
 export async function POST(request: NextRequest) {
@@ -12,16 +12,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Get active offers
-    const db = await getDatabase()
-    const offers = await db
-      .collection("offers")
-      .find({
-        isActive: true,
-        $or: [{ expiresAt: { $exists: false } }, { expiresAt: null }, { expiresAt: { $gt: new Date() } }],
-      })
-      .sort({ priority: -1 })
+    const now = new Date().toISOString()
+    const { data: offers } = await supabase
+      .from("offers")
+      .select("*")
+      .eq("is_active", true)
+      .order("display_order", { ascending: false })
+      .order("created_at", { ascending: false })
       .limit(3)
-      .toArray()
 
     // Check environment variables
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -43,32 +41,31 @@ export async function POST(request: NextRequest) {
     })
 
     // Generate offers section
-const offersSection = offers.length > 0
-  ? createEmailSection({
-      title: "🎁 Current Offers Just For You!",
-      highlight: true,
-      content: offers
-        .map((offer) => {
-          const title = offer.title ? offer.title : ""; // ✅ prevent null
-          const description = offer.description ? offer.description : "";
-          const discountCode = offer.discountCode
-            ? `<div class="status-badge status-badge-info" style="font-family: monospace;">
-                 Code: ${offer.discountCode}
-               </div>`
-            : "";
+    const offersSection = offers && offers.length > 0
+      ? createEmailSection({
+          title: "🎁 Current Offers Just For You!",
+          highlight: true,
+          content: offers
+            .map((offer) => {
+              const title = offer.title ? offer.title : ""
+              const description = offer.description ? offer.description : ""
+              const discountCode = offer.link_url
+                ? `<div class="status-badge status-badge-info" style="font-family: monospace;">
+                     ${offer.link_url}
+                   </div>`
+                : ""
 
-          return `
-            <div class="email-card" style="margin: 15px 0;">
-              ${title ? `<h4 style="margin: 0 0 10px 0;">${title}</h4>` : ""}
-              ${description ? `<p style="margin: 0 0 15px 0;">${description}</p>` : ""}
-              ${discountCode}
-            </div>
-          `;
+              return `
+                <div class="email-card" style="margin: 15px 0;">
+                  ${title ? `<h4 style="margin: 0 0 10px 0;">${title}</h4>` : ""}
+                  ${description ? `<p style="margin: 0 0 15px 0;">${description}</p>` : ""}
+                  ${discountCode}
+                </div>
+              `
+            })
+            .join(""),
         })
-        .join(""),
-    })
-  : "";
-
+      : ""
 
     // Create email content sections
     const greeting = createEmailSection({

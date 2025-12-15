@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDatabase } from "@/lib/mongodb";
+import { supabase } from "@/lib/supabase";
 import jwt from "jsonwebtoken";
-import { ObjectId } from "mongodb";
 
 // Global cache clearing function
 const globalForCache = globalThis as typeof globalThis & {
@@ -14,6 +13,49 @@ const clearProductsCache = () => {
     cache.clear();
     console.log("🗑️ Cleared products list cache");
   }
+}
+
+async function calculateAverageRating(productId: string) {
+  console.log("🔍 Calculating average rating for productId:", productId);
+  
+  // Get all reviews that might relate to this product
+  const { data: allReviews } = await supabase
+    .from("reviews")
+    .select("*");
+
+  if (!allReviews) return 0;
+
+  // Filter reviews that match this product ID (similar to MongoDB regex logic)
+  const matchingReviews = allReviews.filter((review: any) => {
+    // Exact match
+    if (review.product_id === productId) return true;
+    // Starts with base product ID (for variations)
+    if (review.product_id?.startsWith(productId + '-')) return true;
+    // Original product ID matches
+    if (review.original_product_id?.startsWith(productId)) return true;
+    // Contains base product ID (for gift packages)
+    if (review.original_product_id?.includes(`${productId}-gift-package`)) return true;
+    return false;
+  });
+
+  // Remove duplicates
+  const uniqueReviews = matchingReviews.filter((review: any, index: number, self: any[]) => 
+    index === self.findIndex((r: any) => r.id === review.id)
+  );
+
+  console.log("🔄 Combined", matchingReviews.length, "total reviews,", uniqueReviews.length, "unique reviews");
+
+  if (uniqueReviews.length === 0) {
+    console.log("❌ No reviews found, returning 0");
+    return 0;
+  }
+
+  const total = uniqueReviews.reduce((sum: number, review: any) => sum + Number(review.rating), 0);
+  const averageRating = Math.round((total / uniqueReviews.length) * 100) / 100;
+
+  console.log("⭐ Total rating:", total, "Average rating:", averageRating, "from", uniqueReviews.length, "reviews");
+
+  return averageRating;
 }
 
 export async function POST(req: NextRequest) {
@@ -77,17 +119,37 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. Database Operations
-    const db = await getDatabase();
-    
-    // Verify order exists and is completed (shipped or delivered)
-    const order = await db.collection("orders").findOne({
-      _id: new ObjectId(orderId),
-      userId: decoded.userId,
-      status: { $in: ["shipped", "delivered"] }
-    });
+    // 4. Verify order exists and is completed (shipped or delivered)
+    // Try to find order by order_id first
+    const { data: order, error: orderError } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("order_id", orderId)
+      .eq("user_id", decoded.userId)
+      .in("status", ["shipped", "delivered"])
+      .single();
 
-    if (!order) {
+    if (orderError || !order) {
+      // Try by ID if order_id didn't work
+      const { data: orderById } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("id", orderId)
+        .eq("user_id", decoded.userId)
+        .in("status", ["shipped", "delivered"])
+        .single();
+
+      if (!orderById) {
+        return NextResponse.json(
+          { error: "Order not found or not delivered" },
+          { status: 400 }
+        );
+      }
+    }
+
+    const orderData = order || (await supabase.from("orders").select("*").eq("id", orderId).single()).data;
+
+    if (!orderData) {
       return NextResponse.json(
         { error: "Order not found or not delivered" },
         { status: 400 }
@@ -95,7 +157,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Find the specific item in the order
-    const item = order.items.find((i: any) => 
+    const items = orderData.items || [];
+    const item = items.find((i: any) => 
       i.productId === productId || i.id === productId || i.product_id === productId
     );
 
@@ -114,23 +177,18 @@ export async function POST(req: NextRequest) {
     }
 
     // EXTRACT BASE PRODUCT ID (remove size suffix like -bundle, -Travel, -Reguler, etc.)
-    // This regex removes everything after the last hyphen that follows letters/numbers
     const baseProductId = productId.replace(/-[a-zA-Z0-9]+$/, '');
     console.log("Original productId:", productId, "Base productId:", baseProductId);
     
-    // NEW: For gift packages, we need to extract the actual base product ID
-    // The pattern is: baseProduct-gift-package-timestamp
-    // We want to update the baseProduct, not the gift-package variation
+    // For gift packages, extract the actual base product ID
     let actualBaseProductId = baseProductId;
     if (baseProductId.includes('-gift-package')) {
-      // Remove everything from '-gift-package' onwards to get the real base product
       actualBaseProductId = baseProductId.replace(/-gift-package.*$/, '');
       console.log("🎁 Gift package detected, actual base product ID:", actualBaseProductId);
     }
     
-    // Debug: Log the review document being created
     console.log("Review document to be created:", {
-      productId: actualBaseProductId, // Use the ACTUAL base product ID
+      productId: actualBaseProductId,
       actualBaseProductId: actualBaseProductId,
       orderId: orderId,
       userId: decoded.userId,
@@ -139,12 +197,14 @@ export async function POST(req: NextRequest) {
       comment: body.comment || ""
     });
 
-    // Check if review already exists in main collection
-    const existingReview = await db.collection("reviews").findOne({
-      productId: actualBaseProductId,
-      userId: decoded.userId,
-      orderId: orderId
-    });
+    // Check if review already exists
+    const { data: existingReview } = await supabase
+      .from("reviews")
+      .select("id")
+      .eq("product_id", actualBaseProductId)
+      .eq("user_id", decoded.userId)
+      .eq("order_id", orderId)
+      .single();
 
     if (existingReview) {
       return NextResponse.json(
@@ -153,161 +213,103 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Save Review to main reviews collection (so product page can see it)
+    // 5. Save Review to main reviews collection
     const reviewDoc = {
-      productId: actualBaseProductId, // Use actual base product ID for gift packages
-      orderId: orderId,
-      userId: decoded.userId,
-      userName: decoded.name || decoded.email,
+      product_id: actualBaseProductId,
+      order_id: orderId,
+      user_id: decoded.userId,
+      user_name: decoded.name || decoded.email,
       rating: rating,
       comment: body.comment || "",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      isFromOrder: true, // Flag to identify order-based reviews
-      originalProductId: productId // Keep original for reference
+      original_product_id: productId, // Keep original for reference
     };
 
-    const result = await db.collection("reviews").insertOne(reviewDoc);
+    const { data: reviewResult, error: reviewError } = await supabase
+      .from("reviews")
+      .insert(reviewDoc)
+      .select()
+      .single();
 
-    // 6. Update Order - try both possible item ID fields
-    const updateResult = await db.collection("orders").updateOne(
-      { 
-        _id: new ObjectId(orderId),
-        "items.id": productId
-      },
-      {
-        $set: {
-          "items.$.reviewed": true,
-          "items.$.review": {
+    if (reviewError) {
+      console.error("Error creating review:", reviewError);
+      return NextResponse.json({ error: "Failed to create review" }, { status: 500 });
+    }
+
+    // 6. Update Order - mark item as reviewed
+    // In Supabase, we need to update the entire items array
+    const updatedItems = items.map((i: any) => {
+      if (i.productId === productId || i.id === productId || i.product_id === productId) {
+        return {
+          ...i,
+          reviewed: true,
+          review: {
             rating: rating,
             comment: body.comment || "",
             userName: decoded.name || decoded.email
-          },
-          updatedAt: new Date()
-        }
-      }
-    );
-
-    // If first update didn't work, try with productId field
-    if (updateResult.matchedCount === 0) {
-      await db.collection("orders").updateOne(
-        { 
-          _id: new ObjectId(orderId),
-          "items.productId": productId
-        },
-        {
-          $set: {
-            "items.$.reviewed": true,
-            "items.$.review": {
-              rating: rating,
-              comment: body.comment || "",
-              userName: decoded.name || decoded.email
-            },
-            updatedAt: new Date()
           }
-        }
-      );
+        };
+      }
+      return i;
+    });
+
+    const { error: updateOrderError } = await supabase
+      .from("orders")
+      .update({ items: updatedItems })
+      .eq("order_id", orderData.order_id || orderId);
+
+    if (updateOrderError) {
+      console.error("Error updating order:", updateOrderError);
+      // Don't fail the request if order update fails
     }
 
     // 7. Update product stats
     console.log("🔄 Updating product stats for actualBaseProductId:", actualBaseProductId);
     
-    // Clear the products list cache to ensure updated ratings appear in best sellers and other lists
     clearProductsCache();
     
-    // Check if the product exists in the database
-    const productExists = await db.collection("products").findOne({ id: actualBaseProductId });
-    console.log("🔍 Product found in database:", !!productExists);
-    if (productExists) {
+    // Check if the product exists
+    const { data: product } = await supabase
+      .from("products")
+      .select("product_id, name, rating, reviews")
+      .eq("product_id", actualBaseProductId)
+      .single();
+
+    console.log("🔍 Product found in database:", !!product);
+    
+    if (product) {
       console.log("📝 Current product data:", {
-        id: productExists.id,
-        name: productExists.name,
-        currentRating: productExists.rating,
-        currentReviews: productExists.reviews
+        id: product.product_id,
+        name: product.name,
+        currentRating: product.rating,
+        currentReviews: product.reviews
       });
     } else {
       console.log("❌ Product NOT found in database with id:", actualBaseProductId);
-      // Let's check what products exist with similar IDs
-      const similarProducts = await db.collection("products").find({ 
-        id: { $regex: new RegExp(actualBaseProductId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
-      }).toArray();
-      console.log("🔍 Similar products found:", similarProducts.map(p => ({ id: p.id, name: p.name })));
-      
-      // Also check if there are any products with the original productId
-      const originalProduct = await db.collection("products").findOne({ id: productId });
-      console.log("🔍 Original product found:", !!originalProduct);
-      if (originalProduct) {
-        console.log("📝 Original product data:", {
-          id: originalProduct.id,
-          name: originalProduct.name,
-          currentRating: originalProduct.rating,
-          currentReviews: originalProduct.reviews
-        });
-      }
     }
     
-    const calculatedRating = await calculateAverageRating(db, actualBaseProductId);
+    const calculatedRating = await calculateAverageRating(actualBaseProductId);
     console.log("📊 Calculated rating:", calculatedRating);
     
-    // Verify the calculated rating is valid
-    if (calculatedRating === 0) {
-      console.log("⚠️ Warning: Calculated rating is 0, this might indicate an issue with review aggregation");
-    }
-    
-    const productUpdateResult = await db.collection("products").updateOne(
-      { id: actualBaseProductId }, // Update the actual base product
-      {
-        $inc: { reviews: 1 },
-        $set: { 
-          updatedAt: new Date(),
-          rating: calculatedRating
-        }
-      }
-    );
-    
-    console.log("✅ Product update result:", productUpdateResult);
-    console.log("📝 Matched count:", productUpdateResult.matchedCount, "Modified count:", productUpdateResult.modifiedCount);
-    
-    // If the update didn't work, let's try to find the product by a different method
-    if (productUpdateResult.matchedCount === 0) {
-      console.log("⚠️ Product update failed - no product found with id:", actualBaseProductId);
-      console.log("🔍 Trying to find product by _id or other fields...");
-      
-      // Check if there's a product with a similar ID
-      const allProducts = await db.collection("products").find({}).toArray();
-      const matchingProducts = allProducts.filter(p => 
-        p.id.includes(actualBaseProductId) || actualBaseProductId.includes(p.id)
-      );
-      console.log("🔍 Products with similar IDs:", matchingProducts.map(p => ({ id: p.id, name: p.name })));
-      
-      // Try to update by similar ID if exact match failed
-      if (matchingProducts.length > 0) {
-        console.log("🔄 Attempting to update product with similar ID:", matchingProducts[0].id);
-        const fallbackUpdate = await db.collection("products").updateOne(
-          { id: matchingProducts[0].id },
-          {
-            $inc: { reviews: 1 },
-            $set: { 
-              updatedAt: new Date(),
-              rating: calculatedRating
-            }
-          }
-        );
-        console.log("🔄 Fallback update result:", fallbackUpdate);
+    // Get review count
+    const { count: reviewCount } = await supabase
+      .from("reviews")
+      .select("*", { count: 'exact', head: true })
+      .eq("product_id", actualBaseProductId);
+
+    // Update the product rating and review count
+    if (product) {
+      const { error: productUpdateError } = await supabase
+        .from("products")
+        .update({
+          rating: calculatedRating,
+          reviews: reviewCount || 0,
+        })
+        .eq("product_id", actualBaseProductId);
+
+      if (productUpdateError) {
+        console.error("Error updating product:", productUpdateError);
       } else {
-        // If no similar products found, try to update the original product ID
-        console.log("🔄 Attempting to update original product ID:", productId);
-        const originalProductUpdate = await db.collection("products").updateOne(
-          { id: productId },
-          {
-            $inc: { reviews: 1 },
-            $set: { 
-              updatedAt: new Date(),
-              rating: calculatedRating
-            }
-          }
-        );
-        console.log("🔄 Original product update result:", originalProductUpdate);
+        console.log("✅ Product updated successfully");
       }
     }
 
@@ -316,7 +318,8 @@ export async function POST(req: NextRequest) {
       message: "Review submitted successfully",
       review: {
         ...reviewDoc,
-        _id: result.insertedId.toString()
+        id: reviewResult.id,
+        _id: reviewResult.id, // For backward compatibility
       }
     });
 
@@ -330,88 +333,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-async function calculateAverageRating(db: any, productId: string) {
-  console.log("🔍 Calculating average rating for productId:", productId);
-  
-  // 1. Get reviews where productId exactly matches the base product ID
-  const directReviews = await db.collection("reviews")
-    .find({ productId: productId })
-    .toArray();
-  
-  console.log("📊 Found", directReviews.length, "direct reviews with productId:", productId);
-  
-  // 2. Get reviews where productId contains the base product ID as a substring
-  const escapedBaseId = productId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const productIdPattern = new RegExp(escapedBaseId, 'i');
-  
-  const substringReviews = await db.collection("reviews")
-    .find({ productId: { $regex: productIdPattern } })
-    .toArray();
-  
-  console.log("🔗 Found", substringReviews.length, "reviews with productId containing base ID as substring");
-  
-  // 3. Get reviews where originalProductId matches the base product ID
-  const originalProductIdReviews = await db.collection("reviews")
-    .find({ originalProductId: { $regex: new RegExp(`^${escapedBaseId}`, 'i') } })
-    .toArray();
-  
-  console.log("🎁 Found", originalProductIdReviews.length, "reviews with originalProductId matching base ID");
-  
-  // 4. Get reviews where originalProductId contains the base product ID as a substring
-  const relatedOriginalProductIdReviews = await db.collection("reviews")
-    .find({ originalProductId: { $regex: productIdPattern } })
-    .toArray();
-  
-  console.log("🔗 Found", relatedOriginalProductIdReviews.length, "reviews with originalProductId containing base ID as substring");
-  
-  // 5. NEW: Get reviews for gift packages that were created from this base product
-  // This handles cases where someone reviews a gift package and we need to find the base product
-  const giftPackageReviews = await db.collection("reviews")
-    .find({ 
-      $or: [
-        { originalProductId: { $regex: new RegExp(`^${escapedBaseId}-gift-package`, 'i') } },
-        { originalProductId: { $regex: new RegExp(`^${escapedBaseId}-gift-package.*`, 'i') } }
-      ]
-    })
-    .toArray();
-  
-  console.log("🎁 Found", giftPackageReviews.length, "gift package reviews for base product");
-  
-  // Combine ALL sets of reviews and remove duplicates based on _id
-  const allReviews = [
-    ...directReviews, 
-    ...substringReviews, 
-    ...originalProductIdReviews, 
-    ...relatedOriginalProductIdReviews,
-    ...giftPackageReviews
-  ];
-  
-  const uniqueReviews = allReviews.filter((review, index, self) => 
-    index === self.findIndex(r => r._id.toString() === review._id.toString())
-  );
-  
-  console.log("🔄 Combined", allReviews.length, "total reviews,", uniqueReviews.length, "unique reviews");
-  
-  // Debug: Show what reviews we found
-  console.log("📋 All unique reviews found:", uniqueReviews.map((r: any) => ({ 
-    _id: r._id.toString(),
-    productId: r.productId, 
-    originalProductId: r.originalProductId, 
-    rating: r.rating,
-    comment: r.comment?.substring(0, 30) + "..."
-  })));
-  
-  if (uniqueReviews.length === 0) {
-    console.log("❌ No reviews found, returning 0");
-    return 0;
-  }
-  
-  const total = uniqueReviews.reduce((sum: number, review: any) => sum + review.rating, 0);
-  const averageRating = Math.round((total / uniqueReviews.length) * 100) / 100;
-  
-  console.log("⭐ Total rating:", total, "Average rating:", averageRating, "from", uniqueReviews.length, "reviews");
-  
-  return averageRating;
 }

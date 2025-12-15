@@ -15,7 +15,7 @@ const nextConfig = {
       bodySizeLimit: '25mb', // Increase body size limit for server actions
     },
     // Enable server components
-    serverComponentsExternalPackages: ['mongodb'],
+    // MongoDB removed - using Supabase now
   },
 
   // Configure images

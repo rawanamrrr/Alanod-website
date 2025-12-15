@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getDatabase } from "@/lib/mongodb"
+import { supabase } from "@/lib/supabase"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs"
 import type { User } from "@/lib/models/types"
@@ -24,10 +24,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid or expired reset token" }, { status: 400 })
     }
 
-    const db = await getDatabase()
-    const user = await db.collection<User>("users").findOne({ _id: decoded.userId })
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("id", decoded.userId)
+      .single()
 
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
@@ -35,15 +38,15 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12)
 
     // Update password
-    await db.collection<User>("users").updateOne(
-      { _id: decoded.userId },
-      {
-        $set: {
-          password: hashedPassword,
-          updatedAt: new Date(),
-        },
-      },
-    )
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ password: hashedPassword })
+      .eq("id", decoded.userId)
+
+    if (updateError) {
+      console.error("Error updating password:", updateError)
+      return NextResponse.json({ error: "Failed to update password" }, { status: 500 })
+    }
 
     return NextResponse.json({ message: "Password reset successfully" })
   } catch (error) {

@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import { getDatabase } from "@/lib/mongodb"
-import { ObjectId } from "mongodb"
+import { supabase } from "@/lib/supabase"
 import type { Product } from "@/lib/models/types"
 
 type CachedProductsEntry = {
@@ -92,6 +91,36 @@ const errorResponse = (message: string, status: number) => {
   )
 }
 
+// Transform Supabase product to match expected format
+const transformProduct = (product: any): Product => {
+  return {
+    id: product.product_id,
+    product_id: product.product_id,
+    name: product.name,
+    description: product.description,
+    longDescription: product.long_description,
+    price: product.price || 0,
+    beforeSalePrice: product.before_sale_price,
+    afterSalePrice: product.after_sale_price,
+    sizes: product.sizes || [],
+    images: product.images || [],
+    rating: product.rating || 0,
+    reviews: product.reviews || 0,
+    notes: product.notes || { top: [], middle: [], base: [] },
+    category: product.category,
+    isNew: product.is_new || false,
+    isBestseller: product.is_bestseller || false,
+    isActive: product.is_active !== false,
+    isOutOfStock: product.is_out_of_stock || false,
+    isGiftPackage: product.is_gift_package || false,
+    packagePrice: product.package_price,
+    packageOriginalPrice: product.package_original_price,
+    giftPackageSizes: product.gift_package_sizes || [],
+    createdAt: product.created_at ? new Date(product.created_at) : new Date(),
+    updatedAt: product.updated_at ? new Date(product.updated_at) : new Date(),
+  }
+}
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
   console.log("🔍 [API] GET /api/products - Request received")
@@ -115,95 +144,122 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20", 10), 1), 1000)
     const skip = (page - 1) * limit
 
-    const db = await getDatabase()
-
     // Single product request
     if (id) {
-      let product: Product | null = null
-      
-      // Try by MongoDB ObjectId first
-      if (ObjectId.isValid(id)) {
-        product = await db.collection<Product>("products").findOne({ _id: new ObjectId(id) })
-      }
-      
-      // Fallback to custom ID
-      if (!product) {
-        product = await db.collection<Product>("products").findOne({ id: id })
-      }
+      let query = supabase
+        .from("products")
+        .select("*")
+        .eq("is_active", true)
 
-      if (!product) {
+      // Try by product_id first (the actual product ID used in app)
+      query = query.eq("product_id", id)
+      
+      const { data: product, error } = await query.single()
+
+      if (error || !product) {
         return errorResponse("Product not found", 404)
       }
 
+      const transformedProduct = transformProduct(product)
       const headers = {
         "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
         "Content-Type": "application/json",
       }
-      const body = JSON.stringify(product)
+      const body = JSON.stringify(transformedProduct)
       setCachedResponse(requestUrl, 200, body, headers, DETAIL_CACHE_TTL_MS)
       return new NextResponse(body, { status: 200, headers })
     }
 
     // Category listing
-    const query: any = { isActive: true }
+    let query = supabase
+      .from("products")
+      .select("*")
+      .eq("is_active", true)
+
     if (category) {
-      query.category = category
+      query = query.eq("category", category)
     }
     if (isBestsellerParam !== null) {
-      query.isBestseller = isBestsellerParam === 'true'
+      query = query.eq("is_bestseller", isBestsellerParam === 'true')
     }
     if (isNewParam !== null) {
-      query.isNew = isNewParam === 'true'
+      query = query.eq("is_new", isNewParam === 'true')
     }
     if (isGiftPackageParam !== null) {
-      query.isGiftPackage = isGiftPackageParam === 'true'
+      query = query.eq("is_gift_package", isGiftPackageParam === 'true')
     }
-
-    const projection = {
-      longDescription: 0,
-      notes: 0,
-      // keep only first image to shrink payload
-      images: { $slice: 1 } as any,
-    }
-
-    const productsCol = db.collection<Product>("products")
 
     if (hasPagination) {
-      const [products, total] = await Promise.all([
-        productsCol
-          .find(query, { projection })
-          .sort({ createdAt: -1 })
-          .skip(skip)
-          .limit(limit)
-          .toArray(),
-        productsCol.countDocuments(query),
-      ])
+      query = query.order("created_at", { ascending: false })
+        .range(skip, skip + limit - 1)
 
-      const totalPages = Math.max(Math.ceil(total / limit), 1)
+      const { data: products, error, count } = await query
+
+      if (error) {
+        console.error("Error fetching products:", error)
+        return errorResponse("Failed to fetch products", 500)
+      }
+
+      // Get total count separately for pagination
+      let countQuery = supabase
+        .from("products")
+        .select("*", { count: 'exact', head: true })
+        .eq("is_active", true)
+
+      if (category) countQuery = countQuery.eq("category", category)
+      if (isBestsellerParam !== null) countQuery = countQuery.eq("is_bestseller", isBestsellerParam === 'true')
+      if (isNewParam !== null) countQuery = countQuery.eq("is_new", isNewParam === 'true')
+      if (isGiftPackageParam !== null) countQuery = countQuery.eq("is_gift_package", isGiftPackageParam === 'true')
+
+      const { count: total } = await countQuery
+      const totalPages = Math.max(Math.ceil((total || 0) / limit), 1)
+
+      const transformedProducts = (products || []).map(transformProduct)
+      // For list view, only include first image
+      const productsForList = transformedProducts.map(p => ({
+        ...p,
+        images: p.images.slice(0, 1),
+        longDescription: undefined,
+        notes: undefined,
+      }))
+
       console.log(`⏱️ [API] Request completed in ${Date.now() - startTime}ms (page=${page}, limit=${limit}, total=${total})`)
       const headers = {
         "Content-Type": "application/json",
-        "X-Total-Count": String(total),
+        "X-Total-Count": String(total || 0),
         "X-Page": String(page),
         "X-Limit": String(limit),
         "X-Total-Pages": String(totalPages),
         "Cache-Control": "public, max-age=30, stale-while-revalidate=150",
       }
-      const body = JSON.stringify(products)
+      const body = JSON.stringify(productsForList)
       setCachedResponse(requestUrl, 200, body, headers, LIST_CACHE_TTL_MS)
       return new NextResponse(body, { status: 200, headers })
     } else {
-      const products = await productsCol
-        .find(query, { projection })
-        .sort({ createdAt: -1 })
-        .toArray()
+      query = query.order("created_at", { ascending: false })
 
-      console.log(`⏱️ [API] Request completed in ${Date.now() - startTime}ms (all=${products.length})`)
+      const { data: products, error } = await query
+
+      if (error) {
+        console.error("Error fetching products:", error)
+        return errorResponse("Failed to fetch products", 500)
+      }
+
+      const transformedProducts = (products || []).map(transformProduct)
+      // For list view, only include first image
+      const productsForList = transformedProducts.map(p => ({
+        ...p,
+        images: p.images.slice(0, 1),
+        longDescription: undefined,
+        notes: undefined,
+      }))
+
+      console.log(`⏱️ [API] Request completed in ${Date.now() - startTime}ms (all=${productsForList.length})`)
       const headers = {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=30, stale-while-revalidate=150",
       }
-      const body = JSON.stringify(products)
+      const body = JSON.stringify(productsForList)
       setCachedResponse(requestUrl, 200, body, headers, LIST_CACHE_TTL_MS)
       return new NextResponse(body, { status: 200, headers })
     }
@@ -243,34 +299,24 @@ export async function POST(request: NextRequest) {
 
     // Parse and validate data
     const productData = await request.json()
-    const db = await getDatabase()
-
+    
     // Generate unique product ID
-    const productId = `product-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const productId = productData.id || `product-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 
-    // Create product document based on category
-    let newProduct: Omit<Product, "_id">
+    // Prepare product data for Supabase
+    let newProduct: any
 
     if (productData.isGiftPackage) {
       // Gift package
       newProduct = {
-        id: productId,
+        product_id: productId,
         name: productData.name,
         description: productData.description,
-        longDescription: productData.longDescription || "",
-        sizes: [], // Empty for gift packages
-        giftPackageSizes: productData.giftPackageSizes?.map((size: any) => ({
-          size: size.size,
-          volume: size.volume,
-          productOptions: size.productOptions?.map((option: any) => ({
-            productId: option.productId,
-            productName: option.productName,
-            productImage: option.productImage,
-            productDescription: option.productDescription,
-          })) || [],
-        })) || [],
-        packagePrice: productData.packagePrice ? Number(productData.packagePrice) : 0,
-        packageOriginalPrice: productData.packageOriginalPrice ? Number(productData.packageOriginalPrice) : undefined,
+        long_description: productData.longDescription || "",
+        sizes: [],
+        gift_package_sizes: productData.giftPackageSizes || [],
+        package_price: productData.packagePrice ? Number(productData.packagePrice) : 0,
+        package_original_price: productData.packageOriginalPrice ? Number(productData.packageOriginalPrice) : undefined,
         images: productData.images || ["/placeholder.svg"],
         rating: 0,
         reviews: 0,
@@ -280,24 +326,22 @@ export async function POST(request: NextRequest) {
           base: productData.notes?.base || [],
         },
         category: productData.category,
-        isNew: productData.isNew ?? false,
-        isBestseller: productData.isBestseller ?? false,
-        isOutOfStock: productData.isOutOfStock ?? false,
-        isActive: productData.isActive ?? true,
-        isGiftPackage: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        is_new: productData.isNew ?? false,
+        is_bestseller: productData.isBestseller ?? false,
+        is_out_of_stock: productData.isOutOfStock ?? false,
+        is_active: productData.isActive ?? true,
+        is_gift_package: true,
         price: productData.packagePrice ? Number(productData.packagePrice) : 0,
-        beforeSalePrice: undefined,
-        afterSalePrice: undefined,
+        before_sale_price: undefined,
+        after_sale_price: undefined,
       }
     } else {
       // Regular product
       newProduct = {
-        id: productId,
+        product_id: productId,
         name: productData.name,
         description: productData.description,
-        longDescription: productData.longDescription || "",
+        long_description: productData.longDescription || "",
         sizes: productData.sizes?.map((size: any) => ({
           size: size.size,
           volume: size.volume,
@@ -313,34 +357,39 @@ export async function POST(request: NextRequest) {
           base: productData.notes?.base || [],
         },
         category: productData.category,
-        isNew: productData.isNew ?? false,
-        isBestseller: productData.isBestseller ?? false,
-        isOutOfStock: productData.isOutOfStock ?? false,
-        isActive: productData.isActive ?? true,
-        isGiftPackage: false,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        is_new: productData.isNew ?? false,
+        is_bestseller: productData.isBestseller ?? false,
+        is_out_of_stock: productData.isOutOfStock ?? false,
+        is_active: productData.isActive ?? true,
+        is_gift_package: false,
         price: productData.sizes && productData.sizes.length > 0 
           ? Math.min(...productData.sizes.map((size: any) => 
               size.discountedPrice ? Number(size.discountedPrice) : Number(size.originalPrice)
             ))
           : 0,
-        beforeSalePrice: productData.beforeSalePrice !== undefined && productData.beforeSalePrice !== "" ? Number(productData.beforeSalePrice) : undefined,
-        afterSalePrice: productData.afterSalePrice !== undefined && productData.afterSalePrice !== "" ? Number(productData.afterSalePrice) : undefined,
+        before_sale_price: productData.beforeSalePrice !== undefined && productData.beforeSalePrice !== "" ? Number(productData.beforeSalePrice) : undefined,
+        after_sale_price: productData.afterSalePrice !== undefined && productData.afterSalePrice !== "" ? Number(productData.afterSalePrice) : undefined,
       }
     }
 
     // Insert into database
-    const result = await db.collection<Product>("products").insertOne(newProduct)
+    const { data: result, error } = await supabase
+      .from("products")
+      .insert(newProduct)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Error creating product:", error)
+      return errorResponse("Failed to create product", 500)
+    }
+
     clearProductsCache()
 
     console.log(`⏱️ [API] Product created in ${Date.now() - startTime}ms`)
     return NextResponse.json({
       success: true,
-      product: {
-        _id: result.insertedId,
-        ...newProduct,
-      },
+      product: transformProduct(result),
       message: "Product created successfully",
     })
 
@@ -385,7 +434,6 @@ export async function PUT(request: NextRequest) {
     }
 
     const productData = await request.json()
-    const db = await getDatabase()
 
     // Prepare update based on category
     let updateData: any
@@ -395,39 +443,29 @@ export async function PUT(request: NextRequest) {
       updateData = {
         name: productData.name,
         description: productData.description,
-        longDescription: productData.longDescription || "",
+        long_description: productData.longDescription || "",
         category: productData.category,
-        sizes: [], // Empty for gift packages
-        giftPackageSizes: productData.giftPackageSizes?.map((size: any) => ({
-          size: size.size,
-          volume: size.volume,
-          productOptions: size.productOptions?.map((option: any) => ({
-            productId: option.productId,
-            productName: option.productName,
-            productImage: option.productImage,
-            productDescription: option.productDescription,
-          })) || [],
-        })) || [],
-        packagePrice: productData.packagePrice ? Number(productData.packagePrice) : 0,
-        packageOriginalPrice: productData.packageOriginalPrice ? Number(productData.packageOriginalPrice) : undefined,
+        sizes: [],
+        gift_package_sizes: productData.giftPackageSizes || [],
+        package_price: productData.packagePrice ? Number(productData.packagePrice) : 0,
+        package_original_price: productData.packageOriginalPrice ? Number(productData.packageOriginalPrice) : undefined,
         images: productData.images,
         notes: productData.notes,
-        isActive: productData.isActive,
-        isNew: productData.isNew,
-        isBestseller: productData.isBestseller,
-        isOutOfStock: productData.isOutOfStock,
-        isGiftPackage: true,
-        updatedAt: new Date(),
+        is_active: productData.isActive,
+        is_new: productData.isNew,
+        is_bestseller: productData.isBestseller,
+        is_out_of_stock: productData.isOutOfStock,
+        is_gift_package: true,
         price: productData.packagePrice ? Number(productData.packagePrice) : 0,
-        beforeSalePrice: undefined,
-        afterSalePrice: undefined,
+        before_sale_price: undefined,
+        after_sale_price: undefined,
       }
     } else {
       // Regular product update
       updateData = {
         name: productData.name,
         description: productData.description,
-        longDescription: productData.longDescription || "",
+        long_description: productData.longDescription || "",
         category: productData.category,
         sizes: productData.sizes?.map((size: any) => ({
           size: size.size,
@@ -437,54 +475,38 @@ export async function PUT(request: NextRequest) {
         })) || [],
         images: productData.images,
         notes: productData.notes,
-        isActive: productData.isActive,
-        isNew: productData.isNew,
-        isBestseller: productData.isBestseller,
-        isOutOfStock: productData.isOutOfStock,
-        isGiftPackage: false,
-        updatedAt: new Date(),
+        is_active: productData.isActive,
+        is_new: productData.isNew,
+        is_bestseller: productData.isBestseller,
+        is_out_of_stock: productData.isOutOfStock,
+        is_gift_package: false,
         price: productData.sizes && productData.sizes.length > 0
           ? Math.min(...productData.sizes.map((size: any) => 
               size.discountedPrice ? Number(size.discountedPrice) : Number(size.originalPrice)
             ))
           : 0,
-        beforeSalePrice: productData.beforeSalePrice !== undefined && productData.beforeSalePrice !== "" ? Number(productData.beforeSalePrice) : undefined,
-        afterSalePrice: productData.afterSalePrice !== undefined && productData.afterSalePrice !== "" ? Number(productData.afterSalePrice) : undefined,
+        before_sale_price: productData.beforeSalePrice !== undefined && productData.beforeSalePrice !== "" ? Number(productData.beforeSalePrice) : undefined,
+        after_sale_price: productData.afterSalePrice !== undefined && productData.afterSalePrice !== "" ? Number(productData.afterSalePrice) : undefined,
       }
     }
 
-    // Perform update
-    let result
-    if (ObjectId.isValid(id)) {
-      result = await db.collection("products").updateOne(
-        { _id: new ObjectId(id) },
-        { $set: updateData }
-      )
-    } else {
-      result = await db.collection("products").updateOne(
-        { id: id },
-        { $set: updateData }
-      )
-    }
+    // Perform update (try by product_id first)
+    const { data: updatedProduct, error } = await supabase
+      .from("products")
+      .update(updateData)
+      .eq("product_id", id)
+      .select()
+      .single()
 
-    if (result.matchedCount === 0) {
+    if (error || !updatedProduct) {
       return errorResponse("Product not found", 404)
-    }
-
-    // Fetch the updated product to return
-    const updatedProduct = await db.collection<Product>("products").findOne(
-      ObjectId.isValid(id) ? { _id: new ObjectId(id) } : { id: id }
-    )
-
-    if (!updatedProduct) {
-      return errorResponse("Product not found after update", 404)
     }
 
     clearProductsCache()
     console.log(`⏱️ [API] Product updated in ${Date.now() - startTime}ms`)
     return NextResponse.json({ 
       success: true,
-      product: updatedProduct,
+      product: transformProduct(updatedProduct),
       message: "Product updated successfully"
     })
 
@@ -526,27 +548,22 @@ export async function DELETE(request: NextRequest) {
       return errorResponse("Product ID is required", 400)
     }
 
-    const db = await getDatabase()
-    let result
+    // Delete product (try by product_id)
+    const { error } = await supabase
+      .from("products")
+      .delete()
+      .eq("product_id", id)
 
-    // Try by ObjectId first
-    if (ObjectId.isValid(id)) {
-      result = await db.collection("products").deleteOne({ _id: new ObjectId(id) })
-    } else {
-      // Fallback to custom ID
-      result = await db.collection("products").deleteOne({ id: id })
-    }
-
-    if (result.deletedCount === 0) {
-      return errorResponse("Product not found", 404)
+    if (error) {
+      console.error("Error deleting product:", error)
+      return errorResponse("Product not found or failed to delete", 404)
     }
 
     clearProductsCache()
     console.log(`⏱️ [API] Product deleted in ${Date.now() - startTime}ms`)
-    return NextResponse.json({
+    return NextResponse.json({ 
       success: true,
-      message: "Product deleted successfully",
-      deletedId: id
+      message: "Product deleted successfully"
     })
 
   } catch (error) {

@@ -1,19 +1,18 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import { getDatabase } from "@/lib/mongodb"
-import type { ObjectId } from "mongodb"
+import { supabase } from "@/lib/supabase"
 
 interface Review {
-  _id?: ObjectId
-  productId: string
-  originalProductId?: string
-  userId: string
-  userName: string
+  id?: string
+  product_id: string
+  original_product_id?: string
+  user_id: string
+  user_name: string
   rating: number
   comment: string
-  orderId: string
-  createdAt: Date
-  updatedAt?: Date
+  order_id: string
+  created_at?: Date
+  updated_at?: Date
 }
 
 export async function POST(request: NextRequest) {
@@ -35,23 +34,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Rating must be between 1 and 5 (decimals allowed)" }, { status: 400 })
     }
 
-    const db = await getDatabase()
-
     // EXTRACT BASE PRODUCT ID (remove size suffix like -bundle, -Travel, -Reguler, etc.)
     const baseProductId = productId.replace(/-[a-zA-Z0-9]+$/, '');
     console.log("Original productId:", productId, "Base productId:", baseProductId);
 
     // Check if product exists
-    const product = await db.collection("products").findOne({ id: baseProductId })
+    const { data: product } = await supabase
+      .from("products")
+      .select("product_id")
+      .eq("product_id", baseProductId)
+      .single()
+
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
     // Check if user already reviewed this product
-    const existingReview = await db.collection<Review>("reviews").findOne({
-      productId: baseProductId,
-      userId: decoded.userId,
-    })
+    const { data: existingReview } = await supabase
+      .from("reviews")
+      .select("id")
+      .eq("product_id", baseProductId)
+      .eq("user_id", decoded.userId)
+      .single()
 
     if (existingReview) {
       return NextResponse.json({ 
@@ -59,46 +63,59 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    const review: Review = {
-      productId: baseProductId, // Use base product ID without size suffix
-      userId: decoded.userId,
-      userName: decoded.name || decoded.email,
+    const review: Omit<Review, 'id' | 'created_at' | 'updated_at'> = {
+      product_id: baseProductId, // Use base product ID without size suffix
+      user_id: decoded.userId,
+      user_name: decoded.name || decoded.email,
       rating: Number(rating),
       comment: comment?.trim() || "",
-      orderId: orderId || `review-${Date.now()}`,
-      createdAt: new Date(),
+      order_id: orderId || `review-${Date.now()}`,
     }
 
-    const result = await db.collection<Review>("reviews").insertOne(review)
+    const { data: result, error } = await supabase
+      .from("reviews")
+      .insert(review)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Error creating review:", error)
+      return NextResponse.json({ error: "Failed to create review" }, { status: 500 })
+    }
 
     // Update product rating
     try {
       // Get reviews where productId matches the base product ID
-      const directReviews = await db.collection<Review>("reviews").find({ productId: baseProductId }).toArray()
-      
+      const { data: directReviews } = await supabase
+        .from("reviews")
+        .select("rating, id")
+        .eq("product_id", baseProductId)
+
       // Get reviews where originalProductId matches the base product ID (for customized gift products)
-      const originalProductIdReviews = await db.collection<Review>("reviews")
-        .find({ originalProductId: { $regex: new RegExp(`^${baseProductId}`, 'i') } })
-        .toArray()
-      
-      // Combine both sets of reviews and remove duplicates based on _id
-      const allReviews = [...directReviews, ...originalProductIdReviews]
+      const { data: originalProductIdReviews } = await supabase
+        .from("reviews")
+        .select("rating, id")
+        .ilike("original_product_id", `${baseProductId}%`)
+
+      // Combine both sets of reviews and remove duplicates
+      const allReviews = [
+        ...(directReviews || []),
+        ...(originalProductIdReviews || [])
+      ]
       const uniqueReviews = allReviews.filter((review, index, self) => 
-        index === self.findIndex(r => r._id.toString() === review._id.toString())
+        index === self.findIndex(r => r.id === review.id)
       )
       
-      const averageRating = uniqueReviews.reduce((sum, r) => sum + r.rating, 0) / uniqueReviews.length
+      const averageRating = uniqueReviews.reduce((sum, r) => sum + Number(r.rating), 0) / uniqueReviews.length
       const reviewCount = uniqueReviews.length
 
-      await db.collection("products").updateOne(
-        { id: baseProductId },
-        {
-          $set: {
-            rating: Math.round(averageRating * 100) / 100,
-            reviews: reviewCount,
-          },
-        },
-      )
+      await supabase
+        .from("products")
+        .update({
+          rating: Math.round(averageRating * 100) / 100,
+          reviews: reviewCount,
+        })
+        .eq("product_id", baseProductId)
     } catch (updateError) {
       console.error("Failed to update product rating, but review was saved:", updateError)
       // Don't fail the whole request if product update fails
@@ -107,8 +124,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       review: { 
-        ...review, 
-        _id: result.insertedId.toString()
+        ...review,
+        id: result.id,
+        _id: result.id, // For backward compatibility
       },
     })
   } catch (error: any) {
@@ -117,7 +135,6 @@ export async function POST(request: NextRequest) {
       message: error.message,
       stack: error.stack,
       name: error.name,
-      code: error.code
     })
     return NextResponse.json({ 
       error: "Internal server error",
@@ -138,39 +155,45 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Product ID or User ID required" }, { status: 400 })
     }
 
-    const db = await getDatabase()
-    let query: any = {}
+    let query = supabase
+      .from("reviews")
+      .select("*")
+      .order("created_at", { ascending: false })
 
     if (productId) {
       // EXTRACT BASE PRODUCT ID (remove size suffix)
       const baseProductId = productId.replace(/-[a-zA-Z0-9]+$/, '');
-      query.productId = baseProductId;
+      query = query.eq("product_id", baseProductId)
       console.log("Querying reviews for base productId:", baseProductId)
     }
 
     if (userId) {
-      query.userId = userId
+      query = query.eq("user_id", userId)
       console.log("Querying reviews for userId:", userId)
     }
 
-    const reviews = await db.collection("reviews")
-      .find(query)
-      .sort({ createdAt: -1 })
-      .toArray()
+    const { data: reviews, error } = await query
 
-    console.log("Found", reviews.length, "reviews for query:", query)
+    if (error) {
+      console.error("Error fetching reviews:", error)
+      return NextResponse.json({ error: "Failed to fetch reviews" }, { status: 500 })
+    }
 
-    // Convert MongoDB ObjectId to string for JSON serialization
-    const serializedReviews = reviews.map(review => ({
-      _id: review._id?.toString(),
-      productId: review.productId,
-      userId: review.userId,
-      userName: review.userName,
+    console.log("Found", reviews?.length || 0, "reviews")
+
+    // Convert to expected format
+    const serializedReviews = (reviews || []).map(review => ({
+      _id: review.id, // For backward compatibility
+      id: review.id,
+      productId: review.product_id,
+      originalProductId: review.original_product_id,
+      userId: review.user_id,
+      userName: review.user_name,
       rating: review.rating,
       comment: review.comment,
-      orderId: review.orderId,
-      createdAt: review.createdAt.toISOString(),
-      updatedAt: review.updatedAt?.toISOString()
+      orderId: review.order_id,
+      createdAt: review.created_at ? new Date(review.created_at).toISOString() : new Date().toISOString(),
+      updatedAt: review.updated_at?.toISOString()
     }))
 
     console.log("Returning", serializedReviews.length, "serialized reviews")

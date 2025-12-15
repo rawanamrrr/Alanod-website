@@ -1,8 +1,7 @@
 // /app/api/auth/me/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
-import { getDatabase } from "@/lib/mongodb";
-import { ObjectId } from "mongodb";
+import { supabase } from "@/lib/supabase";
 import type { User } from "@/lib/models/types";
 
 export async function GET(request: NextRequest) {
@@ -19,17 +18,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
 
-    const db = await getDatabase();
-    const user = await db.collection<User>("users").findOne({ _id: new ObjectId(decoded.userId) });
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id, email, name, role")
+      .eq("id", decoded.userId)
+      .single();
 
-    if (!user) {
+    if (error || !user) {
       return NextResponse.json({ authenticated: false }, { status: 404 });
     }
 
     return NextResponse.json({
       authenticated: true,
       user: {
-        id: user._id.toString(),
+        id: user.id,
         email: user.email,
         name: user.name,
         role: user.role

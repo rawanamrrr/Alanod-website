@@ -1,19 +1,17 @@
-import type { ObjectId } from "mongodb"
-
 export interface User {
-  _id?: ObjectId
+  id?: string // UUID
   email: string
   password: string
   name: string
   role: "admin" | "user"
   favorites?: string[] // Array of product IDs
-  createdAt: Date
-  updatedAt: Date
+  created_at?: Date
+  updated_at?: Date
 }
 
 export interface Product {
-  _id?: ObjectId
-  id: string
+  id?: string // UUID
+  product_id: string // The actual product ID (e.g., "midnight-essence")
   name: string
   description: string
   longDescription?: string
@@ -34,8 +32,8 @@ export interface Product {
   packagePrice?: number
   packageOriginalPrice?: number
   giftPackageSizes?: any[]
-  createdAt: Date
-  updatedAt: Date
+  created_at?: Date
+  updated_at?: Date
 }
 
 export interface OrderItem {
@@ -65,9 +63,9 @@ export interface OrderItem {
 }
 
 export interface Order {
-  _id?: ObjectId
-  id: string
-  userId: string
+  id?: string // UUID
+  order_id: string // The actual order ID used in the app
+  user_id: string // UUID
   items: OrderItem[]
   total: number
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled"
@@ -88,10 +86,10 @@ export interface Order {
     cardNumber: string
     cardName: string
   }
-  discountCode?: string | null
-  discountAmount?: number
-  createdAt: Date
-  updatedAt: Date
+  discount_code?: string | null
+  discount_amount?: number
+  created_at?: Date
+  updated_at?: Date
 }
 
 export interface CartItem {

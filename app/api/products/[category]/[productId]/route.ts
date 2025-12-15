@@ -1,37 +1,39 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { MongoClient, type Db } from "mongodb";
+import { supabase } from "@/lib/supabase";
 import type { Product } from "@/lib/models/types";
-import Redis from "ioredis";
-
-// ----- MongoDB Connection Pooling -----
-let cachedDb: Db | null = null;
-async function getDatabase(): Promise<Db> {
-  if (cachedDb) return cachedDb;
-
-  const client = await MongoClient.connect(process.env.MONGODB_URI!, {
-    // useUnifiedTopology: true // optional depending on version
-  });
-  cachedDb = client.db();
-  return cachedDb;
-}
-
-// ----- Redis Cache -----
-// Initialize Redis client with proper error handling
-let redis: Redis | null = null;
-
-try {
-  if (!process.env.REDIS_URL) {
-    console.warn('REDIS_URL not set, Redis caching will be disabled');
-  } else {
-    redis = new Redis(process.env.REDIS_URL);
-  }
-} catch (error) {
-  console.error('Failed to initialize Redis client:', error);
-  redis = null;
-}
 
 const validCategories = ["winter", "summer", "fall"] as const;
 type ValidCategory = typeof validCategories[number];
+
+// Transform Supabase product to match expected format
+const transformProduct = (product: any): Product => {
+  return {
+    id: product.product_id,
+    product_id: product.product_id,
+    name: product.name,
+    description: product.description,
+    longDescription: product.long_description,
+    price: product.price || 0,
+    beforeSalePrice: product.before_sale_price,
+    afterSalePrice: product.after_sale_price,
+    sizes: product.sizes || [],
+    images: product.images || [],
+    rating: product.rating || 0,
+    reviews: product.reviews || 0,
+    notes: product.notes || { top: [], middle: [], base: [] },
+    category: product.category,
+    isNew: product.is_new || false,
+    isBestseller: product.is_bestseller || false,
+    isActive: product.is_active !== false,
+    isOutOfStock: product.is_out_of_stock || false,
+    isGiftPackage: product.is_gift_package || false,
+    packagePrice: product.package_price,
+    packageOriginalPrice: product.package_original_price,
+    giftPackageSizes: product.gift_package_sizes || [],
+    createdAt: product.created_at ? new Date(product.created_at) : new Date(),
+    updatedAt: product.updated_at ? new Date(product.updated_at) : new Date(),
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -40,41 +42,26 @@ export async function GET(
   try {
     const { category, productId } = params;
 
-    // ---- 1. Validate category ----
+    // Validate category
     if (!validCategories.includes(category as ValidCategory)) {
       return NextResponse.json({ error: "Invalid category" }, { status: 400 });
     }
 
-    // ---- 2. Try cache first ----
-    const cacheKey = `product:${category}:${productId}`;
-    const cachedProduct = redis ? await redis.get(cacheKey) : null;
-    if (cachedProduct) {
-      return NextResponse.json(JSON.parse(cachedProduct), {
-        headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=60" },
-      });
-    }
+    // Query product from Supabase
+    const { data: product, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("category", category)
+      .eq("product_id", productId)
+      .eq("is_active", true)
+      .single();
 
-    // ---- 3. Get DB connection ----
-    const db = await getDatabase();
-
-    // ---- 4. Query product ----
-    const product = await db.collection<Product>("products").findOne({
-      category: category as ValidCategory,
-      id: productId,
-      isActive: true,
-    });
-
-    if (!product) {
+    if (error || !product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    // ---- 5. Save to cache ----
-    if (redis) {
-      await redis.set(cacheKey, JSON.stringify(product), "EX", 30); // cache 30 seconds for faster rating updates
-    }
-
-    // ---- 6. Return response ----
-    return NextResponse.json(product, {
+    // Return response
+    return NextResponse.json(transformProduct(product), {
       headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=60" },
     });
   } catch (error) {

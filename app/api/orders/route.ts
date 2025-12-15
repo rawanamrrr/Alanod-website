@@ -1,7 +1,26 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import { getDatabase } from "@/lib/mongodb"
+import { supabase } from "@/lib/supabase"
 import type { Order } from "@/lib/models/types"
+
+// Transform Supabase order to match expected format
+const transformOrder = (order: any): Order => {
+  return {
+    id: order.id,
+    order_id: order.order_id,
+    user_id: order.user_id,
+    items: order.items || [],
+    total: order.total || 0,
+    status: order.status || 'pending',
+    shippingAddress: order.shipping_address || {},
+    paymentMethod: order.payment_method || 'cod',
+    paymentDetails: order.payment_details,
+    discountCode: order.discount_code,
+    discountAmount: order.discount_amount || 0,
+    created_at: order.created_at ? new Date(order.created_at) : new Date(),
+    updated_at: order.updated_at ? new Date(order.updated_at) : new Date(),
+  }
+}
 
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
@@ -25,36 +44,56 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
-    const db = await getDatabase()
-    console.log("✅ [API] Database connection established")
-
-    const query: any = {}
+    let query = supabase
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: false })
 
     // If user role, only show their orders
     if (decoded.role === "user") {
-      query.userId = decoded.userId
+      query = query.eq("user_id", decoded.userId)
       console.log("👤 [API] Filtering orders for user:", decoded.userId)
     } else {
       console.log("👑 [API] Admin access - fetching all orders")
     }
 
-    console.log("🔍 [API] MongoDB query:", JSON.stringify(query))
+    const { data: orders, error } = await query
 
-    const orders = await db.collection<Order>("orders").find(query).sort({ createdAt: -1 }).toArray()
+    if (error) {
+      console.error("Error fetching orders:", error)
+      return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 })
+    }
 
-    console.log(`✅ [API] Found ${orders.length} orders`)
+    console.log(`✅ [API] Found ${orders?.length || 0} orders`)
 
-    if (orders.length > 0) {
+    if (orders && orders.length > 0) {
       console.log("📦 [API] Sample orders:")
       orders.slice(0, 2).forEach((order, index) => {
-        console.log(`   ${index + 1}. Order ${order.id} - ${order.total} EGP (${order.status})`)
+        console.log(`   ${index + 1}. Order ${order.order_id} - ${order.total} (${order.status})`)
       })
     }
 
     const responseTime = Date.now() - startTime
     console.log(`⏱️ [API] Request completed in ${responseTime}ms`)
 
-    return NextResponse.json(orders)
+    // Transform orders to match expected format (maintaining backward compatibility)
+    const transformedOrders = (orders || []).map(order => ({
+      _id: order.id, // For backward compatibility
+      id: order.order_id,
+      userId: order.user_id,
+      items: order.items || [],
+      total: order.total || 0,
+      status: order.status || 'pending',
+      shippingAddress: order.shipping_address || {},
+      paymentMethod: order.payment_method || 'cod',
+      paymentDetails: order.payment_details,
+      discountCode: order.discount_code,
+      discountAmount: order.discount_amount || 0,
+      createdAt: order.created_at ? new Date(order.created_at) : new Date(),
+      updatedAt: order.updated_at ? new Date(order.updated_at) : new Date(),
+    }))
+
+    return NextResponse.json(transformedOrders)
   } catch (error) {
     const responseTime = Date.now() - startTime
     console.error("❌ [API] Error in GET /api/orders:", error)
@@ -118,9 +157,6 @@ export async function POST(request: NextRequest) {
       console.log("👤 [API] Guest order (no token provided)")
     }
 
-    const db = await getDatabase()
-    console.log("✅ [API] Database connection established")
-
     // Validate stock availability before creating order
     for (const item of orderData.items as any[]) {
       // Skip validation for gift packages and custom sizes
@@ -128,7 +164,12 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const product = await db.collection("products").findOne({ id: item.productId })
+      const { data: product } = await supabase
+        .from("products")
+        .select("sizes")
+        .eq("product_id", item.productId)
+        .single()
+
       if (!product) {
         return NextResponse.json(
           { error: `Product ${item.productId} not found` },
@@ -155,12 +196,13 @@ export async function POST(request: NextRequest) {
     const orderId = `order-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     console.log("🆔 [API] Generated order ID:", orderId)
 
-    // Prepare order document
-    const newOrder: Omit<Order, "_id"> = {
-      id: orderId,
-      userId: userId,
+    // Prepare order document for Supabase
+    const newOrder = {
+      order_id: orderId,
+      user_id: userId,
       items: orderData.items.map((item: any) => ({
         id: item.id,
+        productId: item.productId,
         name: item.name,
         price: Number(item.price),
         size: item.size,
@@ -177,7 +219,7 @@ export async function POST(request: NextRequest) {
       })),
       total: Number(orderData.total),
       status: "pending",
-      shippingAddress: {
+      shipping_address: {
         name: orderData.shippingAddress.name,
         email: orderData.shippingAddress.email || "",
         phone: orderData.shippingAddress.phone || "",
@@ -189,22 +231,20 @@ export async function POST(request: NextRequest) {
         postalCode: orderData.shippingAddress.postalCode || "",
         governorate: orderData.shippingAddress.governorate || "",
       },
-      paymentMethod: orderData.paymentMethod || "cod",
-      paymentDetails: orderData.paymentDetails || null,
-      discountCode: orderData.discountCode || null,
-      discountAmount: orderData.discountAmount || 0,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      payment_method: orderData.paymentMethod || "cod",
+      payment_details: orderData.paymentDetails || null,
+      discount_code: orderData.discountCode || null,
+      discount_amount: orderData.discountAmount || 0,
     }
 
     console.log("💾 [API] Inserting order into database...")
     console.log("📄 [API] Order document summary:")
-    console.log("   Order ID:", newOrder.id)
-    console.log("   User ID:", newOrder.userId)
+    console.log("   Order ID:", newOrder.order_id)
+    console.log("   User ID:", newOrder.user_id)
     console.log("   Items:", newOrder.items.length)
     console.log("   Total:", newOrder.total)
     console.log("   Status:", newOrder.status)
-    console.log("   Discount:", newOrder.discountCode, newOrder.discountAmount)
+    console.log("   Discount:", newOrder.discount_code, newOrder.discount_amount)
     
     // Debug gift package items being saved
     newOrder.items.forEach((item: any, index: number) => {
@@ -217,8 +257,18 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const result = await db.collection<Order>("orders").insertOne(newOrder)
-    console.log("✅ [API] Order inserted with MongoDB ID:", result.insertedId)
+    const { data: result, error: insertError } = await supabase
+      .from("orders")
+      .insert(newOrder)
+      .select()
+      .single()
+
+    if (insertError) {
+      console.error("Error inserting order:", insertError)
+      return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
+    }
+
+    console.log("✅ [API] Order inserted with ID:", result.id)
 
     // Update stock counts after order creation
     for (const item of newOrder.items as any[]) {
@@ -227,61 +277,69 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      const product = await db.collection("products").findOne({ id: item.productId })
+      const { data: product } = await supabase
+        .from("products")
+        .select("sizes, is_out_of_stock")
+        .eq("product_id", item.productId)
+        .single()
+
       if (product && product.sizes) {
         const sizeIndex = product.sizes.findIndex((s: any) => s.size === item.size)
         if (sizeIndex !== -1 && product.sizes[sizeIndex].stockCount !== undefined) {
           const newStockCount = product.sizes[sizeIndex].stockCount - item.quantity
           
           // Update the stock count for this size
-          const updatePath = `sizes.${sizeIndex}.stockCount`
-          await db.collection("products").updateOne(
-            { id: item.productId },
-            { $set: { [updatePath]: Math.max(0, newStockCount) } }
-          )
+          const updatedSizes = [...product.sizes]
+          updatedSizes[sizeIndex] = {
+            ...updatedSizes[sizeIndex],
+            stockCount: Math.max(0, newStockCount)
+          }
 
           // Check if all sizes are out of stock and update product isOutOfStock flag
-          const allSizesOutOfStock = product.sizes.every((s: any) => 
+          const allSizesOutOfStock = updatedSizes.every((s: any) => 
             s.stockCount === undefined || s.stockCount <= 0
           )
           
-          if (allSizesOutOfStock) {
-            await db.collection("products").updateOne(
-              { id: item.productId },
-              { $set: { isOutOfStock: true } }
-            )
-          } else if (newStockCount <= 0) {
-            // If this specific size is out of stock, check if product should be marked out of stock
-            const hasAvailableSizes = product.sizes.some((s: any, idx: number) => 
-              idx !== sizeIndex && s.stockCount !== undefined && s.stockCount > 0
-            )
-            if (!hasAvailableSizes) {
-              await db.collection("products").updateOne(
-                { id: item.productId },
-                { $set: { isOutOfStock: true } }
-              )
-            }
-          }
+          await supabase
+            .from("products")
+            .update({ 
+              sizes: updatedSizes,
+              is_out_of_stock: allSizesOutOfStock
+            })
+            .eq("product_id", item.productId)
         }
       }
     }
 
     // Verify insertion
-    const insertedOrder = await db.collection<Order>("orders").findOne({ _id: result.insertedId })
+    const { data: insertedOrder } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("id", result.id)
+      .single()
+
     console.log("🔍 [API] Verification - Order found in database:", !!insertedOrder)
 
     if (insertedOrder) {
       console.log("✅ [API] Order verification successful:")
-      console.log("   Database ID:", insertedOrder._id)
-      console.log("   Order ID:", insertedOrder.id)
-      console.log("   Customer:", insertedOrder.shippingAddress.name)
+      console.log("   Database ID:", insertedOrder.id)
+      console.log("   Order ID:", insertedOrder.order_id)
+      console.log("   Customer:", insertedOrder.shipping_address?.name)
       console.log("   Total:", insertedOrder.total)
       console.log("   Status:", insertedOrder.status)
     }
 
-    // Check total orders after insertion
-    const totalOrders = await db.collection("orders").countDocuments()
-    const userOrders = userId !== "guest" ? await db.collection("orders").countDocuments({ userId }) : 0
+    // Get order counts
+    const { count: totalOrders } = await supabase
+      .from("orders")
+      .select("*", { count: 'exact', head: true })
+
+    const { count: userOrders } = userId !== "guest" 
+      ? await supabase
+          .from("orders")
+          .select("*", { count: 'exact', head: true })
+          .eq("user_id", userId)
+      : { count: 0 }
 
     console.log("📊 [API] Database stats after insertion:")
     console.log("   Total orders:", totalOrders)
@@ -292,12 +350,26 @@ export async function POST(request: NextRequest) {
     const responseTime = Date.now() - startTime
     console.log(`⏱️ [API] Order creation completed in ${responseTime}ms`)
 
+    // Return order in expected format (with _id for backward compatibility)
+    const transformedOrder = {
+      _id: result.id,
+      id: result.order_id,
+      userId: result.user_id,
+      items: result.items || [],
+      total: result.total || 0,
+      status: result.status || 'pending',
+      shippingAddress: result.shipping_address || {},
+      paymentMethod: result.payment_method || 'cod',
+      paymentDetails: result.payment_details,
+      discountCode: result.discount_code,
+      discountAmount: result.discount_amount || 0,
+      createdAt: result.created_at ? new Date(result.created_at) : new Date(),
+      updatedAt: result.updated_at ? new Date(result.updated_at) : new Date(),
+    }
+
     return NextResponse.json({
       success: true,
-      order: {
-        _id: result.insertedId,
-        ...newOrder,
-      },
+      order: transformedOrder,
       message: "Order created successfully",
     })
   } catch (error) {

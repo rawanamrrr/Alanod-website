@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs"
-import { getDatabase } from "@/lib/mongodb"
+import { supabase } from "@/lib/supabase"
 import type { User } from "@/lib/models/types"
-import { ObjectId } from "mongodb" 
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -20,24 +19,25 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
     }
 
-    const db = await getDatabase()
+    // Fetch user
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("*")
+      .eq("id", decoded.userId)
+      .single()
 
-    // ✅ Fix: Convert userId to ObjectId
-    const userId = new ObjectId(decoded.userId)
-
-    // ✅ Fix: Use ObjectId to find user
-    const user = await db.collection<User>("users").findOne({ _id: userId })
-
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 })
     }
 
-    // ✅ Fix: Also convert _id in duplicate email check
+    // Check if email is being changed and if new email already exists
     if (email !== user.email) {
-      const existingUser = await db.collection<User>("users").findOne({
-        email,
-        _id: { $ne: userId },
-      })
+      const { data: existingUser } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", email)
+        .neq("id", decoded.userId)
+        .single()
 
       if (existingUser) {
         return NextResponse.json({ error: "Email already in use" }, { status: 400 })
@@ -47,7 +47,6 @@ export async function PATCH(request: NextRequest) {
     const updateData: any = {
       name,
       email,
-      updatedAt: new Date(),
     }
 
     if (newPassword) {
@@ -64,8 +63,16 @@ export async function PATCH(request: NextRequest) {
       updateData.password = hashedNewPassword
     }
 
-    // ✅ Fix: Use ObjectId in update query
-    await db.collection<User>("users").updateOne({ _id: userId }, { $set: updateData })
+    // Update user
+    const { error: updateError } = await supabase
+      .from("users")
+      .update(updateData)
+      .eq("id", decoded.userId)
+
+    if (updateError) {
+      console.error("Error updating profile:", updateError)
+      return NextResponse.json({ error: "Failed to update profile" }, { status: 500 })
+    }
 
     return NextResponse.json({
       success: true,

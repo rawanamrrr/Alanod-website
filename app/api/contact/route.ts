@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import nodemailer from "nodemailer"
 import { createEmailTemplate, createEmailSection } from "@/lib/email-templates"
+import { supabase } from "@/lib/supabase"
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,6 +9,21 @@ export async function POST(request: NextRequest) {
 
     if (!name || !email || !subject || !message) {
       return NextResponse.json({ error: "All fields are required" }, { status: 400 })
+    }
+
+    // Save to database
+    const { error: dbError } = await supabase
+      .from("contact_messages")
+      .insert({
+        full_name: name,
+        email: email,
+        subject: subject,
+        message: message,
+      })
+
+    if (dbError) {
+      console.error("Error saving contact message:", dbError)
+      // Continue even if database save fails
     }
 
     // Check environment variables

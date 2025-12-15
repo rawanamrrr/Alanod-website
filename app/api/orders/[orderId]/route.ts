@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import { getDatabase } from "@/lib/mongodb"
+import { supabase } from "@/lib/supabase"
 import type { Order } from "@/lib/models/types"
 
 export async function PATCH(request: NextRequest, { params }: { params: { orderId: string } }) {
@@ -21,23 +21,35 @@ export async function PATCH(request: NextRequest, { params }: { params: { orderI
     const { status } = await request.json()
     const { orderId } = params
 
-    const db = await getDatabase()
+    const { data: updatedOrder, error } = await supabase
+      .from("orders")
+      .update({ status })
+      .eq("order_id", orderId)
+      .select()
+      .single()
 
-    const result = await db.collection<Order>("orders").updateOne(
-      { id: orderId },
-      {
-        $set: {
-          status,
-          updatedAt: new Date(),
-        },
-      },
-    )
-
-    if (result.matchedCount === 0) {
+    if (error || !updatedOrder) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true })
+    // Return order in expected format
+    const transformedOrder = {
+      _id: updatedOrder.id,
+      id: updatedOrder.order_id,
+      userId: updatedOrder.user_id,
+      items: updatedOrder.items || [],
+      total: updatedOrder.total || 0,
+      status: updatedOrder.status || 'pending',
+      shippingAddress: updatedOrder.shipping_address || {},
+      paymentMethod: updatedOrder.payment_method || 'cod',
+      paymentDetails: updatedOrder.payment_details,
+      discountCode: updatedOrder.discount_code,
+      discountAmount: updatedOrder.discount_amount || 0,
+      createdAt: updatedOrder.created_at ? new Date(updatedOrder.created_at) : new Date(),
+      updatedAt: updatedOrder.updated_at ? new Date(updatedOrder.updated_at) : new Date(),
+    }
+
+    return NextResponse.json({ success: true, order: transformedOrder })
   } catch (error) {
     console.error("Update order error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
