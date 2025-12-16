@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
-import { supabase } from "@/lib/supabase"
+import { supabaseAdmin } from "@/lib/supabase"
 import type { User } from "@/lib/models/types"
 
 export async function POST(request: NextRequest) {
@@ -12,14 +12,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    // Fetch user from Supabase
-    const { data: user, error } = await supabase
+    // Use admin client to bypass RLS for authentication
+    if (!supabaseAdmin) {
+      console.error("Supabase admin client not configured")
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 })
+    }
+
+    // Fetch user from Supabase (using admin client to bypass RLS)
+    const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("email", email)
       .single()
 
     if (error || !user) {
+      console.error("User lookup error:", error)
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
