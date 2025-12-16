@@ -18,37 +18,34 @@ const clearProductsCache = () => {
 async function calculateAverageRating(productId: string) {
   console.log("🔍 Calculating average rating for productId:", productId);
   
-  // Get all reviews that might relate to this product
-  const { data: allReviews } = await supabase
+  // Build a single query for all reviews related to this base product ID
+  const orFilters = [
+    `product_id.eq.${productId}`,
+    `product_id.like.${productId}-%`,
+    `original_product_id.like.${productId}%`
+  ].join(",");
+
+  const { data: matchingReviews, error } = await supabase
     .from("reviews")
-    .select("*");
+    .select("id, rating, product_id, original_product_id")
+    .or(orFilters);
 
-  if (!allReviews) return 0;
+  if (error) {
+    console.error("Error fetching reviews for rating calculation:", error);
+    return 0;
+  }
 
-  // Filter reviews that match this product ID (similar to MongoDB regex logic)
-  const matchingReviews = allReviews.filter((review: any) => {
-    // Exact match
-    if (review.product_id === productId) return true;
-    // Starts with base product ID (for variations)
-    if (review.product_id?.startsWith(productId + '-')) return true;
-    // Original product ID matches
-    if (review.original_product_id?.startsWith(productId)) return true;
-    // Contains base product ID (for gift packages)
-    if (review.original_product_id?.includes(`${productId}-gift-package`)) return true;
-    return false;
-  });
+  if (!matchingReviews || matchingReviews.length === 0) {
+    console.log("❌ No reviews found, returning 0");
+    return 0;
+  }
 
-  // Remove duplicates
-  const uniqueReviews = matchingReviews.filter((review: any, index: number, self: any[]) => 
+  // Remove duplicates in case a review matches multiple OR conditions
+  const uniqueReviews = matchingReviews.filter((review: any, index: number, self: any[]) =>
     index === self.findIndex((r: any) => r.id === review.id)
   );
 
   console.log("🔄 Combined", matchingReviews.length, "total reviews,", uniqueReviews.length, "unique reviews");
-
-  if (uniqueReviews.length === 0) {
-    console.log("❌ No reviews found, returning 0");
-    return 0;
-  }
 
   const total = uniqueReviews.reduce((sum: number, review: any) => sum + Number(review.rating), 0);
   const averageRating = Math.round((total / uniqueReviews.length) * 100) / 100;

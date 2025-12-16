@@ -22,56 +22,38 @@ export async function GET(
 
     console.log("Base product ID from params:", baseProductId)
 
-    // Build query for Supabase
-    let query = supabase
+    // Build a single query for all reviews related to this base product ID
+    const orFilters = [
+      `product_id.eq.${baseProductId}`,
+      `product_id.like.${baseProductId}-%`,
+      `original_product_id.like.${baseProductId}%`
+    ].join(",")
+
+    let reviewsQuery = supabase
       .from("reviews")
       .select("*")
-      .eq("product_id", baseProductId)
+      .or(orFilters)
       .order("created_at", { ascending: false })
 
     if (orderId) {
-      query = query.eq("order_id", orderId)
+      reviewsQuery = reviewsQuery.eq("order_id", orderId)
     }
 
-    const { data: reviews, error } = await query
+    const { data: matchingReviews, error } = await reviewsQuery
 
     if (error) {
       console.error("Error fetching reviews:", error)
       return NextResponse.json({ error: "Failed to fetch reviews" }, { status: 500 })
     }
 
-    console.log(`Found ${reviews?.length || 0} reviews with exact base ID`)
+    console.log(`Found ${matchingReviews?.length || 0} reviews matching base ID variations`)
 
-    // Also get reviews where original_product_id matches or contains the base product ID
-    // Note: Supabase doesn't support regex like MongoDB, so we'll fetch and filter
-    // For now, let's get all reviews and filter in memory for variations
-    let allReviewsQuery = supabase
-      .from("reviews")
-      .select("*")
-
-    if (orderId) {
-      allReviewsQuery = allReviewsQuery.eq("order_id", orderId)
-    }
-
-    const { data: allReviews } = await allReviewsQuery
-
-    // Filter reviews that match the base product ID in various ways
-    const matchingReviews = (allReviews || []).filter((review: any) => {
-      // Exact match
-      if (review.product_id === baseProductId) return true
-      // Starts with base product ID (for variations)
-      if (review.product_id?.startsWith(baseProductId + '-')) return true
-      // Original product ID matches
-      if (review.original_product_id?.startsWith(baseProductId)) return true
-      return false
-    })
-
-    // Remove duplicates based on id
-    const uniqueReviews = matchingReviews.filter((review: any, index: number, self: any[]) => 
+    // Remove duplicates based on id in case a review matches multiple conditions
+    const uniqueReviews = (matchingReviews || []).filter((review: any, index: number, self: any[]) => 
       index === self.findIndex((r: any) => r.id === review.id)
     )
 
-    console.log(`Combined ${matchingReviews.length} total reviews, ${uniqueReviews.length} unique reviews`)
+    console.log(`Returning ${uniqueReviews.length} unique reviews for base ID`)
 
     // Convert to expected format
     const serializedReviews = uniqueReviews.map((review: any) => ({

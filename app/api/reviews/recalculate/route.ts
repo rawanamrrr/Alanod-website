@@ -4,35 +4,34 @@ import { supabase } from "@/lib/supabase";
 async function calculateAverageRating(productId: string) {
   console.log("🔍 Calculating average rating for productId:", productId);
   
-  // Get all reviews that might relate to this product
-  const { data: allReviews } = await supabase
+  // Build a single query for all reviews related to this base product ID
+  const orFilters = [
+    `product_id.eq.${productId}`,
+    `product_id.like.${productId}-%`,
+    `original_product_id.like.${productId}%`
+  ].join(",");
+
+  const { data: matchingReviews, error } = await supabase
     .from("reviews")
-    .select("*");
+    .select("id, rating, product_id, original_product_id")
+    .or(orFilters);
 
-  if (!allReviews) return 0;
+  if (error) {
+    console.error("Error fetching reviews for rating recalculation:", error);
+    return 0;
+  }
 
-  // Filter reviews that match this product ID
-  const matchingReviews = allReviews.filter((review: any) => {
-    // Exact match
-    if (review.product_id === productId) return true
-    // Starts with base product ID (for variations)
-    if (review.product_id?.startsWith(productId + '-')) return true
-    // Original product ID matches
-    if (review.original_product_id?.startsWith(productId)) return true
-    return false
-  });
+  if (!matchingReviews || matchingReviews.length === 0) {
+    console.log("❌ No reviews found, returning 0");
+    return 0;
+  }
 
-  // Remove duplicates
+  // Remove duplicates in case a review matches multiple OR conditions
   const uniqueReviews = matchingReviews.filter((review: any, index: number, self: any[]) => 
     index === self.findIndex((r: any) => r.id === review.id)
   );
 
   console.log("🔄 Total unique reviews:", uniqueReviews.length);
-
-  if (uniqueReviews.length === 0) {
-    console.log("❌ No reviews found, returning 0");
-    return 0;
-  }
 
   const total = uniqueReviews.reduce((sum: number, review: any) => sum + Number(review.rating), 0);
   const averageRating = Math.round((total / uniqueReviews.length) * 100) / 100;
@@ -65,14 +64,25 @@ export async function POST(req: NextRequest) {
     
     const averageRating = await calculateAverageRating(productId);
     const uniqueReviewsCount = await (async () => {
-      const { data: allReviews } = await supabase.from("reviews").select("*");
-      if (!allReviews) return 0;
-      const matching = allReviews.filter((r: any) => 
-        r.product_id === productId || 
-        r.product_id?.startsWith(productId + '-') ||
-        r.original_product_id?.startsWith(productId)
-      );
-      return new Set(matching.map(r => r.id)).size;
+      // Reuse the same OR filter pattern to count matching reviews without scanning the whole table
+      const orFilters = [
+        `product_id.eq.${productId}`,
+        `product_id.like.${productId}-%`,
+        `original_product_id.like.${productId}%`
+      ].join(",");
+
+      const { data: matchingReviews, error } = await supabase
+        .from("reviews")
+        .select("id")
+        .or(orFilters);
+
+      if (error || !matchingReviews) {
+        console.error("Error fetching reviews for count recalculation:", error);
+        return 0;
+      }
+
+      const uniqueIds = new Set(matchingReviews.map((r: any) => r.id));
+      return uniqueIds.size;
     })();
 
     if (averageRating === 0 && uniqueReviewsCount === 0) {

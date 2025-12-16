@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Star, ShoppingCart, X, Heart, Instagram, Facebook, Package, AlertCircle, MessageCircle } from "lucide-react"
+import { ArrowLeft, Star, ShoppingCart, X, Heart, Instagram, Facebook, Package, AlertCircle, MessageCircle, Search } from "lucide-react"
 import { useParams } from "next/navigation"
 import { Navigation } from "@/components/navigation"
+import { Footer } from "@/components/footer"
 import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
 import { GiftPackageSelector } from "@/components/gift-package-selector"
@@ -544,7 +545,7 @@ export default function CategoryPage() {
                   }
                   aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Add to cart"}
                 >
-                  <ShoppingCart className="h-4 w-4 mr-2" />
+                  <ShoppingCart className="h-4 w-4" />
                   {selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ? "Out of Stock" : "Add to Cart"}
                 </Button>
               </div>
@@ -594,13 +595,13 @@ export default function CategoryPage() {
       </AlertDialog>
 
       {/* Hero Section */}
-      <section className="pt-28 md:pt-24 pb-16 bg-gradient-to-b from-gray-50 to-white">
+      <section className="pt-28 md:pt-24 pb-4 bg-gradient-to-b from-gray-50 to-white">
         <div className="container mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+            className="text-center mb-8"
           >
             <Link
               href="/products"
@@ -626,17 +627,36 @@ export default function CategoryPage() {
       </section>
 
       {/* Search + Products Grid */}
-      <section className="py-16">
+      <section className="pt-6 pb-16">
         <div className="container mx-auto px-6">
-          <div className="mb-8 max-w-xl mx-auto">
+          <div className="mb-10 max-w-2xl mx-auto">
             <label htmlFor="category-search" className="sr-only">Search products</label>
-            <Input
-              id="category-search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Search ${categoryTitles[category as keyof typeof categoryTitles]} products...`}
-            />
-            <div className="mt-2 text-sm text-gray-500 text-center">
+            <div className="relative group">
+              <div
+                className={`pointer-events-none absolute inset-y-0 flex items-center text-gray-400 transition-colors duration-200 ${
+                  settings.language === "ar" ? "right-5" : "left-5"
+                }`}
+              >
+                <Search className="h-4 w-4" />
+              </div>
+              <Input
+                id="category-search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={`Search ${categoryTitles[category as keyof typeof categoryTitles]} products...`}
+                className={`w-full rounded-full border border-gray-200 bg-white/90
+                  py-3 text-sm md:text-base tracking-wide
+                  focus-visible:ring-0 focus-visible:border-black
+                  placeholder:text-gray-400 transition-colors duration-200
+                  ${
+                    settings.language === "ar"
+                      ? "pr-11 pl-5 text-right placeholder:text-right"
+                      : "pl-11 pr-5"
+                  }
+                `}
+              />
+            </div>
+            <div className="mt-4 text-sm text-gray-500 text-center">
               {debouncedQuery
                 ? `Showing ${filteredProducts.length} of ${products.length}`
                 : `Showing all ${products.length} products`}
@@ -880,97 +900,7 @@ export default function CategoryPage() {
       )}
 
       {/* Footer */}
-      <footer className="bg-black text-white py-12">
-        <div className="container mx-auto px-6">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div className="space-y-4">
-              <Image src="/Anod-logo-white.png" alt="Alanoud Alqadi Atelier" width={864} height={288} className="h-24 w-auto" />
-              <p className="text-gray-400 text-sm">
-                Couture-crafted soirée dresses inspired by Middle Eastern artistry and modern glamour.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-4">Navigation</h3>
-              <div className="space-y-2 text-sm">
-                <Link href="/" className="block text-gray-400 hover:text-white transition-colors">
-                  Home
-                </Link>
-                <Link href="/about" className="block text-gray-400 hover:text-white transition-colors">
-                  About
-                </Link>
-                <Link href="/products" className="block text-gray-400 hover:text-white transition-colors">
-                  Products
-                </Link>
-                <Link href="/contact" className="block text-gray-400 hover:text-white transition-colors">
-                  Contact
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-4">Collections</h3>
-              <div className="space-y-2 text-sm">
-                <Link href="/products/winter" className="block text-gray-400 hover:text-white transition-colors">
-                  Winter Collection
-                </Link>
-                <Link href="/products/summer" className="block text-gray-400 hover:text-white transition-colors">
-                  Summer Collection
-                </Link>
-                <Link href="/products/fall" className="block text-gray-400 hover:text-white transition-colors">
-                  Fall Collection
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-4">Contact</h3>
-              <div className="space-y-2 text-sm text-gray-400">
-                <p>Email: atelier@alanoudalqadi.com</p>
-                <p className="mb-3">Follow the maison</p>
-                <div className="flex space-x-3">
-                  <Link
-                    href="https://www.instagram.com/alanoudalqadiofficial"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group"
-                  >
-                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
-                      <Instagram className="h-4 w-4 text-white" />
-                    </div>
-                  </Link>
-                  <Link
-                    href="https://www.facebook.com/alanoudalqadiofficial"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group"
-                  >
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
-                      <Facebook className="h-4 w-4 text-white" />
-                    </div>
-                  </Link>
-                  <Link
-                    href="https://www.tiktok.com/@alanoudalqadiofficial"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group"
-                  >
-                    <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
-                      <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-                      </svg>
-                    </div>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2025 Alanoud Alqadi Atelier. All rights reserved.</p>
-          </div>
-        </div>
-        </footer>
+      <Footer />
     </div>
   )
 }

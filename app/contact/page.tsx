@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Mail, Phone, MapPin, Clock, Send, Instagram, Facebook } from "lucide-react"
 import { Navigation } from "@/components/navigation"
+import { Footer } from "@/components/footer"
 import { useLocale } from "@/lib/locale-context"
 import { useTranslation } from "@/lib/translations"
 
@@ -364,97 +365,7 @@ export default function ContactPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-black text-white py-12">
-        <div className="container mx-auto px-6">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div className="space-y-4">
-              <Image src="/Anod-logo-white.png" alt="Alanoud Alqadi Atelier" width={864} height={288} className="h-24 w-auto" />
-              <p className="text-gray-400 text-sm">
-                {t("footerDesc")}
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-4">{t("navigation")}</h3>
-              <div className="space-y-2 text-sm">
-                <Link href="/" className="block text-gray-400 hover:text-white transition-colors">
-                  {t("home")}
-                </Link>
-                <Link href="/about" className="block text-gray-400 hover:text-white transition-colors">
-                  {t("about")}
-                </Link>
-                <Link href="/products" className="block text-gray-400 hover:text-white transition-colors">
-                  {t("collections")}
-                </Link>
-                <Link href="/contact" className="block text-gray-400 hover:text-white transition-colors">
-                  {t("contact")}
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-4">{t("collectionsFooter")}</h3>
-              <div className="space-y-2 text-sm">
-                <Link href="/products/winter" className="block text-gray-400 hover:text-white transition-colors">
-                  {t("winterCollection")}
-                </Link>
-                <Link href="/products/summer" className="block text-gray-400 hover:text-white transition-colors">
-                  {t("summerCollection")}
-                </Link>
-                <Link href="/products/fall" className="block text-gray-400 hover:text-white transition-colors">
-                  {t("fallCollection")}
-                </Link>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="font-medium mb-4">{t("contact")}</h3>
-              <div className="space-y-2 text-sm text-gray-400">
-                <p>Email: atelier@alanoudalqadi.com</p>
-                <p className="mb-3">{t("followMaison")}</p>
-                                 <div className="flex space-x-3">
-                  <Link
-                    href="https://www.instagram.com/alanoudalqadiofficial"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group"
-                  >
-                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
-                      <Instagram className="h-4 w-4 text-white" />
-                    </div>
-                  </Link>
-                  <Link
-                    href="https://www.facebook.com/alanoudalqadiofficial"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group"
-                  >
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
-                      <Facebook className="h-4 w-4 text-white" />
-                    </div>
-                  </Link>
-                  <Link
-                    href="https://www.tiktok.com/@alanoudalqadiofficial"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group"
-                  >
-                    <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
-                      <svg className="h-4 w-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-                      </svg>
-                    </div>
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2025 Alanoud Alqadi Atelier. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }
