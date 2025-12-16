@@ -826,21 +826,6 @@ export default function MyAccountPage() {
                   <span className="text-gray-600">Subtotal:</span>
                   <span>{formatPrice(selectedOrder.items?.reduce((sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1), 0) || 0)}</span>
                 </div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-gray-600">Shipping:</span>
-                  <span>
-                    {(() => {
-                      const subtotal = selectedOrder.items?.reduce(
-                        (sum: number, item: any) => sum + (item.price || 0) * (item.quantity || 1),
-                        0,
-                      ) || 0
-                      const discount = selectedOrder.discountAmount || 0
-                      const shipping = (selectedOrder.total || 0) - (subtotal - discount)
-                      if (shipping <= 0) return "Free"
-                      return formatPrice(shipping)
-                    })()}
-                  </span>
-                </div>
                 {selectedOrder.discountAmount > 0 && (
                   <div className="flex justify-between text-green-600 mb-2">
                     <span>Discount</span>
@@ -851,6 +836,9 @@ export default function MyAccountPage() {
                   <span>Total:</span>
                   <span>{formatPrice(selectedOrder.total || 0)}</span>
                 </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  All prices include shipping.
+                </p>
               </div>
             </div>
           </motion.div>

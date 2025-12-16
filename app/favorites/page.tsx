@@ -386,46 +386,57 @@ export default function FavoritesPage() {
                   <span className="text-gray-600">Total:</span>
                   <div className="text-xl font-medium ml-2">
                     {(() => {
+                      const qty = quantity;
+
                       // Handle gift packages
                       if (selectedProduct?.isGiftPackage) {
-                        const packagePrice = selectedProduct.packagePrice || 0;
-                        const packageOriginalPrice = selectedProduct.packageOriginalPrice || 0;
+                        const unitPrice = selectedProduct.packagePrice || 0;
+                        const unitOriginalPrice = selectedProduct.packageOriginalPrice || 0;
+                        const totalPrice = unitPrice * qty;
+                        const totalOriginalPrice = unitOriginalPrice * qty;
                         
-                        if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
+                        if (unitOriginalPrice > 0 && unitPrice < unitOriginalPrice) {
                           return (
                             <>
-                              <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(packageOriginalPrice)}</span>
-                              <span className="text-red-600 font-bold">{formatPrice(packagePrice)}</span>
+                              <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(totalOriginalPrice)}</span>
+                              <span className="text-red-600 font-bold">{formatPrice(totalPrice)}</span>
                             </>
                           );
                         } else {
-                          return <>{formatPrice(packagePrice)}</>;
+                          return <>{formatPrice(totalPrice)}</>;
                         }
                       }
                       
                       // Handle regular products with selected size
                       if (selectedSize) {
-                        if (selectedSize.originalPrice && selectedSize.discountedPrice && 
-                            selectedSize.discountedPrice < selectedSize.originalPrice) {
+                        const unitOriginal = selectedSize.originalPrice || 0;
+                        const unitDiscount = selectedSize.discountedPrice || 0;
+                        const hasDiscount = unitOriginal > 0 && selectedSize.discountedPrice !== undefined && unitDiscount < unitOriginal;
+                        const totalOriginal = unitOriginal * qty;
+                        const totalPrice = (hasDiscount ? unitDiscount : unitOriginal || unitDiscount) * qty;
+
+                        if (hasDiscount) {
                           return (
                             <>
-                              <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(selectedSize.originalPrice)}</span>
-                              <span className="text-red-600 font-bold">{formatPrice(selectedSize.discountedPrice)}</span>
+                              <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(totalOriginal)}</span>
+                              <span className="text-red-600 font-bold">{formatPrice(totalPrice)}</span>
                             </>
                           );
-                        } else {
-                          return <>{formatPrice(selectedSize.discountedPrice || selectedSize.originalPrice || 0)}</>;
                         }
+
+                        return <>{formatPrice(totalPrice)}</>;
                       }
                       
                       // For custom size, use first size price
                       if (isCustomSizeMode && selectedProduct.sizes && selectedProduct.sizes.length > 0) {
-                        const firstSize = selectedProduct.sizes[0]
-                        return <>{formatPrice(firstSize.discountedPrice || firstSize.originalPrice || 0)}</>;
+                        const firstSize = selectedProduct.sizes[0];
+                        const unitPrice = firstSize.discountedPrice || firstSize.originalPrice || 0;
+                        return <>{formatPrice(unitPrice * qty)}</>;
                       }
                       
                       // Fallback to smallest price from sizes
-                      return <>{formatPrice(getSmallestPrice(selectedProduct?.sizes || []))}</>;
+                      const baseUnitPrice = getSmallestPrice(selectedProduct?.sizes || []);
+                      return <>{formatPrice(baseUnitPrice * qty)}</>;
                     })()}
                   </div>
                 </div>

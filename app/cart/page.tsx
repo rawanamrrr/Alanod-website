@@ -27,9 +27,7 @@ export default function CartPage() {
   
 
   const subtotal = state.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  
   const total = subtotal 
-  const freeShippingThreshold = 2000
 
   const handleQuantityChange = (id: string, newQuantity: number) => {
     if (newQuantity === 0) {
@@ -185,35 +183,6 @@ export default function CartPage() {
 
                     <Separator className="bg-gradient-to-r from-purple-200 to-pink-200" />
 
-                    {/* Shipping Info */}
-                    <div className="flex items-center justify-between text-sm">
-                      <span>Shipping</span>
-                      <span className="text-gray-600">Calculated at checkout</span>
-                    </div>
-
-                    {/* Free Shipping Banner */}
-                    {subtotal < freeShippingThreshold && (
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3">
-                        <div className="flex items-center space-x-2">
-                          <Truck className="h-4 w-4 text-blue-600" />
-                          <span className="text-sm text-blue-800">
-                            Add {formatPrice(Math.max(0, freeShippingThreshold - subtotal))} more for free shipping
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {subtotal >= freeShippingThreshold && (
-                      <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3">
-                        <div className="flex items-center space-x-2">
-                          <Package className="h-4 w-4 text-green-600" />
-                          <span className="text-sm text-green-800">
-                            Free shipping on this order!
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
                     <Separator className="bg-gradient-to-r from-purple-200 to-pink-200" />
 
                     <div className="flex justify-between text-lg font-medium">
@@ -250,7 +219,7 @@ export default function CartPage() {
 
                     {/* Additional Info */}
                     <div className="text-center text-xs sm:text-sm text-gray-600 space-y-1">
-                      <p>Free shipping on orders over {formatPrice(freeShippingThreshold)}</p>
+                      <p>All prices include shipping.</p>
                       <p>Secure checkout</p>
                     </div>
                   </CardContent>

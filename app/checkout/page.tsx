@@ -85,11 +85,10 @@ export default function CheckoutPage() {
     }))
   }, [settings.countryName])
 
-// Correct order of calculations:
-const subtotal = cartState.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-const discountAmount = appliedDiscount?.discountAmount || 0;
-const shipping = (subtotal - discountAmount) > 2000 ? 0 : getShippingCost(settings.countryCode);
-const total = subtotal + shipping - discountAmount;
+  // Correct order of calculations:
+  const subtotal = cartState.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const discountAmount = appliedDiscount?.discountAmount || 0
+  const total = subtotal - discountAmount
 
 
   const handleInputChange = (field: string, value: string) => {
@@ -559,7 +558,6 @@ const total = subtotal + shipping - discountAmount;
                     <OrderSummary
                       items={cartState.items}
                       subtotal={subtotal}
-                      shipping={shipping}
                       total={total}
                       discountCode={discountCode}
                       setDiscountCode={setDiscountCode}

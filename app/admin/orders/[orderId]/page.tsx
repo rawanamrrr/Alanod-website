@@ -206,7 +206,6 @@ export default function AdminOrderDetailsPage() {
 
   const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const discount = order.discountAmount || 0
-  const shipping = order.total - (subtotal - discount)
   const total = order.total
 
   return (
@@ -360,7 +359,6 @@ export default function AdminOrderDetailsPage() {
                   <div className="space-y-2">
                     <div className="flex justify-between"><span>Subtotal</span><span>{subtotal.toFixed(2)} EGP</span></div>
                     {order.discountCode && <div className="flex justify-between text-green-600"><span>Discount ({order.discountCode})</span><span>-{discount.toFixed(2)} EGP</span></div>}
-                    <div className="flex justify-between"><span>Shipping</span><span>{shipping === 0 ? "Free" : `${shipping} EGP`}</span></div>
                     <Separator />
                     <div className="flex justify-between text-lg font-medium"><span>Total</span><span>{total.toFixed(2)} EGP</span></div>
                   </div>

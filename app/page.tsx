@@ -510,19 +510,31 @@ export default function HomePage() {
                     <div>
                       <span className="text-gray-600">{t("total")}:</span>
                       <span className="text-xl font-medium ml-2">
-                        {selectedSize ? (
-                          selectedSize.originalPrice && selectedSize.discountedPrice && 
-                          selectedSize.discountedPrice < selectedSize.originalPrice ? (
-                            <>
-                              <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(selectedSize.originalPrice || 0)}</span>
-                              <span className="text-red-600 font-bold">{formatPrice(selectedSize.discountedPrice || 0)}</span>
-                            </>
-                          ) : (
-                            <>{formatPrice(selectedSize.discountedPrice || selectedSize.originalPrice || 0)}</>
-                          )
-                        ) : (
-                          <>{formatPrice(getSmallestPrice(selectedProduct.sizes))}</>
-                        )}
+                        {(() => {
+                          const qty = quantity;
+
+                          if (selectedSize) {
+                            const unitOriginal = selectedSize.originalPrice || 0;
+                            const unitDiscount = selectedSize.discountedPrice || 0;
+                            const hasDiscount = unitOriginal > 0 && selectedSize.discountedPrice !== undefined && unitDiscount < unitOriginal;
+                            const totalOriginal = unitOriginal * qty;
+                            const totalPrice = (hasDiscount ? unitDiscount : unitOriginal || unitDiscount) * qty;
+
+                            if (hasDiscount) {
+                              return (
+                                <>
+                                  <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(totalOriginal)}</span>
+                                  <span className="text-red-600 font-bold">{formatPrice(totalPrice)}</span>
+                                </>
+                              );
+                            }
+
+                            return <>{formatPrice(totalPrice)}</>;
+                          }
+
+                          const baseUnitPrice = getSmallestPrice(selectedProduct.sizes);
+                          return <>{formatPrice(baseUnitPrice * qty)}</>;
+                        })()}
                       </span>
                     </div>
                     

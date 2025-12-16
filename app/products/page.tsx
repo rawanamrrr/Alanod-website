@@ -533,18 +533,23 @@ useEffect(() => {
                 <div>
                   {selectedProduct ? (
                     (() => {
-                      const referenceSize = selectedSize || selectedProduct.sizes[0]
-                      const original = referenceSize?.originalPrice ?? selectedProduct.packagePrice ?? 0
-                      const discounted = referenceSize?.discountedPrice
+                      const qty = quantity;
+                      const referenceSize = selectedSize || selectedProduct.sizes[0];
+                      const unitOriginal = referenceSize?.originalPrice ?? selectedProduct.packagePrice ?? 0;
+                      const unitDiscount = referenceSize?.discountedPrice;
+                      const hasDiscount = unitDiscount !== undefined && unitDiscount < (referenceSize?.originalPrice ?? unitDiscount);
+                      const totalOriginal = unitOriginal * qty;
+                      const totalPrice = (hasDiscount ? unitDiscount! : unitOriginal) * qty;
+
                       return (
                         <div>
-                          {discounted && discounted < (referenceSize?.originalPrice ?? discounted) ? (
+                          {hasDiscount ? (
                             <>
-                              <span className="line-through text-gray-400 text-lg block">{formatPrice(referenceSize?.originalPrice || 0)}</span>
-                              <span className="text-xl font-medium text-red-600">{formatPrice(discounted)}</span>
+                              <span className="line-through text-gray-400 text-lg block">{formatPrice(totalOriginal)}</span>
+                              <span className="text-xl font-medium text-red-600">{formatPrice(totalPrice)}</span>
                             </>
                           ) : (
-                            <span className="text-xl font-medium">{formatPrice(discounted ?? original)}</span>
+                            <span className="text-xl font-medium">{formatPrice(totalPrice)}</span>
                           )}
                           {isCustomSizeMode && (
                             <span className="text-xs text-gray-500 mt-1 block">
@@ -552,7 +557,7 @@ useEffect(() => {
                             </span>
                           )}
                         </div>
-                      )
+                      );
                     })()
                   ) : (
                     <span className="text-xl font-medium text-gray-400">Select a gown</span>

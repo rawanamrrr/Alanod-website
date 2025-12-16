@@ -39,7 +39,6 @@ interface OrderSummaryProps {
     }
   }>
   subtotal: number
-  shipping: number
   total: number
   discountCode: string
   setDiscountCode: (code: string) => void
@@ -57,7 +56,6 @@ interface OrderSummaryProps {
 export const OrderSummary = ({
   items,
   subtotal,
-  shipping,
   total,
   discountCode,
   setDiscountCode,
@@ -348,12 +346,6 @@ export const OrderSummary = ({
               <span>-{formatPrice(appliedDiscount.discountAmount)}</span>
             </div>
           )}
-          <div className="flex justify-between">
-            <span>Shipping</span>
-            <span>
-              {!governorate ? "Not specified" : shipping === 0 ? "Free" : formatPrice(shipping)}
-            </span>
-          </div>
         </div>
 
         <Separator className="bg-gradient-to-r from-purple-200 to-pink-200" />
@@ -362,6 +354,9 @@ export const OrderSummary = ({
           <span>Total</span>
           <span>{formatPrice(total)}</span>
         </div>
+        <p className="mt-1 text-xs text-gray-500">
+          All prices include shipping.
+        </p>
 
         {/* Form Error Message */}
         {formError && (

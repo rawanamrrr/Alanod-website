@@ -934,19 +934,21 @@ export default function ProductDetailPage() {
               <div className="flex md:hidden items-center justify-between gap-2">
                 <div className="text-sm font-medium">
                   {(() => {
-                    const selectedSizeObj = product.sizes[selectedSize];
-                    const selectedPrice = selectedSizeObj?.discountedPrice || selectedSizeObj?.originalPrice || 0;
-                    const originalPrice = selectedSizeObj?.originalPrice;
-                    
-                    if (originalPrice && selectedPrice < originalPrice) {
+                    const selectedSizeObj = product.sizes[selectedSize] || product.sizes[0];
+                    const unitPrice = selectedSizeObj?.discountedPrice || selectedSizeObj?.originalPrice || 0;
+                    const unitOriginalPrice = selectedSizeObj?.originalPrice || 0;
+                    const totalPrice = unitPrice * quantity;
+                    const totalOriginalPrice = unitOriginalPrice * quantity;
+
+                    if (unitOriginalPrice > 0 && unitPrice < unitOriginalPrice) {
                       return (
                         <div className="flex items-center space-x-1">
-                          <span className="line-through text-gray-400 text-xs">{formatPrice(originalPrice || 0)}</span>
-                          <span className="text-red-600 font-bold text-sm">{formatPrice(selectedPrice)}</span>
+                          <span className="line-through text-gray-400 text-xs">{formatPrice(totalOriginalPrice)}</span>
+                          <span className="text-red-600 font-bold text-sm">{formatPrice(totalPrice)}</span>
                         </div>
                       );
                     } else {
-                      return <span className="text-sm">{formatPrice(selectedPrice)}</span>;
+                      return <span className="text-sm">{formatPrice(totalPrice)}</span>;
                     }
                   })()}
                 </div>
@@ -1078,19 +1080,21 @@ export default function ProductDetailPage() {
                 <div className="flex items-center justify-end space-x-4 w-auto">
                   <div className="text-xl font-light text-left">
                 {(() => {
-                  const selectedSizeObj = product.sizes[selectedSize];
-                  const selectedPrice = selectedSizeObj?.discountedPrice || selectedSizeObj?.originalPrice || 0;
-                  const originalPrice = selectedSizeObj?.originalPrice;
+                  const selectedSizeObj = product.sizes[selectedSize] || product.sizes[0];
+                  const unitPrice = selectedSizeObj?.discountedPrice || selectedSizeObj?.originalPrice || 0;
+                  const unitOriginalPrice = selectedSizeObj?.originalPrice || 0;
+                  const totalPrice = unitPrice * quantity;
+                  const totalOriginalPrice = unitOriginalPrice * quantity;
                   
-                  if (originalPrice && selectedPrice < originalPrice) {
+                  if (unitOriginalPrice > 0 && unitPrice < unitOriginalPrice) {
                     return (
                       <div className="flex items-center space-x-2">
-                            <span className="line-through text-gray-400 text-lg">{formatPrice(originalPrice || 0)}</span>
-                            <span className="text-red-600 font-bold text-xl">{formatPrice(selectedPrice)}</span>
+                            <span className="line-through text-gray-400 text-lg">{formatPrice(totalOriginalPrice)}</span>
+                            <span className="text-red-600 font-bold text-xl">{formatPrice(totalPrice)}</span>
                       </div>
                     );
                   } else {
-                        return <span className="text-xl">{formatPrice(selectedPrice)}</span>;
+                        return <span className="text-xl">{formatPrice(totalPrice)}</span>;
                   }
                 })()}
               </div>
@@ -1644,25 +1648,39 @@ export default function ProductDetailPage() {
                   <div>
                     <span className="text-gray-600">Total:</span>
                     <span className="text-xl font-medium ml-2">
-                      {isCustomSizeMode ? (
-                        selectedProduct.sizes && selectedProduct.sizes.length > 0 ? (
-                          <>{formatPrice(getSmallestPrice(selectedProduct.sizes))}</>
-                        ) : (
-                          <>{formatPrice(0)}</>
-                        )
-                      ) : selectedRelatedSize ? (
-                        selectedRelatedSize.originalPrice && selectedRelatedSize.discountedPrice && 
-                        selectedRelatedSize.discountedPrice < selectedRelatedSize.originalPrice ? (
-                          <>
-                            <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(selectedRelatedSize.originalPrice || 0)}</span>
-                            <span className="text-red-600 font-bold">{formatPrice(selectedRelatedSize.discountedPrice || 0)}</span>
-                          </>
-                        ) : (
-                          <>{formatPrice(selectedRelatedSize.discountedPrice || selectedRelatedSize.originalPrice || 0)}</>
-                        )
-                      ) : (
-                        <>{formatPrice(getSmallestPrice(selectedProduct.sizes))}</>
-                      )}
+                      {(() => {
+                        const qty = quantity;
+
+                        if (isCustomSizeMode) {
+                          if (selectedProduct.sizes && selectedProduct.sizes.length > 0) {
+                            const baseUnitPrice = getSmallestPrice(selectedProduct.sizes);
+                            return <>{formatPrice(baseUnitPrice * qty)}</>;
+                          }
+                          return <>{formatPrice(0)}</>;
+                        }
+
+                        if (selectedRelatedSize) {
+                          const unitOriginal = selectedRelatedSize.originalPrice || 0;
+                          const unitDiscount = selectedRelatedSize.discountedPrice || 0;
+                          const hasDiscount = unitOriginal > 0 && selectedRelatedSize.discountedPrice !== undefined && unitDiscount < unitOriginal;
+                          const totalOriginal = unitOriginal * qty;
+                          const totalPrice = (hasDiscount ? unitDiscount : unitOriginal || unitDiscount) * qty;
+
+                          if (hasDiscount) {
+                            return (
+                              <>
+                                <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(totalOriginal)}</span>
+                                <span className="text-red-600 font-bold">{formatPrice(totalPrice)}</span>
+                              </>
+                            );
+                          }
+
+                          return <>{formatPrice(totalPrice)}</>;
+                        }
+
+                        const baseUnitPrice = getSmallestPrice(selectedProduct.sizes);
+                        return <>{formatPrice(baseUnitPrice * qty)}</>;
+                      })()}
                     </span>
                   </div>
                   
