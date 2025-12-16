@@ -621,12 +621,12 @@ export default function HomePage() {
         transition={{ duration: 1.5 }}
         className="relative h-screen flex items-center justify-center overflow-hidden"
       >
-        {/* Image Background - Full Screen */}
+        {/* Image Background - Full Screen (with subtle continuous zoom) */}
         <motion.div 
           className="absolute inset-0 z-0"
-          initial={{ scale: 1.05 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 8, ease: "easeOut" }}
+          initial={{ scale: 1 }}
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
         >
           <Image
             src="/Alanod-bg.jpeg"
