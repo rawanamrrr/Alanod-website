@@ -4,7 +4,6 @@ import type React from "react"
 
 import { useState } from "react"
 import { motion } from "framer-motion"
-import Image from "next/image"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -90,8 +89,7 @@ export default function RegisterPage() {
               transition={{ duration: 0.8, delay: 0.1 }}
               className="text-center mb-8"
             >
-              <Image src="/alanoud-word-dark.svg" alt="Alanoud Alqadi Atelier" width={220} height={110} className="mx-auto mb-6" />
-              <h1 className="text-3xl font-light tracking-wider mb-2">{t("joinTheAtelier")}</h1>
+              <h1 className="text-3xl font-light tracking-wider mb-2 pt-6">{t("joinTheAtelier")}</h1>
               <p className="text-gray-600">{t("createAccountDesc")}</p>
             </motion.div>
 
