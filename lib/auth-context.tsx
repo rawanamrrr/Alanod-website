@@ -28,7 +28,7 @@ interface AuthContextType {
   dispatch: React.Dispatch<AuthAction>
   login: (email: string, password: string) => Promise<boolean>
   logout: () => void
-  register: (email: string, password: string, name: string) => Promise<boolean>
+  register: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>
   forgotPassword: (email: string) => Promise<boolean>
 }
 
@@ -226,7 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const register = async (email: string, password: string, name: string): Promise<boolean> => {
+  const register = async (email: string, password: string, name: string): Promise<{ success: boolean; error?: string }> => {
     dispatch({ type: "LOGIN_START" })
 
     try {
@@ -239,7 +239,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       if (!response.ok) {
-        throw new Error(await response.text())
+        const errorData = await response.json().catch(() => ({ error: "Registration failed" }))
+        const errorMessage = errorData.error || "Registration failed"
+        dispatch({ type: "LOGIN_FAILURE" })
+        return { success: false, error: errorMessage }
       }
 
       const data = await response.json()
@@ -261,11 +264,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }).catch(error => console.error("Welcome email error:", error))
 
       dispatch({ type: "LOGIN_SUCCESS", payload: { user: data.user, token: data.token } })
-      return true
+      return { success: true }
     } catch (error) {
       console.error("Registration error:", error)
       dispatch({ type: "LOGIN_FAILURE" })
-      return false
+      return { success: false, error: "An unexpected error occurred" }
     }
   }
 

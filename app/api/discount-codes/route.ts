@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 
 interface DiscountCode {
   id?: string
@@ -61,7 +61,14 @@ export async function POST(request: NextRequest) {
       is_active: true,
     }
 
-    const { data: result, error } = await supabase
+    // Use admin client to bypass RLS for discount code creation
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block discount code creation.")
+    }
+
+    const { data: result, error } = await client
       .from("discount_codes")
       .insert(discountCode)
       .select()

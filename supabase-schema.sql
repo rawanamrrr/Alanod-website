@@ -184,6 +184,12 @@ CREATE POLICY "Users can view own profile"
   ON users FOR SELECT
   USING (auth.uid()::text = id::text);
 
+-- Policy: Allow anyone to insert new users (for registration)
+-- Note: This is safe because email is UNIQUE and password is hashed
+CREATE POLICY "Anyone can register"
+  ON users FOR INSERT
+  WITH CHECK (true);
+
 -- Policies: Users can only see their own orders
 CREATE POLICY "Users can view own orders"
   ON orders FOR SELECT

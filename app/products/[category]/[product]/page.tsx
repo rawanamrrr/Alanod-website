@@ -281,7 +281,8 @@ export default function ProductDetailPage() {
           volume: selectedSizeObj.volume,
           image: product.images[0],
           category: product.category,
-          quantity: quantity
+          quantity: quantity,
+          stockCount: selectedSizeObj.stockCount
         },
       })
     }

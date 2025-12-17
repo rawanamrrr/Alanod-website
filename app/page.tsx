@@ -240,6 +240,7 @@ export default function HomePage() {
         image: selectedProduct.images[0],
         category: selectedProduct.category,
         quantity,
+        stockCount: isCustomSizeMode ? undefined : baseSize.stockCount,
         customMeasurements: isCustomSizeMode
           ? {
               unit: measurementUnit,

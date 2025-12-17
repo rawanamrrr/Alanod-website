@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 
 interface Offer {
   id?: string
@@ -112,7 +112,14 @@ export async function POST(request: NextRequest) {
       display_order: Number(priority) || 0,
     }
 
-    const { data: result, error } = await supabase
+    // Use admin client to bypass RLS for offer creation
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block offer creation.")
+    }
+
+    const { data: result, error } = await client
       .from("offers")
       .insert(newOffer)
       .select()
@@ -170,7 +177,14 @@ export async function PUT(request: NextRequest) {
     if (priority !== undefined) updateData.display_order = Number(priority) || 0
     if (isActive !== undefined) updateData.is_active = isActive
 
-    const { data: updatedOffer, error } = await supabase
+    // Use admin client to bypass RLS for offer update
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block offer update.")
+    }
+
+    const { data: updatedOffer, error } = await client
       .from("offers")
       .update(updateData)
       .eq("id", id)
@@ -215,7 +229,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Offer ID is required" }, { status: 400 })
     }
 
-    const { error } = await supabase
+    // Use admin client to bypass RLS for offer deletion
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block offer deletion.")
+    }
+
+    const { error } = await client
       .from("offers")
       .delete()
       .eq("id", id)

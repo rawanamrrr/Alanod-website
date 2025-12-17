@@ -261,6 +261,7 @@ useEffect(() => {
         volume: isCustomSizeMode ? measurementUnit : baseSize.volume,
         image: selectedProduct.images[0],
         category: selectedProduct.category,
+        stockCount: isCustomSizeMode ? undefined : baseSize.stockCount,
         quantity,
         customMeasurements: isCustomSizeMode
           ? {

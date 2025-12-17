@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 import type { User } from "@/lib/models/types"
 
 export async function POST(request: NextRequest) {
@@ -16,12 +16,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Password must be at least 6 characters long" }, { status: 400 })
     }
 
+    // Use admin client to bypass RLS for registration
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block registration.")
+    }
+
     // Check if user already exists
-    const { data: existingUser } = await supabase
+    const { data: existingUser, error: checkError } = await client
       .from("users")
       .select("id")
       .eq("email", email)
-      .single()
+      .maybeSingle()
+
+    if (checkError) {
+      console.error("Error checking existing user:", checkError)
+      return NextResponse.json({ error: "Failed to check user existence" }, { status: 500 })
+    }
 
     if (existingUser) {
       return NextResponse.json({ error: "User already exists" }, { status: 409 })
@@ -31,7 +43,7 @@ export async function POST(request: NextRequest) {
     const hashedPassword = await bcrypt.hash(password, 12)
 
     // Create user
-    const { data: newUser, error } = await supabase
+    const { data: newUser, error } = await client
       .from("users")
       .insert({
         email,
@@ -42,8 +54,21 @@ export async function POST(request: NextRequest) {
       .select()
       .single()
 
-    if (error || !newUser) {
+    if (error) {
       console.error("Registration error:", error)
+      // Return the actual error message from Supabase
+      const errorMessage = error.message || "Failed to create user"
+      // Check for common RLS errors
+      if (errorMessage.includes("new row violates row-level security") || errorMessage.includes("RLS")) {
+        return NextResponse.json({ 
+          error: "Database configuration error. Please contact support." 
+        }, { status: 500 })
+      }
+      return NextResponse.json({ error: errorMessage }, { status: 500 })
+    }
+
+    if (!newUser) {
+      console.error("Registration error: No user returned")
       return NextResponse.json({ error: "Failed to create user" }, { status: 500 })
     }
 

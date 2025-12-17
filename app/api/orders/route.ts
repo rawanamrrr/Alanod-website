@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 import type { Order } from "@/lib/models/types"
 
 // Transform Supabase order to match expected format
@@ -257,7 +257,14 @@ export async function POST(request: NextRequest) {
       }
     })
 
-    const { data: result, error: insertError } = await supabase
+    // Use admin client to bypass RLS for order creation
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block order creation.")
+    }
+
+    const { data: result, error: insertError } = await client
       .from("orders")
       .insert(newOrder)
       .select()
@@ -265,7 +272,14 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error("Error inserting order:", insertError)
-      return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
+      const errorMessage = insertError.message || "Failed to create order"
+      // Check for common RLS errors
+      if (errorMessage.includes("new row violates row-level security") || errorMessage.includes("RLS")) {
+        return NextResponse.json({ 
+          error: "Database configuration error. Please contact support." 
+        }, { status: 500 })
+      }
+      return NextResponse.json({ error: errorMessage }, { status: 500 })
     }
 
     console.log("✅ [API] Order inserted with ID:", result.id)
@@ -300,7 +314,9 @@ export async function POST(request: NextRequest) {
             s.stockCount === undefined || s.stockCount <= 0
           )
           
-          await supabase
+          // Use admin client for stock updates
+          const productClient = supabaseAdmin || supabase
+          await productClient
             .from("products")
             .update({ 
               sizes: updatedSizes,
@@ -311,8 +327,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Verify insertion
-    const { data: insertedOrder } = await supabase
+    // Verify insertion (use same client)
+    const { data: insertedOrder } = await client
       .from("orders")
       .select("*")
       .eq("id", result.id)

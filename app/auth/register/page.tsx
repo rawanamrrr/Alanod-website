@@ -48,12 +48,14 @@ export default function RegisterPage() {
       return
     }
 
-    const success = await register(formData.email, formData.password, formData.name)
-    if (success) {
+    const result = await register(formData.email, formData.password, formData.name)
+    if (result.success) {
       // Redirect to provided path (defaults to home) after successful registration
       router.push(redirectPath)
     } else {
-      setError(t("emailAlreadyExists"))
+      // Show the actual error message from the API, or fallback to translation
+      const errorMessage = result.error || t("emailAlreadyExists")
+      setError(errorMessage === "User already exists" ? t("emailAlreadyExists") : errorMessage)
     }
   }
 

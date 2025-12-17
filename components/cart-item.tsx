@@ -18,6 +18,7 @@ interface CartItemProps {
     volume: string
     quantity: number
     image?: string
+    stockCount?: number
     isGiftPackage?: boolean
     selectedProduct?: {
       productId: string
@@ -50,7 +51,7 @@ interface CartItemProps {
       }>
     }
   }
-  onQuantityChange: (id: string, quantity: number) => void
+  onQuantityChange: (id: string, quantity: number, availableStock?: number) => void
   onRemove: (id: string) => void
   onMoveToWishlist?: (string: string) => void
 }
@@ -75,7 +76,16 @@ export const CartItem = ({
     if (newQuantity === 0) {
       handleRemove()
     } else {
-      onQuantityChange(item.id, newQuantity)
+      // Check stock if available
+      if (item.stockCount !== undefined && item.stockCount !== null) {
+        // Don't allow quantity to exceed stock
+        newQuantity = Math.min(newQuantity, item.stockCount)
+        if (newQuantity <= 0) {
+          handleRemove()
+          return
+        }
+      }
+      onQuantityChange(item.id, newQuantity, item.stockCount)
     }
   }
 
@@ -171,7 +181,8 @@ export const CartItem = ({
                   variant="outline"
                   size="sm"
                   onClick={() => handleQuantityChange(item.quantity + 1)}
-                  className="h-8 w-8 p-0 border-purple-200 hover:border-purple-400 hover:bg-purple-50"
+                  disabled={item.stockCount !== undefined && item.stockCount !== null && item.quantity >= item.stockCount}
+                  className="h-8 w-8 p-0 border-purple-200 hover:border-purple-400 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="h-4 w-4 text-purple-600" />
                 </Button>
@@ -262,7 +273,8 @@ export const CartItem = ({
                 variant="outline"
                 size="sm"
                 onClick={() => handleQuantityChange(item.quantity + 1)}
-                className="h-8 w-8 p-0 border-purple-200 hover:border-purple-400 hover:bg-purple-50"
+                disabled={item.stockCount !== undefined && item.stockCount !== null && item.quantity >= item.stockCount}
+                className="h-8 w-8 p-0 border-purple-200 hover:border-purple-400 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Plus className="h-4 w-4 text-purple-600" />
               </Button>

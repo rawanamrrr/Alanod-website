@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 import type { Product } from "@/lib/models/types"
 
 type CachedProductsEntry = {
@@ -91,8 +91,25 @@ const errorResponse = (message: string, status: number) => {
   )
 }
 
+// Helper function to calculate isOutOfStock based on stockCount
+const calculateIsOutOfStock = (sizes: any[]): boolean => {
+  if (!sizes || sizes.length === 0) return false
+  // Check if all sizes have stockCount = 0 or undefined/null
+  const allSizesOutOfStock = sizes.every((size: any) => {
+    const stockCount = size.stockCount ?? size.stock_count
+    return stockCount === undefined || stockCount === null || stockCount === 0
+  })
+  return allSizesOutOfStock
+}
+
 // Transform Supabase product to match expected format
 const transformProduct = (product: any): Product => {
+  const sizes = product.sizes || []
+  // Auto-calculate isOutOfStock if not explicitly set
+  const isOutOfStock = product.is_out_of_stock !== undefined 
+    ? product.is_out_of_stock 
+    : calculateIsOutOfStock(sizes)
+  
   return {
     id: product.product_id,
     product_id: product.product_id,
@@ -102,7 +119,10 @@ const transformProduct = (product: any): Product => {
     price: product.price || 0,
     beforeSalePrice: product.before_sale_price,
     afterSalePrice: product.after_sale_price,
-    sizes: product.sizes || [],
+    sizes: sizes.map((size: any) => ({
+      ...size,
+      stockCount: size.stockCount ?? size.stock_count,
+    })),
     images: product.images || [],
     rating: product.rating || 0,
     reviews: product.reviews || 0,
@@ -111,7 +131,7 @@ const transformProduct = (product: any): Product => {
     isNew: product.is_new || false,
     isBestseller: product.is_bestseller || false,
     isActive: product.is_active !== false,
-    isOutOfStock: product.is_out_of_stock || false,
+    isOutOfStock: isOutOfStock,
     isGiftPackage: product.is_gift_package || false,
     packagePrice: product.package_price,
     packageOriginalPrice: product.package_original_price,
@@ -337,17 +357,32 @@ export async function POST(request: NextRequest) {
       }
     } else {
       // Regular product
+      const sizes = productData.sizes?.map((size: any) => {
+        let stockCount: number | undefined = undefined
+        if (size.stockCount !== undefined && size.stockCount !== null && size.stockCount !== "") {
+          const parsed = Number(size.stockCount)
+          if (!isNaN(parsed) && parsed >= 0) {
+            stockCount = parsed
+          }
+        }
+        return {
+          size: size.size,
+          volume: size.volume,
+          originalPrice: size.originalPrice ? Number(size.originalPrice) : undefined,
+          discountedPrice: size.discountedPrice ? Number(size.discountedPrice) : undefined,
+          stockCount: stockCount,
+        }
+      }) || []
+      
+      // Auto-calculate isOutOfStock based on stockCount
+      const isOutOfStock = calculateIsOutOfStock(sizes)
+      
       newProduct = {
         product_id: productId,
         name: productData.name,
         description: productData.description,
         long_description: productData.longDescription || "",
-        sizes: productData.sizes?.map((size: any) => ({
-          size: size.size,
-          volume: size.volume,
-          originalPrice: size.originalPrice ? Number(size.originalPrice) : undefined,
-          discountedPrice: size.discountedPrice ? Number(size.discountedPrice) : undefined,
-        })) || [],
+        sizes: sizes,
         images: productData.images || ["/placeholder.svg"],
         rating: 0,
         reviews: 0,
@@ -359,7 +394,7 @@ export async function POST(request: NextRequest) {
         category: productData.category,
         is_new: productData.isNew ?? false,
         is_bestseller: productData.isBestseller ?? false,
-        is_out_of_stock: productData.isOutOfStock ?? false,
+        is_out_of_stock: productData.isOutOfStock !== undefined ? productData.isOutOfStock : isOutOfStock,
         is_active: productData.isActive ?? true,
         is_gift_package: false,
         price: productData.sizes && productData.sizes.length > 0 
@@ -372,8 +407,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Use admin client to bypass RLS for product creation
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block product creation.")
+    }
+
     // Insert into database
-    const { data: result, error } = await supabase
+    const { data: result, error } = await client
       .from("products")
       .insert(newProduct)
       .select()
@@ -381,7 +423,8 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Error creating product:", error)
-      return errorResponse("Failed to create product", 500)
+      const errorMessage = error.message || "Failed to create product"
+      return errorResponse(errorMessage, 500)
     }
 
     clearProductsCache()
@@ -462,23 +505,38 @@ export async function PUT(request: NextRequest) {
       }
     } else {
       // Regular product update
+      const sizes = productData.sizes?.map((size: any) => {
+        let stockCount: number | undefined = undefined
+        if (size.stockCount !== undefined && size.stockCount !== null && size.stockCount !== "") {
+          const parsed = Number(size.stockCount)
+          if (!isNaN(parsed) && parsed >= 0) {
+            stockCount = parsed
+          }
+        }
+        return {
+          size: size.size,
+          volume: size.volume,
+          originalPrice: size.originalPrice ? Number(size.originalPrice) : undefined,
+          discountedPrice: size.discountedPrice ? Number(size.discountedPrice) : undefined,
+          stockCount: stockCount,
+        }
+      }) || []
+      
+      // Auto-calculate isOutOfStock based on stockCount
+      const isOutOfStock = calculateIsOutOfStock(sizes)
+      
       updateData = {
         name: productData.name,
         description: productData.description,
         long_description: productData.longDescription || "",
         category: productData.category,
-        sizes: productData.sizes?.map((size: any) => ({
-          size: size.size,
-          volume: size.volume,
-          originalPrice: size.originalPrice ? Number(size.originalPrice) : undefined,
-          discountedPrice: size.discountedPrice ? Number(size.discountedPrice) : undefined,
-        })) || [],
+        sizes: sizes,
         images: productData.images,
         notes: productData.notes,
         is_active: productData.isActive,
         is_new: productData.isNew,
         is_bestseller: productData.isBestseller,
-        is_out_of_stock: productData.isOutOfStock,
+        is_out_of_stock: productData.isOutOfStock !== undefined ? productData.isOutOfStock : isOutOfStock,
         is_gift_package: false,
         price: productData.sizes && productData.sizes.length > 0
           ? Math.min(...productData.sizes.map((size: any) => 
@@ -490,15 +548,28 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    // Use admin client to bypass RLS for product update
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block product update.")
+    }
+
     // Perform update (try by product_id first)
-    const { data: updatedProduct, error } = await supabase
+    const { data: updatedProduct, error } = await client
       .from("products")
       .update(updateData)
       .eq("product_id", id)
       .select()
       .single()
 
-    if (error || !updatedProduct) {
+    if (error) {
+      console.error("Error updating product:", error)
+      const errorMessage = error.message || "Failed to update product"
+      return errorResponse(errorMessage, 500)
+    }
+    
+    if (!updatedProduct) {
       return errorResponse("Product not found", 404)
     }
 
@@ -548,8 +619,15 @@ export async function DELETE(request: NextRequest) {
       return errorResponse("Product ID is required", 400)
     }
 
+    // Use admin client to bypass RLS for product deletion
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block product deletion.")
+    }
+
     // Delete product (try by product_id)
-    const { error } = await supabase
+    const { error } = await client
       .from("products")
       .delete()
       .eq("product_id", id)

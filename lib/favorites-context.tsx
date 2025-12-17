@@ -114,11 +114,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       setLoading(false)
     }
     loadFavorites()
-    // Clear on logout
-    if (!authState.isAuthenticated) {
-      dispatch({ type: "CLEAR_FAVORITES" })
-    }
-  }, [authState.isAuthenticated, authState.token])
+  }, [authState.isAuthenticated, authState.token, authState.user?.id])
 
   // Save to localStorage for guests
   useEffect(() => {
@@ -147,36 +143,66 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       ...(item.sizes && { sizes: item.sizes })
     };
 
-    dispatch({ type: "ADD_FAVORITE", payload: favoriteItem })
     if (authState.isAuthenticated && authState.token) {
       console.log('[Favorites] Adding to backend:', favoriteItem)
-      await fetch("/api/favorites", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authState.token}`,
-        },
-        body: JSON.stringify({ productId: item.id }),
-      })
+      try {
+        const response = await fetch("/api/favorites", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authState.token}`,
+          },
+          body: JSON.stringify({ productId: item.id }),
+        })
+        
+        if (response.ok) {
+          // Only update local state if API call succeeds
+          dispatch({ type: "ADD_FAVORITE", payload: favoriteItem })
+          console.log('[Favorites] Successfully added to backend')
+        } else {
+          const errorData = await response.json().catch(() => ({ error: "Failed to add favorite" }))
+          console.error('[Favorites] Failed to add to backend:', errorData.error)
+          // You could show a toast/notification here
+        }
+      } catch (error) {
+        console.error('[Favorites] Error adding to backend:', error)
+        // You could show a toast/notification here
+      }
     } else {
+      // Guest: update local state immediately
       console.log('[Favorites] Adding to localStorage:', favoriteItem)
+      dispatch({ type: "ADD_FAVORITE", payload: favoriteItem })
     }
   }
 
   const removeFromFavorites = async (id: string) => {
-    dispatch({ type: "REMOVE_FAVORITE", payload: id })
     if (authState.isAuthenticated && authState.token) {
       console.log('[Favorites] Removing from backend:', id)
-      await fetch("/api/favorites", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authState.token}`,
-        },
-        body: JSON.stringify({ productId: id }),
-      })
+      try {
+        const response = await fetch("/api/favorites", {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authState.token}`,
+          },
+          body: JSON.stringify({ productId: id }),
+        })
+        
+        if (response.ok) {
+          // Only update local state if API call succeeds
+          dispatch({ type: "REMOVE_FAVORITE", payload: id })
+          console.log('[Favorites] Successfully removed from backend')
+        } else {
+          const errorData = await response.json().catch(() => ({ error: "Failed to remove favorite" }))
+          console.error('[Favorites] Failed to remove from backend:', errorData.error)
+        }
+      } catch (error) {
+        console.error('[Favorites] Error removing from backend:', error)
+      }
     } else {
+      // Guest: update local state immediately
       console.log('[Favorites] Removing from localStorage:', id)
+      dispatch({ type: "REMOVE_FAVORITE", payload: id })
     }
   }
 

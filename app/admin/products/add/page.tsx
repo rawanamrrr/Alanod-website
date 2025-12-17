@@ -158,7 +158,7 @@ export default function AddProductPage() {
           volume: size.volume,
           originalPrice: size.originalPrice ? parseFloat(size.originalPrice) : undefined,
           discountedPrice: size.discountedPrice ? parseFloat(size.discountedPrice) : undefined,
-          stockCount: size.stockCount ? parseInt(size.stockCount) : undefined,
+          stockCount: size.stockCount && size.stockCount.trim() !== "" ? parseInt(size.stockCount, 10) : undefined,
         })),
       }
 

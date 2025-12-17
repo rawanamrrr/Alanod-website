@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseAdmin } from "@/lib/supabase";
 import jwt from "jsonwebtoken";
 
 function errorResponse(message: string, status: number = 400) {
@@ -54,8 +54,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Use admin client to bypass RLS for reading user favorites
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block favorites read.")
+    }
+
     // Fetch user from Supabase
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await client
       .from("users")
       .select("favorites")
       .eq("id", decoded.userId)
@@ -166,14 +173,22 @@ export async function POST(request: NextRequest) {
       return errorResponse("productId required", 400);
     }
 
+    // Use admin client to bypass RLS for all operations
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block favorites operations.")
+    }
+
     // Fetch user
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await client
       .from("users")
       .select("favorites")
       .eq("id", decoded.userId)
       .single();
     
     if (userError || !user) {
+      console.error("Error fetching user:", userError);
       return errorResponse("User not found", 404);
     }
 
@@ -181,7 +196,7 @@ export async function POST(request: NextRequest) {
     if (!favorites.includes(productId)) {
       const newFavorites = [...favorites, productId];
       
-      const { error: updateError } = await supabase
+      const { error: updateError } = await client
         .from("users")
         .update({ favorites: newFavorites })
         .eq("id", decoded.userId);
@@ -225,21 +240,29 @@ export async function DELETE(request: NextRequest) {
       return errorResponse("productId required", 400);
     }
 
+    // Use admin client to bypass RLS for all operations
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block favorites operations.")
+    }
+
     // Fetch user
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await client
       .from("users")
       .select("favorites")
       .eq("id", decoded.userId)
       .single();
     
     if (userError || !user) {
+      console.error("Error fetching user:", userError);
       return errorResponse("User not found", 404);
     }
 
     const favorites: string[] = user.favorites || [];
     const newFavorites = favorites.filter((id) => id !== productId);
 
-    const { error: updateError } = await supabase
+    const { error: updateError } = await client
       .from("users")
       .update({ favorites: newFavorites })
       .eq("id", decoded.userId);

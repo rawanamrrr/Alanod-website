@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ShoppingBag, ArrowLeft, Package, Truck, Sparkles } from "lucide-react"
+import { ShoppingBag, ArrowLeft, Package, Truck, Sparkles, UserPlus } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useCart } from "@/lib/cart-context"
 import { useAuth } from "@/lib/auth-context"
@@ -29,11 +29,11 @@ export default function CartPage() {
   const subtotal = state.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const total = subtotal 
 
-  const handleQuantityChange = (id: string, newQuantity: number) => {
+  const handleQuantityChange = (id: string, newQuantity: number, availableStock?: number) => {
     if (newQuantity === 0) {
       dispatch({ type: "REMOVE_ITEM", payload: id })
     } else {
-      dispatch({ type: "UPDATE_QUANTITY", payload: { id, quantity: newQuantity } })
+      dispatch({ type: "UPDATE_QUANTITY", payload: { id, quantity: newQuantity, availableStock } })
     }
   }
 
@@ -121,6 +121,35 @@ export default function CartPage() {
               {state.items.length} item{state.items.length !== 1 ? "s" : ""} in your cart
             </p>
           </motion.div>
+
+          {/* Sign Up Prompt for Non-Authenticated Users */}
+          {!authState.isAuthenticated && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="mb-6"
+            >
+              <Alert className="border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+                <UserPlus className="h-5 w-5 text-purple-600" />
+                <AlertDescription className="text-gray-700">
+                  <div className={`flex items-center justify-between flex-wrap gap-3 ${settings.language === "ar" ? "flex-row-reverse" : ""}`}>
+                    <span className="text-sm sm:text-base">
+                      Sign up to easily track your orders and enjoy a better shopping experience!
+                    </span>
+                    <Link href="/auth/register?redirect=/cart">
+                      <Button 
+                        className="bg-purple-600 hover:bg-purple-700 text-white rounded-full px-6 py-2 text-sm sm:text-base"
+                        size="sm"
+                      >
+                        {t("signUp")}
+                      </Button>
+                    </Link>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            </motion.div>
+          )}
 
           <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
             {/* Cart Items */}

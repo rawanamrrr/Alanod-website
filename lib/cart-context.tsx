@@ -29,6 +29,7 @@ interface CartItem {
   originalPrice?: number 
   isGiftPackage?: boolean
   customMeasurements?: CustomMeasurements
+  stockCount?: number // Available stock for this size
   selectedProduct?: {
     productId: string
     productName: string
@@ -225,7 +226,7 @@ function mergeCartItems(...carts: CartItem[][]): CartItem[] {
 type CartAction =
   | { type: "ADD_ITEM"; payload: Omit<CartItem, "quantity"> & { quantity?: number } }
   | { type: "REMOVE_ITEM"; payload: string }
-  | { type: "UPDATE_QUANTITY"; payload: { id: string; quantity: number } }
+  | { type: "UPDATE_QUANTITY"; payload: { id: string; quantity: number; availableStock?: number } }
   | { type: "CLEAR_CART" }
   | { type: "LOAD_CART"; payload: CartItem[] }
   | { type: "SHOW_NOTIFICATION"; payload: CartItem }
@@ -236,7 +237,7 @@ const CartContext = createContext<{
   dispatch: React.Dispatch<CartAction>
   addItem: (item: Omit<CartItem, "quantity"> & { quantity?: number }) => void
   removeItem: (id: string) => void
-  updateQuantity: (id: string, quantity: number) => void
+  updateQuantity: (id: string, quantity: number, availableStock?: number) => void
   clearCart: () => void
   hideNotification: () => void
 } | null>(null)
@@ -248,12 +249,37 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       
       const existingItem = state.items.find((item) => item.id === action.payload.id)
       let newItems: CartItem[]
-      const customQuantity = action.payload.quantity || 1
+      let customQuantity = action.payload.quantity || 1
+      
+      // Check stock if available
+      if (action.payload.stockCount !== undefined && action.payload.stockCount !== null) {
+        if (existingItem) {
+          // Check if adding more would exceed stock
+          const newTotalQuantity = existingItem.quantity + customQuantity
+          if (newTotalQuantity > action.payload.stockCount) {
+            // Limit to available stock
+            customQuantity = Math.max(0, action.payload.stockCount - existingItem.quantity)
+            if (customQuantity <= 0) {
+              // Can't add more, return current state
+              return state
+            }
+          }
+        } else {
+          // New item, check if quantity exceeds stock
+          if (customQuantity > action.payload.stockCount) {
+            customQuantity = action.payload.stockCount
+          }
+          if (customQuantity <= 0) {
+            // Can't add, return current state
+            return state
+          }
+        }
+      }
 
       if (existingItem) {
         console.log("Cart reducer: Updating existing item:", existingItem.id)
         newItems = state.items.map((item) =>
-          item.id === action.payload.id ? { ...item, quantity: item.quantity + customQuantity } : item,
+          item.id === action.payload.id ? { ...item, quantity: item.quantity + customQuantity, stockCount: action.payload.stockCount } : item,
         )
       } else {
         console.log("Cart reducer: Adding new item:", action.payload.id)
@@ -273,7 +299,7 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         count: newCount,
         showNotification: true,
         lastAddedItem: existingItem
-          ? { ...existingItem, quantity: existingItem.quantity + customQuantity }
+          ? { ...existingItem, quantity: existingItem.quantity + customQuantity, stockCount: action.payload.stockCount }
           : { ...action.payload, quantity: customQuantity },
       }
     }
@@ -292,8 +318,29 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     }
 
     case "UPDATE_QUANTITY": {
+      const item = state.items.find((item) => item.id === action.payload.id)
+      let quantity = action.payload.quantity
+      
+      // Check stock if available
+      if (item && action.payload.availableStock !== undefined && action.payload.availableStock !== null) {
+        // Don't allow quantity to exceed available stock
+        quantity = Math.min(quantity, action.payload.availableStock)
+        if (quantity <= 0) {
+          // Remove item if stock is 0
+          const newItems = state.items.filter((item) => item.id !== action.payload.id)
+          const newTotal = newItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+          const newCount = newItems.reduce((sum, item) => sum + item.quantity, 0)
+          return {
+            ...state,
+            items: newItems,
+            total: newTotal,
+            count: newCount,
+          }
+        }
+      }
+      
       const newItems = state.items
-        .map((item) => (item.id === action.payload.id ? { ...item, quantity: action.payload.quantity } : item))
+        .map((item) => (item.id === action.payload.id ? { ...item, quantity } : item))
         .filter((item) => item.quantity > 0)
 
       const newTotal = newItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
@@ -443,8 +490,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "REMOVE_ITEM", payload: id })
   }
 
-  const updateQuantity = (id: string, quantity: number) => {
-    dispatch({ type: "UPDATE_QUANTITY", payload: { id, quantity } })
+  const updateQuantity = (id: string, quantity: number, availableStock?: number) => {
+    dispatch({ type: "UPDATE_QUANTITY", payload: { id, quantity, availableStock } })
   }
 
   const clearCart = () => {
