@@ -29,6 +29,12 @@ const COUNTRY_CODE_MAP: Record<string, string> = {
   "Qatar": "QA",
   "United Kingdom": "GB",
   "Egypt": "EG",
+  "Oman": "OM",
+  "Bahrain": "BH",
+  "Iraq": "IQ",
+  "Jordan": "JO",
+  "Turkey": "TR",
+  "Lebanon": "LB",
 }
 
 // Shipping costs by country (base currency units).
@@ -42,9 +48,15 @@ const getShippingCost = (countryCode: string): number => {
     case "AE":
     case "KW":
     case "QA":
+    case "OM":
+    case "BH":
+    case "IQ":
+    case "JO":
+    case "LB":
       return 130
     case "GB":
     case "US":
+    case "TR":
       return 150
     default:
       return 150
@@ -499,6 +511,12 @@ export default function CheckoutPage() {
                             <option value="Qatar">Qatar</option>
                             <option value="United Kingdom">United Kingdom</option>
                             <option value="Egypt">Egypt</option>
+                            <option value="Oman">Oman</option>
+                            <option value="Bahrain">Bahrain</option>
+                            <option value="Iraq">Iraq</option>
+                            <option value="Jordan">Jordan</option>
+                            <option value="Turkey">Turkey</option>
+                            <option value="Lebanon">Lebanon</option>
                           </select>
                         </div>
                         <div>

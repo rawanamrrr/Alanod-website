@@ -190,169 +190,17 @@ export default function AdminDashboard() {
     return date.toISOString().slice(0, 16)
   }
 
-  // Country code to currency code mapping
-  const COUNTRY_TO_CURRENCY: Record<string, string> = {
-    "US": "USD",
-    "SA": "SAR",
-    "AE": "AED",
-    "KW": "KWD",
-    "QA": "QAR",
-    "GB": "GBP",
-    "EG": "EGP",
-  }
-
-  // Exchange rates cache with timestamp (rates are FROM USD TO currency, e.g., 1 USD = 50 EGP means rate = 50)
-  const RATE_CACHE_KEY = "admin_exchange_rates_cache"
-  const CACHE_DURATION = 60 * 60 * 1000 // 1 hour in milliseconds (shorter than locale context for more frequent updates)
-
-  const getCachedRates = (): Record<string, number> | null => {
-    if (typeof window === "undefined") return null
-    try {
-      const cached = localStorage.getItem(RATE_CACHE_KEY)
-      if (!cached) return null
-      const cache = JSON.parse(cached)
-      // Check if cache is still valid (within 1 hour)
-      if (Date.now() - cache.timestamp < CACHE_DURATION) {
-        return cache.rates
-      }
-      return null
-    } catch {
-      return null
-    }
-  }
-
-  const setCachedRates = (rates: Record<string, number>) => {
-    if (typeof window === "undefined") return
-    try {
-      localStorage.setItem(RATE_CACHE_KEY, JSON.stringify({
-        rates,
-        timestamp: Date.now()
-      }))
-    } catch {
-      // Ignore cache errors
-    }
-  }
-
-  // Default fallback rates
-  const DEFAULT_RATES: Record<string, number> = {
-    USD: 1,
-    SAR: 3.75,
-    AED: 3.67,
-    KWD: 0.31,
-    QAR: 3.64,
-    GBP: 0.79,
-    EGP: 50,
-  }
-
-  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>(() => {
-    // Try to load from cache first, otherwise use defaults
-    const cached = getCachedRates()
-    return cached || DEFAULT_RATES
-  })
-
-  const [ratesLoading, setRatesLoading] = useState(false)
-  const [lastRatesUpdate, setLastRatesUpdate] = useState<Date | null>(() => {
-    const cached = getCachedRates()
-    return cached ? new Date() : null
-  })
-
-  // Fetch exchange rates (with caching)
-  const fetchRates = async (forceRefresh = false) => {
-    // Check cache first unless forcing refresh
-    if (!forceRefresh) {
-      const cached = getCachedRates()
-      if (cached) {
-        setExchangeRates(cached)
-        return
-      }
-    }
-
-    setRatesLoading(true)
-    const currencies = ["SAR", "AED", "KWD", "QAR", "GBP", "EGP"]
-    const newRates: Record<string, number> = { USD: 1 }
-
-    for (const currency of currencies) {
-      let rateFetched = false
-
-      try {
-        // Try primary API
-        const response = await fetch(`https://api.exchangerate.host/latest?base=USD&symbols=${currency}`, {
-          cache: 'no-store'
-        })
-        if (response.ok) {
-          const data = await response.json()
-          const rate = data?.rates?.[currency]
-          if (rate && typeof rate === 'number' && rate > 0) {
-            newRates[currency] = rate
-            rateFetched = true
-          }
-        }
-      } catch (error) {
-        console.warn(`Failed to fetch rate for ${currency} from primary API:`, error)
-      }
-
-      if (!rateFetched) {
-        try {
-          // Try fallback API
-          const response = await fetch(`https://api.exchangerate-api.com/v4/latest/USD`, {
-            cache: 'no-store'
-          })
-          if (response.ok) {
-            const data = await response.json()
-            const rate = data?.rates?.[currency]
-            if (rate && typeof rate === 'number' && rate > 0) {
-              newRates[currency] = rate
-              rateFetched = true
-            }
-          }
-        } catch (error) {
-          console.warn(`Failed to fetch rate for ${currency} from fallback API:`, error)
-        }
-      }
-
-      // Use default fallback rate if API fails
-      if (!rateFetched) {
-        newRates[currency] = DEFAULT_RATES[currency] || 1
-      }
-    }
-
-    setExchangeRates(newRates)
-    setCachedRates(newRates)
-    setLastRatesUpdate(new Date())
-    setRatesLoading(false)
-  }
-
-  // Fetch exchange rates on component mount and refresh every hour
-  useEffect(() => {
-    fetchRates()
-
-    // Set up auto-refresh every hour
-    const interval = setInterval(() => {
-      fetchRates(true) // Force refresh
-    }, CACHE_DURATION)
-
-    return () => clearInterval(interval)
-  }, [])
-
-  // Convert amount from any currency to USD
-  const convertToUSD = (amount: number, countryCode?: string): number => {
-    if (!countryCode) return amount // Default to USD if no country code
-    const currencyCode = COUNTRY_TO_CURRENCY[countryCode] || "USD"
-    if (currencyCode === "USD") return amount
-    
-    const rate = exchangeRates[currencyCode] || 1
-    // Rate is FROM USD TO currency, so to convert FROM currency TO USD, we divide
-    return amount / rate
-  }
+  // DASHBOARD USES USD ONLY - NO CURRENCY CONVERSION NEEDED
+  // All prices in database are stored in USD
 
   const formatPriceUSD = (price: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)
   }
 
+  // Dashboard always shows USD - no currency conversion
   const formatPriceByCountry = (price: number, countryCode?: string) => {
-    const locale = countryCode === 'EG' ? 'ar-EG' : 'en-US';
-    const currency = countryCode === 'EG' ? 'EGP' : 'USD';
-    return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(price);
+    // Always format as USD in dashboard
+    return formatPriceUSD(price);
   };
 
   const fetchData = async () => {
@@ -814,21 +662,16 @@ export default function AdminDashboard() {
   }
 
   // Calculate revenue without shipping costs, excluding cancelled orders, AFTER discounts
-  // Convert all currencies to USD before summing
+  // ALL PRICES IN DASHBOARD ARE IN USD - NO CONVERSION NEEDED
   const totalRevenue = orders.reduce((sum, order) => {
     if (order.status === 'cancelled') return sum; // Skip cancelled orders
-    const itemsTotal = order.items.reduce((itemSum, item) => itemSum + item.price * item.quantity, 0)
+    
+    // Order total is already in USD (stored as USD in database)
     const discount = order.discountAmount || 0
-    const orderTotal = itemsTotal - discount
+    const orderTotal = order.total - discount
     
-    // Get country code from order (could be in shippingAddress.countryCode or shipping_address.countryCode or country_code)
-    const countryCode = order.shippingAddress?.countryCode || 
-                        order.shipping_address?.countryCode || 
-                        order.shipping_address?.country_code
-    
-    // Convert to USD and add to sum
-    const orderTotalUSD = convertToUSD(orderTotal, countryCode)
-    return sum + orderTotalUSD
+    // No conversion needed - order.total is already in USD
+    return sum + orderTotal
   }, 0)
 
   const pendingOrders = orders.filter((order) => order.status === "pending").length
@@ -900,28 +743,9 @@ export default function AdminDashboard() {
                 <CardContent className="p-3 sm:p-6">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div className="mb-2 sm:mb-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs sm:text-sm text-gray-600">Total Revenue</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => fetchRates(true)}
-                          disabled={ratesLoading}
-                          className="h-6 w-6 p-0"
-                          title="Refresh exchange rates"
-                        >
-                          <RefreshCw className={`h-3 w-3 ${ratesLoading ? 'animate-spin' : ''}`} />
-                        </Button>
-                      </div>
+                      <p className="text-xs sm:text-sm text-gray-600">Total Revenue</p>
                       <p className="text-lg sm:text-2xl font-light">{formatPriceUSD(totalRevenue)}</p>
-                      <div className="flex flex-col gap-1">
-                        <p className="text-xs text-gray-500 hidden sm:block">Excluding shipping</p>
-                        {lastRatesUpdate && (
-                          <p className="text-xs text-gray-400">
-                            Rates updated: {lastRatesUpdate.toLocaleTimeString()}
-                          </p>
-                        )}
-                      </div>
+                      <p className="text-xs text-gray-500 hidden sm:block">Excluding shipping (USD)</p>
                     </div>
                     <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-green-600 self-end sm:self-auto" />
                   </div>
@@ -1876,19 +1700,7 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card>
                     <CardHeader className="p-4 sm:p-6">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">Revenue Analytics</CardTitle>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => fetchRates(true)}
-                          disabled={ratesLoading}
-                          className="h-8 w-8 p-0"
-                          title="Refresh exchange rates"
-                        >
-                          <RefreshCw className={`h-4 w-4 ${ratesLoading ? 'animate-spin' : ''}`} />
-                        </Button>
-                      </div>
+                      <CardTitle className="text-lg">Revenue Analytics</CardTitle>
                     </CardHeader>
                     <CardContent className="p-4 sm:p-6">
                       <div className="space-y-4">
@@ -1896,12 +1708,9 @@ export default function AdminDashboard() {
                           <span>Total Revenue (Excluding Shipping)</span>
                           <span className="font-medium">{formatPriceUSD(totalRevenue)}</span>
                         </div>
-                        {lastRatesUpdate && (
-                          <div className="flex justify-between text-xs text-gray-500">
-                            <span>Exchange rates last updated</span>
-                            <span>{lastRatesUpdate.toLocaleString()}</span>
-                          </div>
-                        )}
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>All amounts in USD</span>
+                        </div>
                         <div className="flex justify-between text-sm">
                           <span>Average Order Value</span>
                           <span className="font-medium">

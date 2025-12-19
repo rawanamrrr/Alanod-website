@@ -94,6 +94,54 @@ const COUNTRY_OPTIONS: CountryConfig[] = [
     currencySymbol: "E£",
     languages: ["ar", "en"],
     locale: "ar-EG"
+  },
+  {
+    code: "OM",
+    name: "Oman",
+    currencyCode: "OMR",
+    currencySymbol: "ر.ع.",
+    languages: ["ar", "en"],
+    locale: "ar-OM"
+  },
+  {
+    code: "BH",
+    name: "Bahrain",
+    currencyCode: "BHD",
+    currencySymbol: "د.ب",
+    languages: ["ar", "en"],
+    locale: "ar-BH"
+  },
+  {
+    code: "IQ",
+    name: "Iraq",
+    currencyCode: "IQD",
+    currencySymbol: "د.ع",
+    languages: ["ar", "en"],
+    locale: "ar-IQ"
+  },
+  {
+    code: "JO",
+    name: "Jordan",
+    currencyCode: "JOD",
+    currencySymbol: "د.ا",
+    languages: ["ar", "en"],
+    locale: "ar-JO"
+  },
+  {
+    code: "TR",
+    name: "Turkey",
+    currencyCode: "TRY",
+    currencySymbol: "₺",
+    languages: ["tr", "en"],
+    locale: "tr-TR"
+  },
+  {
+    code: "LB",
+    name: "Lebanon",
+    currencyCode: "LBP",
+    currencySymbol: "ل.ل",
+    languages: ["ar", "en", "fr"],
+    locale: "ar-LB"
   }
 ]
 
