@@ -76,15 +76,35 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Error creating discount code:", error)
-      return NextResponse.json({ error: "Failed to create discount code" }, { status: 500 })
+      const errorMessage = error.message || "Failed to create discount code"
+      return NextResponse.json({ error: errorMessage }, { status: 500 })
+    }
+
+    if (!result) {
+      console.error("No result returned from database")
+      return NextResponse.json({ error: "Failed to create discount code: No data returned" }, { status: 500 })
+    }
+
+    // Transform to expected format (matching GET endpoint format)
+    const transformedCode = {
+      _id: result.id,
+      id: result.id,
+      code: result.code,
+      type: result.discount_type,
+      value: result.discount_value,
+      minOrderAmount: result.min_purchase,
+      maxUses: result.usage_limit,
+      currentUses: result.usage_count,
+      isActive: result.is_active,
+      expiresAt: result.valid_until ? new Date(result.valid_until) : null,
+      createdAt: result.created_at ? new Date(result.created_at) : new Date(),
+      updatedAt: result.updated_at ? new Date(result.updated_at) : new Date(),
+      description: result.description || undefined,
     }
 
     return NextResponse.json({
       success: true,
-      discountCode: {
-        ...result,
-        _id: result.id, // For backward compatibility
-      },
+      discountCode: transformedCode,
     })
   } catch (error) {
     console.error("Create discount code error:", error)
@@ -137,6 +157,7 @@ export async function GET(request: NextRequest) {
       expiresAt: code.valid_until ? new Date(code.valid_until) : null,
       createdAt: code.created_at ? new Date(code.created_at) : new Date(),
       updatedAt: code.updated_at ? new Date(code.updated_at) : new Date(),
+      description: code.description || undefined,
     }))
 
     return NextResponse.json(transformedCodes)
@@ -238,6 +259,9 @@ export async function PUT(request: NextRequest) {
     if (body.isActive !== undefined) {
       updateData.is_active = body.isActive
     }
+    if (body.description !== undefined) {
+      updateData.description = body.description || null
+    }
 
     const { data: result, error } = await client
       .from("discount_codes")
@@ -248,9 +272,15 @@ export async function PUT(request: NextRequest) {
 
     if (error) {
       console.error("Error updating discount code:", error)
+      const errorMessage = error.message || "Failed to update discount code"
       return NextResponse.json({ 
-        error: error.message || "Failed to update discount code" 
+        error: errorMessage
       }, { status: 500 })
+    }
+
+    if (!result) {
+      console.error("No result returned from database")
+      return NextResponse.json({ error: "Discount code not found after update" }, { status: 404 })
     }
 
     // Transform to expected format
@@ -267,6 +297,7 @@ export async function PUT(request: NextRequest) {
       expiresAt: result.valid_until ? new Date(result.valid_until) : null,
       createdAt: result.created_at ? new Date(result.created_at) : new Date(),
       updatedAt: result.updated_at ? new Date(result.updated_at) : new Date(),
+      description: result.description || undefined,
     }
 
     return NextResponse.json({

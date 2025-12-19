@@ -204,6 +204,11 @@ export default function AdminOrderDetailsPage() {
     )
   }
 
+  // Format price in USD (dashboard always shows USD)
+  const formatPriceUSD = (price: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(price)
+  }
+
   const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const discount = order.discountAmount || 0
   const total = order.total
@@ -357,10 +362,10 @@ export default function AdminOrderDetailsPage() {
                   <Separator className="my-6" />
 
                   <div className="space-y-2">
-                    <div className="flex justify-between"><span>Subtotal</span><span>{subtotal.toFixed(2)} EGP</span></div>
-                    {order.discountCode && <div className="flex justify-between text-green-600"><span>Discount ({order.discountCode})</span><span>-{discount.toFixed(2)} EGP</span></div>}
+                    <div className="flex justify-between"><span>Subtotal</span><span>{formatPriceUSD(subtotal)}</span></div>
+                    {order.discountCode && <div className="flex justify-between text-green-600"><span>Discount ({order.discountCode})</span><span>-{formatPriceUSD(discount)}</span></div>}
                     <Separator />
-                    <div className="flex justify-between text-lg font-medium"><span>Total</span><span>{total.toFixed(2)} EGP</span></div>
+                    <div className="flex justify-between text-lg font-medium"><span>Total</span><span>{formatPriceUSD(total)}</span></div>
                   </div>
                 </CardContent>
               </Card>

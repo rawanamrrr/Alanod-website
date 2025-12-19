@@ -379,13 +379,14 @@ export default function AdminDashboard() {
     setDiscountForm({
       code: code.code,
       type: code.type,
-      value: code.value.toString(),
+      value: code.value?.toString() || "",
       minOrderAmount: code.minOrderAmount?.toString() || "",
       maxUses: code.maxUses?.toString() || "",
-      expiresAt: code.expiresAt ? formatDateForInput(code.expiresAt) : "",
-      buyX: code.buyX?.toString() || "",
-      getX: code.getX?.toString() || "",
-      discountPercentage: code.discountPercentage?.toString() || ""
+      expiresAt: code.expiresAt ? formatDateForInput(code.expiresAt.toString()) : "",
+      buyX: (code as any).buyX?.toString() || "",
+      getX: (code as any).getX?.toString() || "",
+      discountPercentage: (code as any).discountPercentage?.toString() || "",
+      description: (code as any).description || ""
     })
   }
 
