@@ -20,10 +20,16 @@ export default function UserDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (authState.isLoading) {
+      return
+    }
+
     if (!authState.isAuthenticated) {
       router.push("/auth/login")
-    } else if (authState.user && authState.token) {
-      // Fetch orders from API
+      return
+    }
+
+    if (authState.user && authState.token) {
       const fetchOrders = async () => {
         setLoading(true)
         try {
@@ -51,7 +57,23 @@ export default function UserDashboard() {
       
       fetchOrders()
     }
-  }, [authState.isAuthenticated, authState.user?.id, authState.token, router])
+  }, [authState.isLoading, authState.isAuthenticated, authState.user?.id, authState.token, router])
+
+  if (authState.isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <section className="pt-28 md:pt-24 pb-16">
+          <div className="container mx-auto px-6">
+            <div className="text-center py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading dashboard...</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    )
+  }
 
   if (!authState.isAuthenticated) {
     return null

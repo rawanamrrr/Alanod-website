@@ -30,6 +30,10 @@ export default function EditProfilePage() {
   })
 
   useEffect(() => {
+    if (authState.isLoading) {
+      return
+    }
+
     if (!authState.isAuthenticated) {
       router.push("/auth/login")
       return
@@ -121,6 +125,23 @@ export default function EditProfilePage() {
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
+  if (authState.isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+
+        <section className="pt-32 pb-16">
+          <div className="container mx-auto px-4 sm:px-6">
+            <div className="text-center py-12 sm:py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading profile...</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    )
   }
 
   if (!authState.isAuthenticated) return null

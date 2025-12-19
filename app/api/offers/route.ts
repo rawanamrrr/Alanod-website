@@ -8,6 +8,7 @@ interface Offer {
   description: string
   image_url?: string
   link_url?: string
+  discount_code?: string
   is_active: boolean
   display_order: number
   created_at?: Date
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
         description: offer.description,
         imageUrl: offer.image_url,
         linkUrl: offer.link_url,
+        discountCode: offer.discount_code,
         isActive: offer.is_active,
         priority: offer.display_order,
         expiresAt: null,
@@ -62,13 +64,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform to expected format
-    const transformedOffers = (offers || []).map(offer => ({
+    const transformedOffers = (offers || []).map((offer: any) => ({
       _id: offer.id, // For backward compatibility
       id: offer.id,
       title: offer.title,
       description: offer.description,
       imageUrl: offer.image_url,
       linkUrl: offer.link_url,
+      discountCode: offer.discount_code,
       isActive: offer.is_active,
       priority: offer.display_order,
       expiresAt: null,
@@ -97,7 +100,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 })
     }
 
-    const { title, description, imageUrl, linkUrl, priority } = await request.json()
+    const { title, description, imageUrl, linkUrl, priority, discountCode } = await request.json()
 
     if (!description) {
       return NextResponse.json({ error: "Description is required" }, { status: 400 })
@@ -108,6 +111,7 @@ export async function POST(request: NextRequest) {
       description: description.trim(),
       image_url: imageUrl || null,
       link_url: linkUrl || null,
+      discount_code: discountCode ? discountCode.trim() : null,
       is_active: true,
       display_order: Number(priority) || 0,
     }
@@ -167,13 +171,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Offer ID is required" }, { status: 400 })
     }
 
-    const { title, description, imageUrl, linkUrl, priority, isActive } = await request.json()
+    const { title, description, imageUrl, linkUrl, priority, isActive, discountCode } = await request.json()
 
     const updateData: any = {}
     if (title !== undefined) updateData.title = title?.trim() || null
     if (description !== undefined) updateData.description = description.trim()
     if (imageUrl !== undefined) updateData.image_url = imageUrl || null
     if (linkUrl !== undefined) updateData.link_url = linkUrl || null
+    if (discountCode !== undefined) updateData.discount_code = discountCode ? discountCode.trim() : null
     if (priority !== undefined) updateData.display_order = Number(priority) || 0
     if (isActive !== undefined) updateData.is_active = isActive
 
@@ -192,7 +197,8 @@ export async function PUT(request: NextRequest) {
       .single()
 
     if (error || !updatedOffer) {
-      return NextResponse.json({ error: "Offer not found" }, { status: 404 })
+      console.error("Error updating offer in Supabase:", error, "updateData:", updateData, "id:", id)
+      return NextResponse.json({ error: error?.message || "Offer not found" }, { status: 404 })
     }
 
     return NextResponse.json({

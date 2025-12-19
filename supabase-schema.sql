@@ -100,6 +100,7 @@ CREATE TABLE offers (
   description TEXT,
   image_url TEXT,
   link_url TEXT,
+  discount_code TEXT,
   is_active BOOLEAN DEFAULT true,
   display_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
