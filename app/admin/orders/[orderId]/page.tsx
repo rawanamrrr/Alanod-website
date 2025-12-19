@@ -148,7 +148,7 @@ export default function AdminOrderDetailsPage() {
     setError("")
     setSuccess("")
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
+      const response = await fetch(`/api/admin/orders/${orderId}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",

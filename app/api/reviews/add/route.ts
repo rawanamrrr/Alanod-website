@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseAdmin } from "@/lib/supabase";
 import jwt from "jsonwebtoken";
 
 // Global cache clearing function
@@ -25,7 +25,9 @@ async function calculateAverageRating(productId: string) {
     `original_product_id.like.${productId}%`
   ].join(",");
 
-  const { data: matchingReviews, error } = await supabase
+  const reviewsClient = supabaseAdmin || supabase;
+
+  const { data: matchingReviews, error } = await reviewsClient
     .from("reviews")
     .select("id, rating, product_id, original_product_id")
     .or(orFilters);
@@ -118,7 +120,10 @@ export async function POST(req: NextRequest) {
 
     // 4. Verify order exists and is completed (shipped or delivered)
     // Try to find order by order_id first
-    const { data: order, error: orderError } = await supabase
+    const ordersClient = supabaseAdmin || supabase;
+    const reviewsClient = supabaseAdmin || supabase;
+
+    const { data: order, error: orderError } = await ordersClient
       .from("orders")
       .select("*")
       .eq("order_id", orderId)
@@ -128,7 +133,7 @@ export async function POST(req: NextRequest) {
 
     if (orderError || !order) {
       // Try by ID if order_id didn't work
-      const { data: orderById } = await supabase
+      const { data: orderById } = await ordersClient
         .from("orders")
         .select("*")
         .eq("id", orderId)
@@ -144,7 +149,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const orderData = order || (await supabase.from("orders").select("*").eq("id", orderId).single()).data;
+    const orderData = order || (await ordersClient.from("orders").select("*").eq("id", orderId).single()).data;
 
     if (!orderData) {
       return NextResponse.json(
@@ -174,15 +179,11 @@ export async function POST(req: NextRequest) {
     }
 
     // EXTRACT BASE PRODUCT ID (remove size suffix like -bundle, -Travel, -Reguler, etc.)
-    const baseProductId = productId.replace(/-[a-zA-Z0-9]+$/, '');
+    const baseProductId = productId;
     console.log("Original productId:", productId, "Base productId:", baseProductId);
     
     // For gift packages, extract the actual base product ID
     let actualBaseProductId = baseProductId;
-    if (baseProductId.includes('-gift-package')) {
-      actualBaseProductId = baseProductId.replace(/-gift-package.*$/, '');
-      console.log("🎁 Gift package detected, actual base product ID:", actualBaseProductId);
-    }
     
     console.log("Review document to be created:", {
       productId: actualBaseProductId,
@@ -195,7 +196,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Check if review already exists
-    const { data: existingReview } = await supabase
+    const { data: existingReview } = await reviewsClient
       .from("reviews")
       .select("id")
       .eq("product_id", actualBaseProductId)
@@ -210,6 +211,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const { data: productRow, error: productRowError } = await supabase
+      .from("products")
+      .select("product_id")
+      .eq("product_id", actualBaseProductId)
+      .maybeSingle();
+
+    if (productRowError) {
+      console.error("Error checking product before review insert:", productRowError);
+      return NextResponse.json({ error: "Failed to verify product for review" }, { status: 500 });
+    }
+
+    if (!productRow) {
+      return NextResponse.json(
+        { error: "Product not found" },
+        { status: 404 }
+      );
+    }
+
     // 5. Save Review to main reviews collection
     const reviewDoc = {
       product_id: actualBaseProductId,
@@ -221,7 +240,7 @@ export async function POST(req: NextRequest) {
       original_product_id: productId, // Keep original for reference
     };
 
-    const { data: reviewResult, error: reviewError } = await supabase
+    const { data: reviewResult, error: reviewError } = await reviewsClient
       .from("reviews")
       .insert(reviewDoc)
       .select()
@@ -249,7 +268,7 @@ export async function POST(req: NextRequest) {
       return i;
     });
 
-    const { error: updateOrderError } = await supabase
+    const { error: updateOrderError } = await ordersClient
       .from("orders")
       .update({ items: updatedItems })
       .eq("order_id", orderData.order_id || orderId);
@@ -288,7 +307,7 @@ export async function POST(req: NextRequest) {
     console.log("📊 Calculated rating:", calculatedRating);
     
     // Get review count
-    const { count: reviewCount } = await supabase
+    const { count: reviewCount } = await reviewsClient
       .from("reviews")
       .select("*", { count: 'exact', head: true })
       .eq("product_id", actualBaseProductId);
