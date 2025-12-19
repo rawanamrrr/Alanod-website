@@ -33,25 +33,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 })
     }
 
-    const { code, type, value, minOrderAmount, maxUses, expiresAt, description } = await request.json()
+    const { code, type, value, minOrderAmount, maxUses, expiresAt, description, buyX, getX, discountPercentage } = await request.json()
 
     if (!code || !type) {
       return NextResponse.json({ error: "Code and type are required" }, { status: 400 })
     }
 
-    if (type !== "percentage" && type !== "fixed") {
-      return NextResponse.json({ error: "Only percentage and fixed discount types are supported" }, { status: 400 })
-    }
-
-    if (!value) {
+    // Validate value only for percentage and fixed types
+    if ((type === "percentage" || type === "fixed") && !value) {
       return NextResponse.json({ error: "Value is required for this discount type" }, { status: 400 })
     }
 
-    const discountCode: Omit<DiscountCode, 'id' | 'created_at' | 'updated_at'> = {
+    // For buyXgetX and buyXgetYpercent, validate their specific fields
+    if (type === "buyXgetX") {
+      if (!buyX || !getX) {
+        return NextResponse.json({ error: "Buy X and Get X quantities are required for this discount type" }, { status: 400 })
+      }
+    } else if (type === "buyXgetYpercent") {
+      if (!buyX || !discountPercentage) {
+        return NextResponse.json({ error: "Buy X quantity and discount percentage are required for this discount type" }, { status: 400 })
+      }
+    }
+
+    // Store special types as "percentage" in database, but keep the original type in metadata
+    // For buyXgetX and buyXgetYpercent, we'll use a default value of 0 and store metadata separately
+    const discountCode: any = {
       code: code.toUpperCase(),
       description: description || null,
-      discount_type: type,
-      discount_value: Number(value),
+      discount_type: (type === "buyXgetX" || type === "buyXgetYpercent") ? "percentage" : type,
+      discount_value: (type === "buyXgetX" || type === "buyXgetYpercent") ? 0 : Number(value || 0),
       min_purchase: minOrderAmount ? Number(minOrderAmount) : undefined,
       max_discount: undefined,
       valid_from: undefined,
@@ -59,6 +69,11 @@ export async function POST(request: NextRequest) {
       usage_limit: maxUses ? Number(maxUses) : undefined,
       usage_count: 0,
       is_active: true,
+      // Store special type metadata
+      buy_x: buyX ? Number(buyX) : undefined,
+      get_x: getX ? Number(getX) : undefined,
+      discount_percentage: discountPercentage ? Number(discountPercentage) : undefined,
+      original_type: type, // Store the original type for reference
     }
 
     // Use admin client to bypass RLS for discount code creation
@@ -90,7 +105,8 @@ export async function POST(request: NextRequest) {
       _id: result.id,
       id: result.id,
       code: result.code,
-      type: result.discount_type,
+      // Use original_type if available, otherwise use discount_type
+      type: result.original_type || result.discount_type,
       value: result.discount_value,
       minOrderAmount: result.min_purchase,
       maxUses: result.usage_limit,
@@ -100,6 +116,10 @@ export async function POST(request: NextRequest) {
       createdAt: result.created_at ? new Date(result.created_at) : new Date(),
       updatedAt: result.updated_at ? new Date(result.updated_at) : new Date(),
       description: result.description || undefined,
+      // Include special type fields
+      buyX: result.buy_x,
+      getX: result.get_x,
+      discountPercentage: result.discount_percentage,
     }
 
     return NextResponse.json({
@@ -236,13 +256,15 @@ export async function PUT(request: NextRequest) {
     }
 
     // Full update
-    const updateData: Partial<DiscountCode> = {}
+    const updateData: any = {}
 
     if (body.code !== undefined) {
       updateData.code = body.code.toUpperCase()
     }
     if (body.type !== undefined) {
-      updateData.discount_type = body.type
+      // Store special types as "percentage" in database, but keep original type
+      updateData.discount_type = (body.type === "buyXgetX" || body.type === "buyXgetYpercent") ? "percentage" : body.type
+      updateData.original_type = body.type
     }
     if (body.value !== undefined) {
       updateData.discount_value = Number(body.value)
@@ -261,6 +283,16 @@ export async function PUT(request: NextRequest) {
     }
     if (body.description !== undefined) {
       updateData.description = body.description || null
+    }
+    // Handle special type fields
+    if (body.buyX !== undefined) {
+      updateData.buy_x = body.buyX ? Number(body.buyX) : undefined
+    }
+    if (body.getX !== undefined) {
+      updateData.get_x = body.getX ? Number(body.getX) : undefined
+    }
+    if (body.discountPercentage !== undefined) {
+      updateData.discount_percentage = body.discountPercentage ? Number(body.discountPercentage) : undefined
     }
 
     const { data: result, error } = await client
@@ -288,7 +320,8 @@ export async function PUT(request: NextRequest) {
       _id: result.id,
       id: result.id,
       code: result.code,
-      type: result.discount_type,
+      // Use original_type if available, otherwise use discount_type
+      type: result.original_type || result.discount_type,
       value: result.discount_value,
       minOrderAmount: result.min_purchase,
       maxUses: result.usage_limit,
@@ -298,6 +331,10 @@ export async function PUT(request: NextRequest) {
       createdAt: result.created_at ? new Date(result.created_at) : new Date(),
       updatedAt: result.updated_at ? new Date(result.updated_at) : new Date(),
       description: result.description || undefined,
+      // Include special type fields
+      buyX: result.buy_x,
+      getX: result.get_x,
+      discountPercentage: result.discount_percentage,
     }
 
     return NextResponse.json({
