@@ -151,25 +151,30 @@ export async function POST(request: NextRequest) {
       // Calculate total quantity in cart
       const totalQuantity = items.reduce((sum, item) => sum + (item.quantity || 1), 0)
 
-      // Check if cart meets the buyX requirement
-      if (totalQuantity < buyX) {
-        const needed = buyX - totalQuantity
+      // For buyXgetX, you need at least (buyX + getX) items total
+      // Example: Buy 1 Get 1 Free needs at least 2 items
+      const minimumRequired = buyX + getX
+      
+      if (totalQuantity < minimumRequired) {
+        const needed = minimumRequired - totalQuantity
         return NextResponse.json(
           {
-            error: `Add ${needed} more item${needed > 1 ? 's' : ''} to your cart to apply this discount (Buy ${buyX} Get ${getX} Free)`,
+            error: `Add ${needed} more item${needed > 1 ? 's' : ''} to your cart to apply this discount (Buy ${buyX} Get ${getX} Free - minimum ${minimumRequired} items required)`,
             neededItems: needed,
             buyX,
             getX,
+            minimumRequired,
           },
           { status: 400 }
         )
       }
 
-      // Calculate how many free items the customer gets
-      const setsOfBuyX = Math.floor(totalQuantity / buyX)
+      // Calculate how many sets the customer qualifies for
+      // Each set = buyX items (paid) + getX items (free)
+      const setsOfBuyX = Math.floor(totalQuantity / (buyX + getX))
       const freeItemsCount = setsOfBuyX * getX
 
-      // Find the cheapest items to make free
+      // Create a flat list of all items with their prices, sorted by price (cheapest first)
       const sortedItems = [...items]
         .flatMap(item => 
           Array(item.quantity || 1).fill(null).map(() => ({
@@ -178,11 +183,12 @@ export async function POST(request: NextRequest) {
             id: item.id || '',
           }))
         )
-        .sort((a, b) => a.price - b.price)
+        .sort((a, b) => a.price - b.price) // Sort cheapest to most expensive
 
-      // Calculate discount as the sum of the cheapest items (up to freeItemsCount)
+      // Make the cheapest items free (up to freeItemsCount)
+      // The most expensive items remain at full price
       discountAmount = sortedItems
-        .slice(0, freeItemsCount)
+        .slice(0, freeItemsCount) // Take the cheapest items
         .reduce((sum, item) => sum + item.price, 0)
 
       discountDetails = {
