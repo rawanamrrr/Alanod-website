@@ -19,6 +19,7 @@ import { useAuth } from "@/lib/auth-context"
 import { CheckoutProgress } from "@/components/checkout-progress"
 import { OrderSummary } from "@/components/order-summary"
 import { useLocale } from "@/lib/locale-context"
+import { useCurrencyFormatter } from "@/hooks/use-currency"
 
 // Country name to code mapping
 const COUNTRY_CODE_MAP: Record<string, string> = {
@@ -36,6 +37,42 @@ const COUNTRY_CODE_MAP: Record<string, string> = {
   "Turkey": "TR",
   "Lebanon": "LB",
 }
+
+type PhoneCountryConfig = {
+  dialCode: string
+  minLength: number
+  maxLength: number
+}
+
+const PHONE_COUNTRY_RULES: Record<string, PhoneCountryConfig> = {
+  US: { dialCode: "+1", minLength: 10, maxLength: 10 },
+  SA: { dialCode: "+966", minLength: 9, maxLength: 9 },
+  AE: { dialCode: "+971", minLength: 9, maxLength: 9 },
+  KW: { dialCode: "+965", minLength: 8, maxLength: 8 },
+  QA: { dialCode: "+974", minLength: 8, maxLength: 8 },
+  GB: { dialCode: "+44", minLength: 10, maxLength: 10 },
+  EG: { dialCode: "+20", minLength: 10, maxLength: 10 },
+  OM: { dialCode: "+968", minLength: 8, maxLength: 8 },
+  BH: { dialCode: "+973", minLength: 8, maxLength: 8 },
+  IQ: { dialCode: "+964", minLength: 10, maxLength: 10 },
+  JO: { dialCode: "+962", minLength: 9, maxLength: 9 },
+  TR: { dialCode: "+90", minLength: 10, maxLength: 10 },
+  LB: { dialCode: "+961", minLength: 8, maxLength: 8 },
+}
+
+const COUNTRY_LABELS_BY_CODE: Record<string, string> = Object.entries(COUNTRY_CODE_MAP).reduce(
+  (acc, [name, code]) => {
+    acc[code] = name
+    return acc
+  },
+  {} as Record<string, string>,
+)
+
+const PHONE_COUNTRY_OPTIONS = Object.entries(PHONE_COUNTRY_RULES).map(([code, config]) => ({
+  code,
+  label: `${COUNTRY_LABELS_BY_CODE[code] || code} (${config.dialCode})`,
+  ...config,
+}))
 
 // Shipping costs by country (base currency units).
 const getShippingCost = (countryCode: string): number => {
@@ -69,6 +106,7 @@ export default function CheckoutPage() {
   const { state: cartState, dispatch: cartDispatch } = useCart()
   const { state: authState } = useAuth()
   const { settings } = useLocale()
+  const { formatPrice } = useCurrencyFormatter()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -83,6 +121,11 @@ export default function CheckoutPage() {
     value: number
   } | null>(null)
   const [discountLoading, setDiscountLoading] = useState(false)
+
+  const [phoneCountry, setPhoneCountry] = useState(settings.countryCode)
+  const [altPhoneCountry, setAltPhoneCountry] = useState(settings.countryCode)
+  const [phoneCountrySynced, setPhoneCountrySynced] = useState(true)
+  const [altPhoneCountrySynced, setAltPhoneCountrySynced] = useState(true)
 
   const [formData, setFormData] = useState({
     // Shipping Information
@@ -110,6 +153,18 @@ export default function CheckoutPage() {
     }
   }, [settings.countryName])
 
+  // Keep phone country codes in sync with selected shipping country by default
+  useEffect(() => {
+    const selectedCountryCode = COUNTRY_CODE_MAP[formData.country] || settings.countryCode
+
+    if (selectedCountryCode && phoneCountrySynced) {
+      setPhoneCountry(selectedCountryCode)
+    }
+    if (selectedCountryCode && altPhoneCountrySynced) {
+      setAltPhoneCountry(selectedCountryCode)
+    }
+  }, [formData.country, settings.countryCode, phoneCountrySynced, altPhoneCountrySynced])
+
   // Correct order of calculations:
   const subtotal = cartState.items.reduce((sum, item) => sum + item.price * item.quantity, 0)
   const discountAmount = appliedDiscount?.discountAmount || 0
@@ -120,20 +175,75 @@ export default function CheckoutPage() {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  const formatPhoneWithDialCode = (countryCode: string, localNumber: string) => {
+    const trimmed = localNumber.trim()
+    if (!trimmed) return ""
+
+    const config = PHONE_COUNTRY_RULES[countryCode]
+    const dialCode = config?.dialCode || ""
+
+    if (!dialCode) {
+      return trimmed
+    }
+
+    if (trimmed.startsWith("+")) {
+      return trimmed
+    }
+
+    return `${dialCode} ${trimmed}`
+  }
+
+  const validatePhoneNumber = (value: string, countryCode: string, label: "primary" | "secondary") => {
+    const digitsOnly = value.replace(/\D/g, "")
+    const config = PHONE_COUNTRY_RULES[countryCode]
+
+    if (!config) {
+      if (digitsOnly.length < 7) {
+        setError(
+          label === "primary"
+            ? "Please enter a valid phone number"
+            : "Please enter a valid secondary phone number",
+        )
+        return false
+      }
+      return true
+    }
+
+    if (digitsOnly.length < config.minLength || digitsOnly.length > config.maxLength) {
+      const countryName = COUNTRY_LABELS_BY_CODE[countryCode] || "selected country"
+      const message =
+        label === "primary"
+          ? `Please enter a valid ${countryName} phone number`
+          : `Please enter a valid secondary ${countryName} phone number`
+      setError(message)
+      return false
+    }
+
+    return true
+  }
+
   const validateDiscountCode = async () => {
   if (!discountCode.trim()) return
+
+  if (!authState.token && !formData.email.trim()) {
+    setDiscountError("Please enter your email before applying a discount code")
+    return
+  }
 
   setDiscountLoading(true)
   setDiscountError("") // Clear previous discount errors
   try {
+    const token = authState.token
     const response = await fetch("/api/discount-codes/validate", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(token && { Authorization: `Bearer ${token}` }),
       },
       body: JSON.stringify({
         code: discountCode,
         orderAmount: subtotal,
+        email: formData.email,
         items: cartState.items.map(item => ({
           id: item.id,
           price: item.price,
@@ -152,7 +262,19 @@ export default function CheckoutPage() {
       setDiscountError("")
     } else {
       const errorData = await response.json()
-      setDiscountError(errorData.error)
+      if (
+        errorData.error === "MIN_ORDER_AMOUNT" &&
+        typeof errorData.minOrderAmount === "number" &&
+        typeof errorData.minOrderRemaining === "number"
+      ) {
+        const remainingFormatted = formatPrice(errorData.minOrderRemaining)
+        const minFormatted = formatPrice(errorData.minOrderAmount)
+        setDiscountError(
+          `Add ${remainingFormatted} more to your cart to apply this discount (minimum order: ${minFormatted})`
+        )
+      } else {
+        setDiscountError(errorData.error)
+      }
       setAppliedDiscount(null)
       // Clear the discount code input on error so user can easily retry
       setDiscountCode("")
@@ -182,21 +304,22 @@ export default function CheckoutPage() {
       }
     }
 
-    // Validate Egyptian phone number
-    const phoneRegex = /^(\+20|0)?1[0125][0-9]{8}$/
-    if (!phoneRegex.test(formData.phone)) {
-      setError("Please enter a valid Egyptian phone number")
+    const selectedCountryCode = COUNTRY_CODE_MAP[formData.country] || settings.countryCode
+    const primaryCountryCode = phoneCountry || selectedCountryCode
+    const secondaryCountryCode = altPhoneCountry || selectedCountryCode
+
+    if (!validatePhoneNumber(formData.phone, primaryCountryCode, "primary")) {
       return false
     }
 
-    // Validate secondary phone (now mandatory)
-    if (!phoneRegex.test(formData.altPhone)) {
-      setError("Please enter a valid secondary Egyptian phone number")
+    if (!validatePhoneNumber(formData.altPhone, secondaryCountryCode, "secondary")) {
       return false
     }
 
-    // Check if primary and secondary phone numbers are the same
-    if (formData.phone === formData.altPhone) {
+    const fullPrimaryPhone = formatPhoneWithDialCode(primaryCountryCode, formData.phone)
+    const fullSecondaryPhone = formatPhoneWithDialCode(secondaryCountryCode, formData.altPhone)
+
+    if (fullPrimaryPhone === fullSecondaryPhone) {
       setError("Primary and secondary phone numbers cannot be the same")
       return false
     }
@@ -226,14 +349,17 @@ export default function CheckoutPage() {
       // Get country code from selected country
       const selectedCountryCode = COUNTRY_CODE_MAP[formData.country] || settings.countryCode
 
+      const primaryCountryCode = phoneCountry || selectedCountryCode
+      const secondaryCountryCode = altPhoneCountry || selectedCountryCode
+
       const orderData = {
         items: cartState.items,
         total: total,
         shippingAddress: {
           name: `${formData.firstName} ${formData.lastName}`,
           email: formData.email,
-          phone: formData.phone,
-          secondaryPhone: formData.altPhone,
+          phone: formatPhoneWithDialCode(primaryCountryCode, formData.phone),
+          secondaryPhone: formatPhoneWithDialCode(secondaryCountryCode, formData.altPhone),
           address: formData.address,
           city: formData.city,
           country: formData.country || settings.countryName,
@@ -289,7 +415,6 @@ export default function CheckoutPage() {
       setLoading(false)
     }
   }
-
   if (cartState.items.length === 0) {
     return (
       <div className="min-h-screen bg-white">
@@ -303,14 +428,18 @@ export default function CheckoutPage() {
                 transition={{ duration: 0.8 }}
                 className="mb-8"
               >
-                <h1 className="text-2xl sm:text-3xl font-light tracking-wider mb-4">Your cart is empty</h1>
+                <h1 className="text-2xl sm:text-3xl font-light tracking-wider mb-4">
+                  Your cart is empty
+                </h1>
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: "100px" }}
                   transition={{ duration: 0.8, delay: 0.3 }}
                   className="h-1 bg-gradient-to-r from-purple-400 to-pink-400 mx-auto my-6 rounded-full"
                 />
-                <p className="text-gray-600 mb-8">Add some products to your cart before checkout.</p>
+                <p className="text-gray-600 mb-8">
+                  Add some products to your cart before checkout.
+                </p>
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -320,7 +449,7 @@ export default function CheckoutPage() {
                 <Link href="/products">
                   <Button className="bg-black text-white hover:bg-gray-800 rounded-full px-8 py-6 relative overflow-hidden group">
                     <span className="relative z-10">Continue Shopping</span>
-                    <motion.span 
+                    <motion.span
                       className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100"
                       initial={{ x: "-100%" }}
                       whileHover={{ x: 0 }}
@@ -344,7 +473,7 @@ export default function CheckoutPage() {
         <div className="container mx-auto px-4 sm:px-6">
           {/* Progress Indicator */}
           <CheckoutProgress currentStep={2} />
-          
+
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -368,8 +497,6 @@ export default function CheckoutPage() {
             <p className="text-gray-600 text-sm sm:text-base">Complete your order details below</p>
           </motion.div>
 
-
-
           <form onSubmit={handleSubmit}>
             <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
               {/* Checkout Form */}
@@ -381,7 +508,7 @@ export default function CheckoutPage() {
                   transition={{ duration: 0.8 }}
                 >
                   <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden">
-                    <motion.div 
+                    <motion.div
                       className="absolute -inset-4 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-lg -z-10"
                       animate={{
                         rotate: [0, 2, 0, -2, 0],
@@ -389,10 +516,10 @@ export default function CheckoutPage() {
                       transition={{
                         duration: 8,
                         repeat: Infinity,
-                        ease: "easeInOut"
+                        ease: "easeInOut",
                       }}
                     />
-                    <motion.div 
+                    <motion.div
                       className="absolute -inset-2 bg-gradient-to-r from-purple-300/30 to-pink-300/30 rounded-lg -z-10"
                       animate={{
                         rotate: [0, -1, 0, 1, 0],
@@ -400,7 +527,7 @@ export default function CheckoutPage() {
                       transition={{
                         duration: 6,
                         repeat: Infinity,
-                        ease: "easeInOut"
+                        ease: "easeInOut",
                       }}
                     />
                     <CardHeader className="pb-4">
@@ -412,7 +539,9 @@ export default function CheckoutPage() {
                     <CardContent className="space-y-4">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="firstName" className="text-sm font-medium">First Name *</Label>
+                          <Label htmlFor="firstName" className="text-sm font-medium">
+                            First Name *
+                          </Label>
                           <Input
                             id="firstName"
                             value={formData.firstName}
@@ -422,7 +551,9 @@ export default function CheckoutPage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="lastName" className="text-sm font-medium">Last Name *</Label>
+                          <Label htmlFor="lastName" className="text-sm font-medium">
+                            Last Name *
+                          </Label>
                           <Input
                             id="lastName"
                             value={formData.lastName}
@@ -435,7 +566,9 @@ export default function CheckoutPage() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="email" className="text-sm font-medium">Email Address *</Label>
+                          <Label htmlFor="email" className="text-sm font-medium">
+                            Email Address *
+                          </Label>
                           <Input
                             id="email"
                             type="email"
@@ -446,34 +579,80 @@ export default function CheckoutPage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="phone" className="text-sm font-medium">Phone Number *</Label>
-                          <Input
-                            id="phone"
-                            value={formData.phone}
-                            onChange={(e) => handleInputChange("phone", e.target.value)}
-                            placeholder="+20 1XX XXX XXXX"
-                            required
-                            className="mt-1 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
-                          />
+                          <Label htmlFor="phone" className="text-sm font-medium">
+                            Phone Number *
+                          </Label>
+                          <div className="mt-1 flex gap-2">
+                            <select
+                              value={phoneCountry}
+                              onChange={(e) => {
+                                setPhoneCountry(e.target.value)
+                                setPhoneCountrySynced(false)
+                              }}
+                              className="flex h-10 w-32 rounded-md border border-gray-200 bg-background px-2 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {PHONE_COUNTRY_OPTIONS.map((option) => (
+                                <option key={option.code} value={option.code}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <Input
+                              id="phone"
+                              value={formData.phone}
+                              onChange={(e) => handleInputChange("phone", e.target.value)}
+                              placeholder={
+                                PHONE_COUNTRY_RULES[phoneCountry || settings.countryCode]
+                                  ? `${PHONE_COUNTRY_RULES[phoneCountry || settings.countryCode].dialCode} XXXXXXXX`
+                                  : "+XXX XXXXXXXX"
+                              }
+                              required
+                              className="flex-1 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
+                            />
+                          </div>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="altPhone" className="text-sm font-medium">Secondary Phone *</Label>
-                          <Input
-                            id="altPhone"
-                            value={formData.altPhone}
-                            onChange={(e) => handleInputChange("altPhone", e.target.value)}
-                            placeholder="+20 1XX XXX XXXX"
-                            required
-                            className="mt-1 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
-                          />
+                          <Label htmlFor="altPhone" className="text-sm font-medium">
+                            Secondary Phone *
+                          </Label>
+                          <div className="mt-1 flex gap-2">
+                            <select
+                              value={altPhoneCountry}
+                              onChange={(e) => {
+                                setAltPhoneCountry(e.target.value)
+                                setAltPhoneCountrySynced(false)
+                              }}
+                              className="flex h-10 w-32 rounded-md border border-gray-200 bg-background px-2 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {PHONE_COUNTRY_OPTIONS.map((option) => (
+                                <option key={option.code} value={option.code}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <Input
+                              id="altPhone"
+                              value={formData.altPhone}
+                              onChange={(e) => handleInputChange("altPhone", e.target.value)}
+                              placeholder={
+                                PHONE_COUNTRY_RULES[altPhoneCountry || settings.countryCode]
+                                  ? `${PHONE_COUNTRY_RULES[altPhoneCountry || settings.countryCode].dialCode} XXXXXXXX`
+                                  : "+XXX XXXXXXXX"
+                              }
+                              required
+                              className="flex-1 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
+                            />
+                          </div>
                         </div>
                       </div>
 
                       <div>
-                        <Label htmlFor="address" className="text-sm font-medium">Street Address *</Label>
+                        <Label htmlFor="address" className="text-sm font-medium">
+                          Street Address *
+                        </Label>
                         <Input
                           id="address"
                           value={formData.address}
@@ -485,7 +664,9 @@ export default function CheckoutPage() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
-                          <Label htmlFor="city" className="text-sm font-medium">City *</Label>
+                          <Label htmlFor="city" className="text-sm font-medium">
+                            City *
+                          </Label>
                           <Input
                             id="city"
                             value={formData.city}
@@ -495,7 +676,9 @@ export default function CheckoutPage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="country" className="text-sm font-medium">Country *</Label>
+                          <Label htmlFor="country" className="text-sm font-medium">
+                            Country *
+                          </Label>
                           <select
                             id="country"
                             value={formData.country}
@@ -520,7 +703,9 @@ export default function CheckoutPage() {
                           </select>
                         </div>
                         <div>
-                          <Label htmlFor="postalCode" className="text-sm font-medium">Postal Code</Label>
+                          <Label htmlFor="postalCode" className="text-sm font-medium">
+                            Postal Code
+                          </Label>
                           <Input
                             id="postalCode"
                             value={formData.postalCode}
@@ -540,7 +725,7 @@ export default function CheckoutPage() {
                   transition={{ duration: 0.8, delay: 0.1 }}
                 >
                   <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden">
-                    <motion.div 
+                    <motion.div
                       className="absolute -inset-4 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-lg -z-10"
                       animate={{
                         rotate: [0, -2, 0, 2, 0],
@@ -548,10 +733,10 @@ export default function CheckoutPage() {
                       transition={{
                         duration: 8,
                         repeat: Infinity,
-                        ease: "easeInOut"
+                        ease: "easeInOut",
                       }}
                     />
-                    <motion.div 
+                    <motion.div
                       className="absolute -inset-2 bg-gradient-to-r from-purple-300/30 to-pink-300/30 rounded-lg -z-10"
                       animate={{
                         rotate: [0, 1, 0, -1, 0],
@@ -559,7 +744,7 @@ export default function CheckoutPage() {
                       transition={{
                         duration: 6,
                         repeat: Infinity,
-                        ease: "easeInOut"
+                        ease: "easeInOut",
                       }}
                     />
                     <CardHeader className="pb-4">
@@ -610,7 +795,7 @@ export default function CheckoutPage() {
                       discountLoading={discountLoading}
                       onApplyDiscount={validateDiscountCode}
                       onRemoveDiscount={removeDiscount}
-                      onSubmit={(e) => handleSubmit(e)}
+                      onSubmit={handleSubmit}
                       loading={loading}
                       governorate={formData.country || settings.countryName}
                       formError={error}
@@ -631,7 +816,7 @@ export default function CheckoutPage() {
       >
         <Sparkles className="h-6 w-6 text-purple-400" />
       </motion.div>
-      
+
       <motion.div
         animate={{ y: [0, 15, 0], rotate: [0, -5, 0] }}
         transition={{ duration: 4, repeat: Number.POSITIVE_INFINITY, ease: "easeInOut" }}

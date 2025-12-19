@@ -136,8 +136,8 @@ const transformProduct = (product: any): Product => {
     packagePrice: product.package_price,
     packageOriginalPrice: product.package_original_price,
     giftPackageSizes: product.gift_package_sizes || [],
-    createdAt: product.created_at ? new Date(product.created_at) : new Date(),
-    updatedAt: product.updated_at ? new Date(product.updated_at) : new Date(),
+    created_at: product.created_at ? new Date(product.created_at) : new Date(),
+    updated_at: product.updated_at ? new Date(product.updated_at) : new Date(),
   }
 }
 
@@ -146,13 +146,31 @@ export async function GET(request: NextRequest) {
   console.log("🔍 [API] GET /api/products - Request received")
 
   try {
-    const { searchParams } = new URL(request.url)
     const requestUrl = new URL(request.url)
+    const { searchParams } = requestUrl
 
-    const cachedResponse = getCachedResponse(requestUrl)
-    if (cachedResponse) {
-      console.log(`⚡ [API] GET /api/products - Cache hit in ${Date.now() - startTime}ms`)
-      return cachedResponse
+    // Detect admin requests (used to bypass cache for dashboard)
+    const authHeader = request.headers.get("authorization")
+    const token = authHeader?.replace("Bearer ", "")
+    let isAdminRequest = false
+
+    if (token) {
+      try {
+        const decoded: any = jwt.verify(token, process.env.JWT_SECRET!)
+        if (decoded.role === "admin") {
+          isAdminRequest = true
+        }
+      } catch {
+        // Ignore invalid token for caching purposes
+      }
+    }
+
+    if (!isAdminRequest) {
+      const cachedResponse = getCachedResponse(requestUrl)
+      if (cachedResponse) {
+        console.log(`⚡ [API] GET /api/products - Cache hit in ${Date.now() - startTime}ms`)
+        return cachedResponse
+      }
     }
     const id = searchParams.get("id")
     const category = searchParams.get("category")
@@ -181,12 +199,19 @@ export async function GET(request: NextRequest) {
       }
 
       const transformedProduct = transformProduct(product)
-      const headers = {
-        "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
-        "Content-Type": "application/json",
-      }
+      const headers = isAdminRequest
+        ? {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+          }
+        : {
+            "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
+            "Content-Type": "application/json",
+          }
       const body = JSON.stringify(transformedProduct)
-      setCachedResponse(requestUrl, 200, body, headers, DETAIL_CACHE_TTL_MS)
+      if (!isAdminRequest) {
+        setCachedResponse(requestUrl, 200, body, headers, DETAIL_CACHE_TTL_MS)
+      }
       return new NextResponse(body, { status: 200, headers })
     }
 
@@ -234,9 +259,9 @@ export async function GET(request: NextRequest) {
       const { count: total } = await countQuery
       const totalPages = Math.max(Math.ceil((total || 0) / limit), 1)
 
-      const transformedProducts = (products || []).map(transformProduct)
+      const transformedProducts = (products || []).map((p: any) => transformProduct(p))
       // For list view, only include first image
-      const productsForList = transformedProducts.map(p => ({
+      const productsForList = transformedProducts.map((p: Product) => ({
         ...p,
         images: p.images.slice(0, 1),
         longDescription: undefined,
@@ -244,16 +269,27 @@ export async function GET(request: NextRequest) {
       }))
 
       console.log(`⏱️ [API] Request completed in ${Date.now() - startTime}ms (page=${page}, limit=${limit}, total=${total})`)
-      const headers = {
-        "Content-Type": "application/json",
-        "X-Total-Count": String(total || 0),
-        "X-Page": String(page),
-        "X-Limit": String(limit),
-        "X-Total-Pages": String(totalPages),
-        "Cache-Control": "public, max-age=30, stale-while-revalidate=150",
-      }
+      const headers = isAdminRequest
+        ? {
+            "Content-Type": "application/json",
+            "X-Total-Count": String(total || 0),
+            "X-Page": String(page),
+            "X-Limit": String(limit),
+            "X-Total-Pages": String(totalPages),
+            "Cache-Control": "no-store",
+          }
+        : {
+            "Content-Type": "application/json",
+            "X-Total-Count": String(total || 0),
+            "X-Page": String(page),
+            "X-Limit": String(limit),
+            "X-Total-Pages": String(totalPages),
+            "Cache-Control": "public, max-age=30, stale-while-revalidate=150",
+          }
       const body = JSON.stringify(productsForList)
-      setCachedResponse(requestUrl, 200, body, headers, LIST_CACHE_TTL_MS)
+      if (!isAdminRequest) {
+        setCachedResponse(requestUrl, 200, body, headers, LIST_CACHE_TTL_MS)
+      }
       return new NextResponse(body, { status: 200, headers })
     } else {
       query = query.order("created_at", { ascending: false })
@@ -275,12 +311,19 @@ export async function GET(request: NextRequest) {
       }))
 
       console.log(`⏱️ [API] Request completed in ${Date.now() - startTime}ms (all=${productsForList.length})`)
-      const headers = {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=30, stale-while-revalidate=150",
-      }
+      const headers = isAdminRequest
+        ? {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-store",
+          }
+        : {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=30, stale-while-revalidate=150",
+          }
       const body = JSON.stringify(productsForList)
-      setCachedResponse(requestUrl, 200, body, headers, LIST_CACHE_TTL_MS)
+      if (!isAdminRequest) {
+        setCachedResponse(requestUrl, 200, body, headers, LIST_CACHE_TTL_MS)
+      }
       return new NextResponse(body, { status: 200, headers })
     }
 
@@ -536,7 +579,8 @@ export async function PUT(request: NextRequest) {
         is_active: productData.isActive,
         is_new: productData.isNew,
         is_bestseller: productData.isBestseller,
-        is_out_of_stock: productData.isOutOfStock !== undefined ? productData.isOutOfStock : isOutOfStock,
+        // Always derive out-of-stock status from sizes so changing stock updates this correctly
+        is_out_of_stock: isOutOfStock,
         is_gift_package: false,
         price: productData.sizes && productData.sizes.length > 0
           ? Math.min(...productData.sizes.map((size: any) => 

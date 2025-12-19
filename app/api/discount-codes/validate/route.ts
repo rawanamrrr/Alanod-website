@@ -1,10 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import jwt from "jsonwebtoken"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 import type { OrderItem } from "@/lib/models/types"
 
 export async function POST(request: NextRequest) {
   try {
-    const { code, orderAmount, items }: { code: string, orderAmount: number, items: OrderItem[] } = await request.json()
+    const token = request.headers.get("authorization")?.replace("Bearer ", "")
+    let userId = "guest"
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+        userId = decoded.userId
+      } catch (error) {
+      }
+    }
+
+    const client = supabaseAdmin || supabase
+
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block discount validation.")
+    }
+
+    const { code, orderAmount, items, email }: { code: string, orderAmount: number, items: OrderItem[], email?: string } = await request.json()
 
     if (!code) {
       return NextResponse.json({ error: "Discount code is required" }, { status: 400 })
@@ -15,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find active discount code (case insensitive)
-    const { data: discountCodes } = await supabase
+    const { data: discountCodes } = await client
       .from("discount_codes")
       .select("*")
       .eq("is_active", true)
@@ -33,16 +51,60 @@ export async function POST(request: NextRequest) {
     }
 
     // Check usage limits
-    if (discountCode.usage_limit && discountCode.usage_count >= discountCode.usage_limit) {
-      return NextResponse.json({ error: "Discount code usage limit reached" }, { status: 400 })
+    if (discountCode.usage_limit) {
+      if (userId !== "guest") {
+        const { count: userUsageCount, error: usageError } = await client
+          .from("orders")
+          .select("*", { count: 'exact', head: true })
+          .eq("user_id", userId)
+          .eq("discount_code", discountCode.code)
+
+        if (usageError) {
+          console.error("Error checking discount code usage for user:", usageError)
+          return NextResponse.json(
+            { error: "Failed to validate discount code" },
+            { status: 500 }
+          )
+        }
+
+        if ((userUsageCount || 0) >= discountCode.usage_limit) {
+          return NextResponse.json(
+            { error: `You have already used this discount code ${discountCode.usage_limit} times.` },
+            { status: 400 }
+          )
+        }
+      } else if (email) {
+        const { count: guestUsageCount, error: guestUsageError } = await client
+          .from("orders")
+          .select("*", { count: 'exact', head: true })
+          .contains("shipping_address", { email })
+          .eq("discount_code", discountCode.code)
+
+        if (guestUsageError) {
+          console.error("Error checking discount code usage for guest:", guestUsageError)
+          return NextResponse.json(
+            { error: "Failed to validate discount code" },
+            { status: 500 }
+          )
+        }
+
+        if ((guestUsageCount || 0) >= discountCode.usage_limit) {
+          return NextResponse.json(
+            { error: `This email has already used this discount code ${discountCode.usage_limit} times.` },
+            { status: 400 }
+          )
+        }
+      }
     }
 
     // Check minimum order amount
     if (discountCode.min_purchase && orderAmount < discountCode.min_purchase) {
       const remaining = discountCode.min_purchase - orderAmount
       return NextResponse.json(
-        { 
-          error: `Add ${remaining.toFixed(2)} more to your cart to apply this discount (minimum order: ${discountCode.min_purchase})` 
+        {
+          error: "MIN_ORDER_AMOUNT",
+          minOrderAmount: discountCode.min_purchase,
+          minOrderRemaining: remaining,
         },
         { status: 400 }
       )

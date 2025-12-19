@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken"
 import { supabase, supabaseAdmin } from "@/lib/supabase"
 import type { Order } from "@/lib/models/types"
 
-// Transform Supabase order to match expected format
+// Transform Supabase order to match Order interface (used internally)
 const transformOrder = (order: any): Order => {
   return {
     id: order.id,
@@ -15,8 +15,8 @@ const transformOrder = (order: any): Order => {
     shippingAddress: order.shipping_address || {},
     paymentMethod: order.payment_method || 'cod',
     paymentDetails: order.payment_details,
-    discountCode: order.discount_code,
-    discountAmount: order.discount_amount || 0,
+    discount_code: order.discount_code,
+    discount_amount: order.discount_amount || 0,
     created_at: order.created_at ? new Date(order.created_at) : new Date(),
     updated_at: order.updated_at ? new Date(order.updated_at) : new Date(),
   }
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
 
     if (orders && orders.length > 0) {
       console.log("📦 [API] Sample orders:")
-      orders.slice(0, 2).forEach((order, index) => {
+      orders.slice(0, 2).forEach((order: any, index: number) => {
         console.log(`   ${index + 1}. Order ${order.order_id} - ${order.total} (${order.status})`)
       })
     }
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     console.log(`⏱️ [API] Request completed in ${responseTime}ms`)
 
     // Transform orders to match expected format (maintaining backward compatibility)
-    const transformedOrders = (orders || []).map(order => ({
+    const transformedOrders = (orders || []).map((order: any) => ({
       _id: order.id, // For backward compatibility
       id: order.order_id,
       userId: order.user_id,
@@ -121,6 +121,8 @@ export async function GET(request: NextRequest) {
   }
 }
 
+const GUEST_USER_ID = "00000000-0000-0000-0000-000000000000"
+
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
   console.log("🔍 [API] POST /api/orders - Request received")
@@ -151,6 +153,34 @@ export async function POST(request: NextRequest) {
     }
 
     let userId = "guest"
+
+    if (userId === "guest") {
+      const userClient = supabaseAdmin || supabase
+
+      const { data: guestUser } = await userClient
+        .from("users")
+        .select("id")
+        .eq("id", GUEST_USER_ID)
+        .maybeSingle()
+
+      if (!guestUser) {
+        const { error: guestInsertError } = await userClient
+          .from("users")
+          .insert({
+            id: GUEST_USER_ID,
+            email: "guest@alanoudalqadi.com",
+            password: "guest-password-placeholder",
+            name: "Guest",
+            role: "user",
+          })
+          .single()
+
+        if (guestInsertError) {
+          console.error("Error creating guest user:", guestInsertError)
+          return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
+        }
+      }
+    }
 
     if (token) {
       try {
@@ -206,7 +236,7 @@ export async function POST(request: NextRequest) {
     // Prepare order document for Supabase
     const newOrder = {
       order_id: orderId,
-      user_id: userId,
+      user_id: userId === "guest" ? GUEST_USER_ID : userId,
       items: orderData.items.map((item: any) => ({
         id: item.id,
         productId: item.productId,

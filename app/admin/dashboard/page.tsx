@@ -43,8 +43,8 @@ interface ProductSize {
 }
 
 interface Product {
-  _id: string
   id: string
+  product_id?: string
   name: string
   description: string
   longDescription?: string
@@ -250,14 +250,13 @@ export default function AdminDashboard() {
     setUpdatingOrderStatus(orderId)
     try {
       const token = getAuthToken()
-      const response = await fetch("/api/orders/update-status", {
-        method: "PUT",
+      const response = await fetch(`/api/admin/orders/${orderId}`, {
+        method: "PATCH",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          orderId,
           status: newStatus,
         }),
       })
@@ -596,7 +595,7 @@ export default function AdminDashboard() {
       const result = await response.json()
 
       if (response.ok) {
-        setProducts(products.filter(p => p._id !== productId))
+        setProducts(products.filter(p => p.id !== productId))
       } else {
         setError(result.error || "Failed to delete product")
       }
@@ -609,8 +608,8 @@ export default function AdminDashboard() {
   const handleUpdateProduct = async (productId: string, updatedData: Partial<Product>) => {
     try {
       const token = getAuthToken();
-      const response = await fetch(`/api/products/${productId}`, {
-        method: "PATCH",
+      const response = await fetch(`/api/products?id=${productId}`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
@@ -620,7 +619,7 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         setProducts(products.map(product => 
-          product._id === productId ? { ...product, ...updatedData } : product
+          product.id === productId ? { ...product, ...updatedData } : product
         ))
       }
     } catch (error) {
@@ -854,306 +853,81 @@ export default function AdminDashboard() {
                         </Link>
                       </div>
                     ) : (
-                                            <div className="space-y-4">
+                      <div className="space-y-4">
                         {products.map((product) => (
-                          <motion.div 
-                            key={product._id} 
-                            className="p-4 sm:p-5 border rounded-xl bg-white shadow-sm hover:shadow-lg transition-all duration-200 relative overflow-hidden"
-                            whileHover={{ y: -5 }}
-                            initial={{ opacity: 0, y: 20 }}
-                            whileInView={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.6 }}
-                            viewport={{ once: true }}
+                          <div
+                            key={product.id}
+                            className="flex flex-col sm:flex-row sm:items-center sm:justify-between border rounded-lg bg-white shadow-sm p-4"
                           >
-                            {/* Enhanced Gift Package Background Effects */}
-                            {product.isGiftPackage && (
-                              <>
-                                <motion.div 
-                                  className="absolute -inset-4 bg-gradient-to-r from-purple-400/10 to-pink-400/10 rounded-lg -z-10"
-                                  animate={{
-                                    rotate: [0, 0.5, 0, -0.5, 0],
-                                  }}
-                                  transition={{
-                                    duration: 8,
-                                    repeat: Infinity,
-                                    ease: "easeInOut"
-                                  }}
-                                />
-                                <motion.div 
-                                  className="absolute -inset-2 bg-gradient-to-r from-purple-300/15 to-pink-300/15 rounded-lg -z-10"
-                                  animate={{
-                                    rotate: [0, -0.3, 0, 0.3, 0],
-                                  }}
-                                  transition={{
-                                    duration: 6,
-                                    repeat: Infinity,
-                                    ease: "easeInOut"
-                                  }}
-                                />
-                              </>
-                            )}
-                            {/* Enhanced Mobile Layout */}
-                            <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-start sm:justify-between">
-                              {/* Product Image and Info - Mobile Optimized */}
-                              <div className="flex flex-col sm:flex-row sm:items-start space-y-3 sm:space-y-0 sm:space-x-4 flex-1">
-                                {/* Product Image with Enhanced Mobile Sizing */}
-                                <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 mx-auto sm:mx-0">
+                            <div className="flex items-center space-x-4 mb-3 sm:mb-0">
+                              <div className="relative w-16 h-16 flex-shrink-0">
                                 <Image
-                                    src={product.images[0] || "/placeholder.svg"}
+                                  src={product.images[0] || "/placeholder.svg"}
                                   alt={product.name}
                                   fill
-                                    className="object-cover rounded-xl shadow-sm"
-                                  />
-                                  {/* Enhanced Gift Package Indicator */}
-                                  {product.isGiftPackage && (
-                                    <motion.div 
-                                      className="absolute -top-2 -right-2 bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white text-xs px-3 py-1.5 rounded-full shadow-lg border-2 border-white"
-                                      initial={{ scale: 0, rotate: -180 }}
-                                      whileInView={{ scale: 1, rotate: 0 }}
-                                      transition={{ duration: 0.6, type: "spring" }}
-                                      viewport={{ once: true }}
-                                      whileHover={{ scale: 1.1, rotate: 5 }}
-                                    >
-                                      <Gift className="h-3.5 w-3.5" />
-                                    </motion.div>
-                                  )}
+                                  className="object-cover rounded-md"
+                                />
                               </div>
-                                
-                                {/* Product Details - Mobile First Layout */}
-                                <div className="flex-1 min-w-0 space-y-3 text-center sm:text-left">
-                                  {/* Product Name and Category */}
-                                  <div className="space-y-2">
-                                    <p className="font-bold text-lg sm:text-xl text-gray-900 leading-tight">{product.name}</p>
-                                    <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-3">
-                                      <p className="text-sm text-gray-600 capitalize font-medium">{product.category}</p>
-                                      {product.isGiftPackage && (
-                                        <motion.div
-                                          initial={{ scale: 0, x: -20 }}
-                                          whileInView={{ scale: 1, x: 0 }}
-                                          transition={{ duration: 0.5, delay: 0.2 }}
-                                          viewport={{ once: true }}
-                                          whileHover={{ scale: 1.05 }}
-                                        >
-                                          <Badge variant="secondary" className="text-xs bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-purple-200 font-semibold px-3 py-1">
-                                            🎁 Gift Package
-                                          </Badge>
-                                        </motion.div>
-                                      )}
-                                    </div>
-                                  </div>
-                                  
-                                  {/* Enhanced Price Display - Mobile Optimized */}
-                                  <div className="text-lg sm:text-xl">
-                                   {(() => {
-                                      // Handle gift packages
-                                      if (product.isGiftPackage) {
-                                        const packagePrice = product.packagePrice || 0;
-                                        const packageOriginalPrice = product.packageOriginalPrice || 0;
-                                        
-                                        if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
-                                          return (
-                                            <motion.div 
-                                              className="flex flex-col items-center sm:items-start space-y-1"
-                                              initial={{ opacity: 0, y: 10 }}
-                                              whileInView={{ opacity: 1, y: 0 }}
-                                              transition={{ duration: 0.5, delay: 0.3 }}
-                                              viewport={{ once: true }}
-                                            >
-                                              <motion.span 
-                                                className="text-base text-gray-400 line-through font-medium"
-                                                initial={{ opacity: 0, x: -10 }}
-                                                whileInView={{ opacity: 1, x: 0 }}
-                                                transition={{ duration: 0.4, delay: 0.4 }}
-                                                viewport={{ once: true }}
-                                              >
-                                                USD {packageOriginalPrice.toFixed(0)}
-                                              </motion.span>
-                                              <motion.span 
-                                                className="text-red-600 font-bold text-xl"
-                                                initial={{ opacity: 0, x: -10 }}
-                                                whileInView={{ opacity: 1, x: 0 }}
-                                                transition={{ duration: 0.4, delay: 0.5 }}
-                                                viewport={{ once: true }}
-                                              >
-                                                USD {packagePrice.toFixed(0)}
-                                              </motion.span>
-                                              <motion.span 
-                                                className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-full"
-                                                initial={{ opacity: 0, scale: 0.8 }}
-                                                whileInView={{ opacity: 1, scale: 1 }}
-                                                transition={{ duration: 0.4, delay: 0.6 }}
-                                                viewport={{ once: true }}
-                                                whileHover={{ scale: 1.05 }}
-                                              >
-                                                Save USD {(packageOriginalPrice - packagePrice).toFixed(0)}
-                                              </motion.span>
-                                            </motion.div>
-                                          );
-                                        } else {
-                                          return (
-                                            <motion.span 
-                                              className="text-gray-900 font-bold text-xl"
-                                              initial={{ opacity: 0, y: 10 }}
-                                              whileInView={{ opacity: 1, y: 0 }}
-                                              transition={{ duration: 0.5, delay: 0.3 }}
-                                              viewport={{ once: true }}
-                                            >
-                                              USD {packagePrice.toFixed(0)}
-                                            </motion.span>
-                                          );
-                                        }
-                                      }
-                                      
-                                      // Handle regular products
-                                     const smallestPrice = getSmallestPrice(product.sizes);
-                                     const smallestOriginalPrice = getSmallestOriginalPrice(product.sizes);
-                                     
-                                     if (smallestOriginalPrice > 0 && smallestPrice < smallestOriginalPrice) {
-                                       return (
-                                          <motion.div 
-                                            className="flex flex-col items-center sm:items-start space-y-1"
-                                            initial={{ opacity: 0, y: 10 }}
-                                            whileInView={{ opacity: 1, y: 0 }}
-                                            transition={{ duration: 0.5, delay: 0.3 }}
-                                            viewport={{ once: true }}
-                                          >
-                                            <motion.span 
-                                              className="text-base text-gray-400 line-through font-medium"
-                                              initial={{ opacity: 0, x: -10 }}
-                                              whileInView={{ opacity: 1, x: 0 }}
-                                              transition={{ duration: 0.4, delay: 0.4 }}
-                                              viewport={{ once: true }}
-                                            >
-                                              USD {smallestOriginalPrice.toFixed(0)}
-                                            </motion.span>
-                                            <motion.span 
-                                              className="text-red-600 font-bold text-xl"
-                                              initial={{ opacity: 0, x: -10 }}
-                                              whileInView={{ opacity: 1, x: 0 }}
-                                              transition={{ duration: 0.4, delay: 0.5 }}
-                                              viewport={{ once: true }}
-                                            >
-                                              USD {smallestPrice.toFixed(0)}
-                                            </motion.span>
-                                            <motion.span 
-                                              className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-1 rounded-full"
-                                              initial={{ opacity: 0, scale: 0.8 }}
-                                              whileInView={{ opacity: 1, scale: 1 }}
-                                              transition={{ duration: 0.4, delay: 0.6 }}
-                                              viewport={{ once: true }}
-                                              whileHover={{ scale: 1.05 }}
-                                            >
-                                              Save USD {(smallestOriginalPrice - smallestPrice).toFixed(0)}
-                                            </motion.span>
-                                          </motion.div>
-                                       );
-                                     } else {
-                                        return (
-                                          <motion.span 
-                                            className="text-gray-900 font-bold text-xl"
-                                            initial={{ opacity: 0, y: 10 }}
-                                            whileInView={{ opacity: 1, y: 0 }}
-                                            transition={{ duration: 0.5, delay: 0.3 }}
-                                            viewport={{ once: true }}
-                                          >
-                                            USD {smallestPrice.toFixed(0)}
-                                          </motion.span>
-                                        );
-                                     }
-                                   })()}
-                                  </div>
-                                  
-                                  {/* Enhanced Mobile Badges - Better Spacing */}
-                                  <div className="flex flex-wrap justify-center sm:justify-start gap-2 sm:hidden">
-                                    {product.isOutOfStock && (
-                                      <Badge className="bg-gradient-to-r from-red-100 to-red-200 text-red-700 border-red-300 text-xs font-semibold px-3 py-1.5">
-                                        🚫 Out of Stock
-                                      </Badge>
-                                    )}
-                                    {product.isNew && (
-                                      <Badge variant="secondary" className="text-xs bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border-green-200 font-semibold px-3 py-1.5">
-                                        ✨ New
-                                      </Badge>
-                                    )}
-                                    {product.isBestseller && (
-                                      <Badge className="bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-700 border-yellow-200 text-xs font-semibold px-3 py-1.5">
-                                        🏆 Bestseller
-                                      </Badge>
-                                    )}
-                                    <Badge 
-                                      variant={product.isActive ? "default" : "secondary"} 
-                                      className={`text-xs font-semibold px-3 py-1.5 ${
-                                        product.isActive 
-                                          ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-700 border-green-200" 
-                                          : "bg-gradient-to-r from-gray-100 to-slate-100 text-gray-600 border-gray-200"
-                                      }`}
-                                    >
-                                      {product.isActive ? "✅ Active" : "❌ Inactive"}
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm sm:text-base truncate">{product.name}</p>
+                                <p className="text-xs text-gray-500 capitalize">{product.category}</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {product.isOutOfStock && (
+                                    <Badge className="bg-red-100 text-red-700 border-red-200 text-[10px]">
+                                      Out of Stock
                                     </Badge>
+                                  )}
+                                  {product.isNew && (
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      New
+                                    </Badge>
+                                  )}
+                                  {product.isBestseller && (
+                                    <Badge className="bg-black text-white text-[10px]">
+                                      Bestseller
+                                    </Badge>
+                                  )}
+                                  <Badge variant={product.isActive ? "default" : "secondary"} className="text-[10px]">
+                                    {product.isActive ? "Active" : "Inactive"}
+                                  </Badge>
+                                  {product.isGiftPackage && (
+                                    <Badge className="bg-purple-100 text-purple-700 border-purple-200 text-[10px]">
+                                      Gift Package
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                              </div>
-                              
-                              {/* Desktop Badges and Actions - Enhanced */}
-                              <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:space-x-4">
-                                {/* Desktop Badges - Hidden on Mobile */}
-                                <div className="hidden sm:flex items-center space-x-2">
-                              {product.isOutOfStock && <Badge className="bg-red-100 text-red-700 border-red-300">Out of Stock</Badge>}
-                              {product.isNew && <Badge variant="secondary">New</Badge>}
-                              {product.isBestseller && <Badge className="bg-black text-white">Bestseller</Badge>}
-                              <Badge variant={product.isActive ? "default" : "secondary"}>
-                                {product.isActive ? "Active" : "Inactive"}
-                              </Badge>
-                                </div>
-                                
-                                {/* Enhanced Action Buttons - Mobile Optimized */}
-                                <div className="flex justify-center sm:justify-end space-x-3">
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    whileInView={{ opacity: 1, scale: 1 }}
-                                    transition={{ duration: 0.4, delay: 0.7 }}
-                                    viewport={{ once: true }}
-                                    whileHover={{ scale: 1.05 }}
-                                  >
+
+                            <div className="flex items-center justify-end space-x-2">
                               <Link href={`/products/${product.category}/${product.id}`}>
-                                      <Button size="sm" variant="outline" className="h-12 w-12 p-0 sm:h-10 sm:w-10 rounded-xl border-2 hover:border-blue-300 hover:bg-blue-50 transition-all">
-                                        <Eye className="h-5 w-5 sm:h-4 sm:w-4 text-blue-600" />
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-9 w-9 p-0 rounded-lg border-2 hover:border-blue-300 hover:bg-blue-50"
+                                >
+                                  <Eye className="h-4 w-4 text-blue-600" />
                                 </Button>
                               </Link>
-                                  </motion.div>
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    whileInView={{ opacity: 1, scale: 1 }}
-                                    transition={{ duration: 0.4, delay: 0.8 }}
-                                    viewport={{ once: true }}
-                                    whileHover={{ scale: 1.05 }}
-                                  >
-                              <Link href={`/admin/products/edit?id=${product._id}`}>
-                                      <Button size="sm" variant="outline" className="h-12 w-12 p-0 sm:h-10 sm:w-10 rounded-xl border-2 hover:border-green-300 hover:bg-green-50 transition-all">
-                                        <Edit className="h-5 w-5 sm:h-4 sm:w-4 text-green-600" />
+                              <Link href={`/admin/products/edit?id=${product.id}`}>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-9 w-9 p-0 rounded-lg border-2 hover:border-green-300 hover:bg-green-50"
+                                >
+                                  <Edit className="h-4 w-4 text-green-600" />
                                 </Button>
                               </Link>
-                                  </motion.div>
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    whileInView={{ opacity: 1, scale: 1 }}
-                                    transition={{ duration: 0.4, delay: 0.9 }}
-                                    viewport={{ once: true }}
-                                    whileHover={{ scale: 1.05 }}
-                                  >
                               <Button
                                 size="sm"
                                 variant="outline"
-                                      className="h-12 w-12 p-0 sm:h-10 sm:w-10 rounded-xl border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-all"
-                                onClick={() => handleDeleteProduct(product._id)}
+                                className="h-9 w-9 p-0 rounded-lg border-2 border-red-200 hover:border-red-400 hover:bg-red-50"
+                                onClick={() => handleDeleteProduct(product.id)}
                               >
-                                      <Trash2 className="h-5 w-5 sm:h-4 sm:w-4 text-red-600" />
+                                <Trash2 className="h-4 w-4 text-red-600" />
                               </Button>
-                                  </motion.div>
-                                </div>
-                              </div>
                             </div>
-                          </motion.div>
+                          </div>
                         ))}
                       </div>
                     )}

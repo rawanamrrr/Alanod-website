@@ -167,6 +167,7 @@ export default function MyAccountPage() {
   }
 
   const submitReview = async () => {
+
     if (!currentOrder || !currentItem) {
       setSubmitError("Missing required data for review")
       return
@@ -178,13 +179,15 @@ export default function MyAccountPage() {
       return
     }
 
-    const productId = currentItem.productId || currentItem.id
+    const productId = currentItem.productId || currentItem.id || currentItem.product_id
+
     if (!productId) {
       setSubmitError("Product information is incomplete")
       return
     }
 
-    const orderId = currentOrder._id || currentOrder.id
+    const orderId = currentOrder.id || currentOrder._id
+
     if (!orderId) {
       setSubmitError("Order information is incomplete")
       return
@@ -216,13 +219,15 @@ export default function MyAccountPage() {
 
       // Update local state
       const updatedOrders = userOrders.map(order => {
-        const currentOrderId = order._id || order.id
+        const currentOrderId = order.id || order._id
         if (currentOrderId === orderId) {
           const updatedItems = order.items.map((item: any) => {
-            if (item.id === productId) {
+            const itemProductId = item.productId || item.id || item.product_id
+            if (itemProductId === productId) {
               return {
                 ...item,
                 reviewed: true,
+
                 review: { 
                   rating: rating, 
                   comment: reviewText,
@@ -503,6 +508,11 @@ export default function MyAccountPage() {
                                         <p className="text-xs text-gray-600">
                                           {item.size} ({item.volume}) × {item.quantity}
                                         </p>
+                                        {order.status === "delivered" && !item.review && (
+                                          <p className="mt-1 text-xs text-green-600">
+                                            Delivered  you can now rate this product
+                                          </p>
+                                        )}
                                         {item.review && (
                                           <div className="flex items-center mt-1">
                                             {[...Array(5)].map((_, i) => (
