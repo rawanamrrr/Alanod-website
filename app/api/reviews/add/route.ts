@@ -179,15 +179,11 @@ export async function POST(req: NextRequest) {
     }
 
     // EXTRACT BASE PRODUCT ID (remove size suffix like -bundle, -Travel, -Reguler, etc.)
-    const baseProductId = productId.replace(/-[a-zA-Z0-9]+$/, '');
+    const baseProductId = productId;
     console.log("Original productId:", productId, "Base productId:", baseProductId);
     
     // For gift packages, extract the actual base product ID
     let actualBaseProductId = baseProductId;
-    if (baseProductId.includes('-gift-package')) {
-      actualBaseProductId = baseProductId.replace(/-gift-package.*$/, '');
-      console.log("🎁 Gift package detected, actual base product ID:", actualBaseProductId);
-    }
     
     console.log("Review document to be created:", {
       productId: actualBaseProductId,
@@ -212,6 +208,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "You have already reviewed this product for this order" },
         { status: 400 }
+      );
+    }
+
+    const { data: productRow, error: productRowError } = await supabase
+      .from("products")
+      .select("product_id")
+      .eq("product_id", actualBaseProductId)
+      .maybeSingle();
+
+    if (productRowError) {
+      console.error("Error checking product before review insert:", productRowError);
+      return NextResponse.json({ error: "Failed to verify product for review" }, { status: 500 });
+    }
+
+    if (!productRow) {
+      return NextResponse.json(
+        { error: "Product not found" },
+        { status: 404 }
       );
     }
 

@@ -51,7 +51,7 @@ const PHONE_COUNTRY_RULES: Record<string, PhoneCountryConfig> = {
   KW: { dialCode: "+965", minLength: 8, maxLength: 8 },
   QA: { dialCode: "+974", minLength: 8, maxLength: 8 },
   GB: { dialCode: "+44", minLength: 10, maxLength: 10 },
-  EG: { dialCode: "+20", minLength: 10, maxLength: 10 },
+  EG: { dialCode: "+20", minLength: 10, maxLength: 11 },
   OM: { dialCode: "+968", minLength: 8, maxLength: 8 },
   BH: { dialCode: "+973", minLength: 8, maxLength: 8 },
   IQ: { dialCode: "+964", minLength: 10, maxLength: 10 },
@@ -209,7 +209,14 @@ export default function CheckoutPage() {
       return true
     }
 
-    if (digitsOnly.length < config.minLength || digitsOnly.length > config.maxLength) {
+    let localDigits = digitsOnly
+    const dialDigits = config.dialCode.replace(/\D/g, "")
+
+    if (value.trim().startsWith("+") && dialDigits && digitsOnly.startsWith(dialDigits)) {
+      localDigits = digitsOnly.slice(dialDigits.length)
+    }
+
+    if (localDigits.length < config.minLength || localDigits.length > config.maxLength) {
       const countryName = COUNTRY_LABELS_BY_CODE[countryCode] || "selected country"
       const message =
         label === "primary"
@@ -589,7 +596,7 @@ export default function CheckoutPage() {
                                 setPhoneCountry(e.target.value)
                                 setPhoneCountrySynced(false)
                               }}
-                              className="flex h-10 w-32 rounded-md border border-gray-200 bg-background px-2 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="flex h-10 w-32 rounded-md border border-gray-200 bg-background px-2 py-2 text-xs sm:text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {PHONE_COUNTRY_OPTIONS.map((option) => (
                                 <option key={option.code} value={option.code}>
@@ -601,13 +608,9 @@ export default function CheckoutPage() {
                               id="phone"
                               value={formData.phone}
                               onChange={(e) => handleInputChange("phone", e.target.value)}
-                              placeholder={
-                                PHONE_COUNTRY_RULES[phoneCountry || settings.countryCode]
-                                  ? `${PHONE_COUNTRY_RULES[phoneCountry || settings.countryCode].dialCode} XXXXXXXX`
-                                  : "+XXX XXXXXXXX"
-                              }
+                              placeholder="Enter phone number"
                               required
-                              className="flex-1 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
+                              className="flex-1 border-gray-200 focus:border-purple-500 focus:ring-purple-500 placeholder:text-xs sm:placeholder:text-sm"
                             />
                           </div>
                         </div>
@@ -625,7 +628,7 @@ export default function CheckoutPage() {
                                 setAltPhoneCountry(e.target.value)
                                 setAltPhoneCountrySynced(false)
                               }}
-                              className="flex h-10 w-32 rounded-md border border-gray-200 bg-background px-2 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="flex h-10 w-32 rounded-md border border-gray-200 bg-background px-2 py-2 text-xs sm:text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                               {PHONE_COUNTRY_OPTIONS.map((option) => (
                                 <option key={option.code} value={option.code}>
@@ -637,13 +640,9 @@ export default function CheckoutPage() {
                               id="altPhone"
                               value={formData.altPhone}
                               onChange={(e) => handleInputChange("altPhone", e.target.value)}
-                              placeholder={
-                                PHONE_COUNTRY_RULES[altPhoneCountry || settings.countryCode]
-                                  ? `${PHONE_COUNTRY_RULES[altPhoneCountry || settings.countryCode].dialCode} XXXXXXXX`
-                                  : "+XXX XXXXXXXX"
-                              }
+                              placeholder="Enter secondary phone number"
                               required
-                              className="flex-1 border-gray-200 focus:border-purple-500 focus:ring-purple-500"
+                              className="flex-1 border-gray-200 focus:border-purple-500 focus:ring-purple-500 placeholder:text-xs sm:placeholder:text-sm"
                             />
                           </div>
                         </div>

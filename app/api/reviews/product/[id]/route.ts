@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 
 export async function GET(
   req: NextRequest,
@@ -29,7 +29,9 @@ export async function GET(
       `original_product_id.like.${baseProductId}%`
     ].join(",")
 
-    let reviewsQuery = supabase
+    const reviewsClient = supabaseAdmin || supabase
+
+    let reviewsQuery = reviewsClient
       .from("reviews")
       .select("*")
       .or(orFilters)
