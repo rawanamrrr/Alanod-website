@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle, Package, Truck, Mail } from "lucide-react"
@@ -11,6 +11,7 @@ import { Navigation } from "@/components/navigation"
 
 export default function CheckoutSuccessPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const orderId = searchParams.get("orderId")
   const [orderDetails, setOrderDetails] = useState<any>(null)
 
@@ -103,17 +104,19 @@ export default function CheckoutSuccessPage() {
               className="space-y-4"
             >
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/account">
-                  <Button
-                    variant="outline"
-                    className="border-black text-black hover:bg-black hover:text-white bg-transparent"
-                  >
-                    Track Your Order
-                  </Button>
-                </Link>
-                <Link href="/products">
-                  <Button className="bg-black text-white hover:bg-gray-800">Continue Shopping</Button>
-                </Link>
+                <Button
+                  variant="outline"
+                  className="border-black text-black hover:bg-black hover:text-white bg-transparent"
+                  onClick={() => router.push("/account")}
+                >
+                  Track Your Order
+                </Button>
+                <Button 
+                  className="bg-black text-white hover:bg-gray-800"
+                  onClick={() => router.push("/products")}
+                >
+                  Continue Shopping
+                </Button>
               </div>
 
               <p className="text-sm text-gray-600">

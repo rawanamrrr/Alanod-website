@@ -45,6 +45,81 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
+    // Helper function to get country code from country name
+    function getCountryCodeFromName(countryName: string): string {
+      const nameToCode: Record<string, string> = {
+        "United States": "US",
+        "Saudi Arabia": "SA",
+        "United Arab Emirates": "AE",
+        "Kuwait": "KW",
+        "Qatar": "QA",
+        "United Kingdom": "GB",
+        "Egypt": "EG",
+        "Oman": "OM",
+        "Bahrain": "BH",
+        "Iraq": "IQ",
+        "Jordan": "JO",
+        "Turkey": "TR",
+        "Lebanon": "LB",
+      }
+      return nameToCode[countryName] || 'US'
+    }
+    
+    // Get country code and currency from order (check multiple locations)
+    const countryCode = order.shippingAddress?.countryCode || 
+                        order.shipping_address?.countryCode || 
+                        order.shipping_address?.country_code ||
+                        (order.shippingAddress?.country && getCountryCodeFromName(order.shippingAddress.country)) ||
+                        (order.shipping_address?.country && getCountryCodeFromName(order.shipping_address.country)) ||
+                        'US'
+    
+    console.log("📧 [EMAIL UPDATE] Extracted country code:", countryCode)
+    console.log("📧 [EMAIL UPDATE] Order shippingAddress:", JSON.stringify(order.shippingAddress, null, 2))
+    
+    // Map country code to currency code
+    const COUNTRY_TO_CURRENCY: Record<string, string> = {
+      "US": "USD",
+      "SA": "SAR",
+      "AE": "AED",
+      "KW": "KWD",
+      "QA": "QAR",
+      "GB": "GBP",
+      "EG": "EGP",
+      "OM": "OMR",
+      "BH": "BHD",
+      "IQ": "IQD",
+      "JO": "JOD",
+      "TR": "TRY",
+      "LB": "LBP",
+    }
+    
+    const currencyCode = COUNTRY_TO_CURRENCY[countryCode] || "USD"
+    console.log("📧 [EMAIL UPDATE] Using currency code:", currencyCode)
+    
+    // Get exchange rate (order total is in USD, need to convert to customer's currency)
+    const DEFAULT_RATES: Record<string, number> = {
+      USD: 1,
+      SAR: 3.75,
+      AED: 3.67,
+      KWD: 0.31,
+      QAR: 3.64,
+      GBP: 0.79,
+      EGP: 50,
+      OMR: 0.38,
+      BHD: 0.38,
+      IQD: 1310,
+      JOD: 0.71,
+      TRY: 32,
+      LBP: 15000,
+    }
+    
+    const exchangeRate = DEFAULT_RATES[currencyCode] || 1
+    
+    // Convert USD amounts to customer's currency
+    const convertToCurrency = (usdAmount: number) => {
+      return usdAmount * exchangeRate
+    }
+    
     // Get status-specific content
     const statusContent = getStatusContent(newStatus, order)
     const customerEmail = order.shippingAddress.email
@@ -82,19 +157,24 @@ export async function POST(request: NextRequest) {
       content: `
         ${order.items
           .map(
-            (item: any) => `
+            (item: any) => {
+              // Convert item price from USD to customer's currency
+              const itemTotalUSD = item.price * item.quantity
+              const itemTotal = convertToCurrency(itemTotalUSD)
+              return `
             <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid currentColor; opacity: 0.3;">
                 <div>
                     <strong>${item.name}</strong><br>
                     <small>${item.size} (${item.volume}) × ${item.quantity}</small>
                 </div>
-                <div>${(item.price * item.quantity).toFixed(2)} EGP</div>
+                <div>${itemTotal.toFixed(2)} ${currencyCode}</div>
             </div>
-        `,
+        `
+            }
           )
           .join("")}
         <div style="font-weight: bold; font-size: 18px; padding-top: 15px; border-top: 2px solid currentColor; text-align: right; margin-top: 15px;">
-            Total: ${order.total.toFixed(2)} EGP
+            Total: ${convertToCurrency(order.total).toFixed(2)} ${currencyCode}
         </div>
       `
     })

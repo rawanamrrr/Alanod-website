@@ -208,7 +208,7 @@ export default function AdminDashboard() {
       const token = getAuthToken()
       
       const [productsRes, ordersRes, discountCodesRes, offersRes] = await Promise.all([
-        fetch("/api/products", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/products?includeInactive=true", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/orders", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/discount-codes", { headers: { Authorization: `Bearer ${token}` } }),
         fetch("/api/offers", { headers: { Authorization: `Bearer ${token}` } }),
@@ -216,7 +216,16 @@ export default function AdminDashboard() {
 
       if (productsRes.ok) {
         const products = await productsRes.json()
+        console.log("📊 [Dashboard] Fetched products:", {
+          total: products.length,
+          active: products.filter((p: Product) => p.isActive).length,
+          new: products.filter((p: Product) => p.isNew).length,
+          bestsellers: products.filter((p: Product) => p.isBestseller).length,
+          outOfStock: products.filter((p: Product) => p.isOutOfStock).length,
+        })
         setProducts(products)
+      } else {
+        console.error("❌ [Dashboard] Failed to fetch products:", productsRes.status, productsRes.statusText)
       }
 
       if (ordersRes.ok) {
@@ -284,8 +293,27 @@ export default function AdminDashboard() {
 
   const handleCreateDiscountCode = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
+    
     try {
       const token = getAuthToken()
+      
+      if (!token) {
+        setError("Authentication required. Please log in again.")
+        return
+      }
+      
+      // Validate required fields
+      if (!discountForm.code || !discountForm.type) {
+        setError("Code and type are required")
+        return
+      }
+      
+      if (discountForm.type !== "buyXgetX" && discountForm.type !== "buyXgetYpercent" && !discountForm.value) {
+        setError("Value is required for this discount type")
+        return
+      }
+      
       const discountData: any = {
         code: discountForm.code,
         type: discountForm.type,
@@ -293,6 +321,7 @@ export default function AdminDashboard() {
         minOrderAmount: discountForm.minOrderAmount ? Number.parseInt(discountForm.minOrderAmount) : undefined,
         maxUses: discountForm.maxUses ? Number.parseInt(discountForm.maxUses) : undefined,
         expiresAt: discountForm.expiresAt || undefined,
+        description: discountForm.description || undefined,
       }
 
       if (discountForm.type === "buyXgetX") {
@@ -303,6 +332,8 @@ export default function AdminDashboard() {
         discountData.discountPercentage = Number.parseFloat(discountForm.discountPercentage)
       }
 
+      console.log("Creating discount code with data:", discountData)
+
       const response = await fetch("/api/discount-codes", {
         method: "POST",
         headers: {
@@ -312,8 +343,9 @@ export default function AdminDashboard() {
         body: JSON.stringify(discountData),
       })
 
+      const result = await response.json()
+      
       if (response.ok) {
-        const result = await response.json()
         setDiscountCodes([result.discountCode, ...discountCodes])
         setDiscountForm({
           code: "",
@@ -324,11 +356,21 @@ export default function AdminDashboard() {
           expiresAt: "",
           buyX: "",
           getX: "",
-          discountPercentage: ""
+          discountPercentage: "",
+          description: ""
         })
+        setError("")
+        toast.success("Discount code created successfully")
+      } else {
+        console.error("Failed to create discount code:", result)
+        setError(result.error || "Failed to create discount code")
+        toast.error(result.error || "Failed to create discount code")
       }
     } catch (error) {
       console.error("Error creating discount code:", error)
+      const errorMessage = error instanceof Error ? error.message : "An error occurred while creating the discount code"
+      setError(errorMessage)
+      toast.error(errorMessage)
     }
   }
 
@@ -349,10 +391,32 @@ export default function AdminDashboard() {
 
   const handleUpdateDiscountCode = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!editingDiscount) return
+    setError("")
+    
+    if (!editingDiscount) {
+      setError("No discount code selected for editing")
+      return
+    }
 
     try {
       const token = getAuthToken()
+      
+      if (!token) {
+        setError("Authentication required. Please log in again.")
+        return
+      }
+      
+      // Validate required fields
+      if (!discountForm.code || !discountForm.type) {
+        setError("Code and type are required")
+        return
+      }
+      
+      if (discountForm.type !== "buyXgetX" && discountForm.type !== "buyXgetYpercent" && !discountForm.value) {
+        setError("Value is required for this discount type")
+        return
+      }
+      
       const discountData: any = {
         code: discountForm.code,
         type: discountForm.type,
@@ -361,6 +425,7 @@ export default function AdminDashboard() {
         maxUses: discountForm.maxUses ? Number.parseInt(discountForm.maxUses) : undefined,
         expiresAt: discountForm.expiresAt || undefined,
         isActive: editingDiscount.isActive,
+        description: discountForm.description || undefined,
       }
 
       if (discountForm.type === "buyXgetX") {
@@ -371,6 +436,9 @@ export default function AdminDashboard() {
         discountData.discountPercentage = Number.parseFloat(discountForm.discountPercentage)
       }
 
+      console.log("Updating discount code with data:", discountData)
+      console.log("Discount code ID:", editingDiscount._id)
+
       const response = await fetch(`/api/discount-codes?id=${editingDiscount._id}`, {
         method: "PUT",
         headers: {
@@ -380,8 +448,9 @@ export default function AdminDashboard() {
         body: JSON.stringify(discountData),
       })
 
+      const result = await response.json()
+
       if (response.ok) {
-        const result = await response.json()
         setDiscountCodes(
           discountCodes.map((code) => (code._id === editingDiscount._id ? result.discountCode : code))
         )
@@ -395,11 +464,21 @@ export default function AdminDashboard() {
           expiresAt: "",
           buyX: "",
           getX: "",
-          discountPercentage: ""
+          discountPercentage: "",
+          description: ""
         })
+        setError("")
+        toast.success("Discount code updated successfully")
+      } else {
+        console.error("Failed to update discount code:", result)
+        setError(result.error || "Failed to update discount code")
+        toast.error(result.error || "Failed to update discount code")
       }
     } catch (error) {
       console.error("Error updating discount code:", error)
+      const errorMessage = error instanceof Error ? error.message : "An error occurred while updating the discount code"
+      setError(errorMessage)
+      toast.error(errorMessage)
     }
   }
 
@@ -470,8 +549,8 @@ export default function AdminDashboard() {
       if (response.ok) {
         const result = await response.json()
         setOffers([result.offer, ...offers])
-        // Refresh data to get latest information
-        await fetchData()
+        // Refresh data in background, don't block UI
+        fetchData().catch(err => console.error("Error refreshing data:", err))
         setOfferForm({
           title: "",
           description: "",
@@ -522,8 +601,8 @@ export default function AdminDashboard() {
         const result = await response.json()
         setOffers(offers.map(offer => offer._id === editingOffer._id ? result.offer : offer))
         setEditingOffer(null)
-        // Refresh data to get latest information
-        await fetchData()
+        // Refresh data in background, don't block UI
+        fetchData().catch(err => console.error("Error refreshing data:", err))
         setOfferForm({
           title: "",
           description: "",
@@ -833,7 +912,7 @@ export default function AdminDashboard() {
                   <CardHeader className="p-4 sm:p-6">
                     <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
                       <CardTitle className="text-lg sm:text-xl">Products Catalog ({products.length})</CardTitle>
-                      <Link href="/admin/products/add" className="w-full sm:w-auto">
+                      <Link href="/admin/products/add" prefetch={true} className="w-full sm:w-auto">
                         <Button size="sm" className="bg-black text-white hover:bg-gray-800 w-full sm:w-auto">
                           <Plus className="mr-2 h-4 w-4" />
                           Add Product
@@ -846,7 +925,7 @@ export default function AdminDashboard() {
                       <div className="text-center py-8">
                         <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
                         <p className="text-gray-600 mb-4">No products found</p>
-                        <Link href="/admin/products/add">
+                        <Link href="/admin/products/add" prefetch={true}>
                           <Button className="bg-black text-white hover:bg-gray-800">
                             <Plus className="mr-2 h-4 w-4" />
                             Add Your First Product
@@ -1115,7 +1194,7 @@ export default function AdminDashboard() {
                                     viewport={{ once: true }}
                                     whileHover={{ scale: 1.05 }}
                                   >
-                              <Link href={`/products/${product.category}/${product.id}`}>
+                              <Link href={`/products/${product.category}/${product.id}`} prefetch={true}>
                                       <Button size="sm" variant="outline" className="h-12 w-12 p-0 sm:h-10 sm:w-10 rounded-xl border-2 hover:border-blue-300 hover:bg-blue-50 transition-all">
                                         <Eye className="h-5 w-5 sm:h-4 sm:w-4 text-blue-600" />
                                 </Button>
@@ -1128,7 +1207,7 @@ export default function AdminDashboard() {
                                     viewport={{ once: true }}
                                     whileHover={{ scale: 1.05 }}
                                   >
-                              <Link href={`/admin/products/edit?id=${product._id}`}>
+                              <Link href={`/admin/products/edit?id=${product._id}`} prefetch={true}>
                                       <Button size="sm" variant="outline" className="h-12 w-12 p-0 sm:h-10 sm:w-10 rounded-xl border-2 hover:border-green-300 hover:bg-green-50 transition-all">
                                         <Edit className="h-5 w-5 sm:h-4 sm:w-4 text-green-600" />
                                 </Button>
@@ -1239,7 +1318,7 @@ export default function AdminDashboard() {
                                 >
                                   {order.status}
                                 </Badge>
-                                <Link href={`/admin/orders/${order.id}`}>
+                                <Link href={`/admin/orders/${order.id}`} prefetch={true}>
                                       <Button size="sm" variant="outline" className="h-8 w-8 p-0">
                                         <Eye className="h-3 w-3" />
                                   </Button>
@@ -1291,6 +1370,11 @@ export default function AdminDashboard() {
                       </div>
                     </CardHeader>
                     <CardContent className="p-4 sm:p-6">
+                      {error && (
+                        <Alert className="border-red-200 bg-red-50 mb-4">
+                          <AlertDescription className="text-red-600">{error}</AlertDescription>
+                        </Alert>
+                      )}
                       <form
                         onSubmit={editingDiscount ? handleUpdateDiscountCode : handleCreateDiscountCode}
                         className="space-y-4"

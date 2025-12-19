@@ -57,21 +57,107 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    // Calculate totals
-    const subtotal = order.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0)
-    const shipping = order.total - subtotal + (order.discountAmount || 0)
+    // Get country code and currency first (needed for conversion)
+    // Check multiple possible locations for country code
+    const countryCode = order.shippingAddress?.countryCode || 
+                        order.shipping_address?.countryCode || 
+                        order.shipping_address?.country_code ||
+                        (order.shippingAddress?.country && getCountryCodeFromName(order.shippingAddress.country)) ||
+                        (order.shipping_address?.country && getCountryCodeFromName(order.shipping_address.country)) ||
+                        'US'
+    
+    console.log("📧 [EMAIL] Extracted country code:", countryCode)
+    console.log("📧 [EMAIL] Order shippingAddress:", JSON.stringify(order.shippingAddress, null, 2))
+    console.log("📧 [EMAIL] Order shipping_address:", JSON.stringify(order.shipping_address, null, 2))
+    
+    // Helper function to get country code from country name
+    function getCountryCodeFromName(countryName: string): string {
+      const nameToCode: Record<string, string> = {
+        "United States": "US",
+        "Saudi Arabia": "SA",
+        "United Arab Emirates": "AE",
+        "Kuwait": "KW",
+        "Qatar": "QA",
+        "United Kingdom": "GB",
+        "Egypt": "EG",
+        "Oman": "OM",
+        "Bahrain": "BH",
+        "Iraq": "IQ",
+        "Jordan": "JO",
+        "Turkey": "TR",
+        "Lebanon": "LB",
+      }
+      return nameToCode[countryName] || 'US'
+    }
+    
+    // Map country code to currency code
+    const COUNTRY_TO_CURRENCY: Record<string, string> = {
+      "US": "USD",
+      "SA": "SAR",
+      "AE": "AED",
+      "KW": "KWD",
+      "QA": "QAR",
+      "GB": "GBP",
+      "EG": "EGP",
+      "OM": "OMR",
+      "BH": "BHD",
+      "IQ": "IQD",
+      "JO": "JOD",
+      "TR": "TRY",
+      "LB": "LBP",
+    }
+    
+    const currencyCode = COUNTRY_TO_CURRENCY[countryCode] || "USD"
+    console.log("📧 [EMAIL] Using currency code:", currencyCode)
+    
+    // Get exchange rate (order total is in USD, need to convert to customer's currency)
+    const DEFAULT_RATES: Record<string, number> = {
+      USD: 1,
+      SAR: 3.75,
+      AED: 3.67,
+      KWD: 0.31,
+      QAR: 3.64,
+      GBP: 0.79,
+      EGP: 50,
+      OMR: 0.38,
+      BHD: 0.38,
+      IQD: 1310,
+      JOD: 0.71,
+      TRY: 32,
+      LBP: 15000,
+    }
+    
+    const exchangeRate = DEFAULT_RATES[currencyCode] || 1
+    
+    // Convert USD amounts to customer's currency
+    const convertToCurrency = (usdAmount: number) => {
+      return usdAmount * exchangeRate
+    }
 
-    // Create order items for the table
+    // Calculate totals (order.total is in USD, convert to customer's currency)
+    const subtotalUSD = order.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0)
+    const shippingUSD = order.total - subtotalUSD + (order.discountAmount || 0)
+    
+    // Convert to customer's currency for display
+    const subtotal = convertToCurrency(subtotalUSD)
+    const shipping = convertToCurrency(shippingUSD)
+    const discountAmount = convertToCurrency(order.discountAmount || 0)
+    const total = convertToCurrency(order.total)
+    
+    // Create order items for the table (convert prices to customer's currency)
     console.log("📧 [EMAIL] Processing order items...")
     console.log("📧 [EMAIL] Order items:", order.items)
     
     const orderItems = order.items.map((item: any) => {
       console.log("📧 [EMAIL] Processing item:", item)
+      const itemPriceUSD = item.price || 0
+      const itemQuantity = item.quantity || 1
+      const itemTotalUSD = itemPriceUSD * itemQuantity
       return {
         name: `${item.name}${item.size ? ` - ${item.size}` : ''}${item.volume ? ` (${item.volume})` : ''}`,
-        quantity: item.quantity || 1,
-        price: item.price || 0,
-        total: (item.price || 0) * (item.quantity || 1)
+        quantity: itemQuantity,
+        price: convertToCurrency(itemPriceUSD),
+        total: convertToCurrency(itemTotalUSD)
       }
     })
 
@@ -110,24 +196,24 @@ export async function POST(request: NextRequest) {
         <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid currentColor;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
             <span>Subtotal:</span>
-            <span>${subtotal.toFixed(2)} EGP</span>
+            <span>${subtotal.toFixed(2)} ${currencyCode}</span>
           </div>
           
           ${order.discountAmount ? `
           <div style="display: flex; justify-content: space-between; margin-bottom: 10px; color: #16a34a;">
             <span>Discount (${order.discountCode}):</span>
-            <span>-${order.discountAmount.toFixed(2)} EGP</span>
+            <span>-${discountAmount.toFixed(2)} ${currencyCode}</span>
           </div>
           ` : ''}
           
           <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
             <span>Shipping:</span>
-            <span>${shipping > 0 ? `${shipping.toFixed(2)} EGP` : "Free"}</span>
+            <span>${shipping > 0 ? `${shipping.toFixed(2)} ${currencyCode}` : "Free"}</span>
           </div>
           
           <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 600; padding-top: 15px; border-top: 2px solid currentColor;">
             <span>Total:</span>
-            <span>${order.total.toFixed(2)} EGP</span>
+            <span>${total.toFixed(2)} ${currencyCode}</span>
           </div>
         </div>
       `
@@ -160,11 +246,14 @@ export async function POST(request: NextRequest) {
         
         <hr class="divider">
         
-        <p style="text-align: center;">
-          <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.alanoudalqadi.com'}/account" class="btn btn-primary">
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.alanoudalqadi.com'}/account" style="display: inline-block; background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 5px; font-weight: 600;">
             Track Your Order
           </a>
-        </p>
+          <a href="${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.alanoudalqadi.com'}/products" style="display: inline-block; background-color: transparent; color: #000; padding: 12px 24px; text-decoration: none; border: 2px solid #000; border-radius: 4px; margin: 5px; font-weight: 600;">
+            Continue Shopping
+          </a>
+        </div>
         
         <p style="text-align: center; margin-top: 20px;">
           Have questions? <a href="mailto:${process.env.EMAIL_USER}">Contact our support team</a>

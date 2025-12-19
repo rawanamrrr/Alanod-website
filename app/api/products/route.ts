@@ -110,7 +110,11 @@ const transformProduct = (product: any): Product => {
     ? product.is_out_of_stock 
     : calculateIsOutOfStock(sizes)
   
+  // Use product.id (UUID) as _id for backward compatibility, fallback to product_id
+  const productId = product.id || product.product_id
+  
   return {
+    _id: productId, // Add _id for backward compatibility with admin dashboard
     id: product.product_id,
     product_id: product.product_id,
     name: product.name,
@@ -128,16 +132,16 @@ const transformProduct = (product: any): Product => {
     reviews: product.reviews || 0,
     notes: product.notes || { top: [], middle: [], base: [] },
     category: product.category,
-    isNew: product.is_new || false,
-    isBestseller: product.is_bestseller || false,
+    isNew: product.is_new === true, // Explicitly check for true, not just truthy
+    isBestseller: product.is_bestseller === true, // Explicitly check for true
     isActive: product.is_active !== false,
     isOutOfStock: isOutOfStock,
     isGiftPackage: product.is_gift_package || false,
     packagePrice: product.package_price,
     packageOriginalPrice: product.package_original_price,
     giftPackageSizes: product.gift_package_sizes || [],
-    createdAt: product.created_at ? new Date(product.created_at) : new Date(),
-    updatedAt: product.updated_at ? new Date(product.updated_at) : new Date(),
+    createdAt: product.created_at ? new Date(product.created_at).toISOString() : new Date().toISOString(),
+    updatedAt: product.updated_at ? new Date(product.updated_at).toISOString() : new Date().toISOString(),
   }
 }
 
@@ -148,12 +152,31 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const requestUrl = new URL(request.url)
-
-    const cachedResponse = getCachedResponse(requestUrl)
+    const includeInactive = searchParams.get("includeInactive") === "true"
+    
+    // Check if user is admin (for includeInactive parameter and cache bypass)
+    let isAdmin = false
+    if (includeInactive) {
+      const token = request.headers.get("authorization")?.replace("Bearer ", "")
+      if (token) {
+        try {
+          const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+          isAdmin = decoded.role === "admin"
+          console.log(`🔐 [API] Admin check: includeInactive=${includeInactive}, isAdmin=${isAdmin}`)
+        } catch (e) {
+          console.log(`⚠️ [API] Admin check failed:`, e)
+          // Not a valid token, ignore
+        }
+      }
+    }
+    
+    // Skip cache for admin requests with includeInactive (to ensure fresh data for analytics)
+    const cachedResponse = (includeInactive && isAdmin) ? null : getCachedResponse(requestUrl)
     if (cachedResponse) {
       console.log(`⚡ [API] GET /api/products - Cache hit in ${Date.now() - startTime}ms`)
       return cachedResponse
     }
+    
     const id = searchParams.get("id")
     const category = searchParams.get("category")
     const isBestsellerParam = searchParams.get("isBestseller")
@@ -166,10 +189,17 @@ export async function GET(request: NextRequest) {
 
     // Single product request
     if (id) {
-      let query = supabase
+      // Use admin client if including inactive products (for admin dashboard)
+      const client = (includeInactive && isAdmin) ? (supabaseAdmin || supabase) : supabase
+      
+      let query = client
         .from("products")
         .select("*")
-        .eq("is_active", true)
+      
+      // Only filter by is_active if not including inactive products (or if not admin)
+      if (!includeInactive || !isAdmin) {
+        query = query.eq("is_active", true)
+      }
 
       // Try by product_id first (the actual product ID used in app)
       query = query.eq("product_id", id)
@@ -191,10 +221,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Category listing
-    let query = supabase
+    // Use admin client if including inactive products (for admin dashboard)
+    const client = (includeInactive && isAdmin) ? (supabaseAdmin || supabase) : supabase
+    
+    let query = client
       .from("products")
       .select("*")
-      .eq("is_active", true)
+    
+    // Only filter by is_active if not including inactive products (or if not admin)
+    if (!includeInactive || !isAdmin) {
+      query = query.eq("is_active", true)
+    }
 
     if (category) {
       query = query.eq("category", category)
@@ -221,10 +258,14 @@ export async function GET(request: NextRequest) {
       }
 
       // Get total count separately for pagination
-      let countQuery = supabase
+      let countQuery = client
         .from("products")
         .select("*", { count: 'exact', head: true })
-        .eq("is_active", true)
+      
+      // Only filter by is_active if not including inactive products (or if not admin)
+      if (!includeInactive || !isAdmin) {
+        countQuery = countQuery.eq("is_active", true)
+      }
 
       if (category) countQuery = countQuery.eq("category", category)
       if (isBestsellerParam !== null) countQuery = countQuery.eq("is_bestseller", isBestsellerParam === 'true')
@@ -258,13 +299,27 @@ export async function GET(request: NextRequest) {
     } else {
       query = query.order("created_at", { ascending: false })
 
+      console.log(`🔍 [API] Executing query with: includeInactive=${includeInactive}, isAdmin=${isAdmin}, client=${client === supabaseAdmin ? 'admin' : 'anon'}`)
       const { data: products, error } = await query
 
       if (error) {
-        console.error("Error fetching products:", error)
+        console.error("❌ [API] Error fetching products:", error)
+        console.error("❌ [API] Error details:", JSON.stringify(error, null, 2))
         return errorResponse("Failed to fetch products", 500)
       }
 
+      console.log(`📦 [API] Raw products from DB: ${products?.length || 0} products`)
+      if (products && products.length > 0) {
+        console.log(`📦 [API] First product sample:`, {
+          id: products[0].product_id,
+          name: products[0].name,
+          is_active: products[0].is_active,
+          is_new: products[0].is_new,
+          is_bestseller: products[0].is_bestseller,
+          is_out_of_stock: products[0].is_out_of_stock,
+        })
+      }
+      
       const transformedProducts = (products || []).map(transformProduct)
       // For list view, only include first image
       const productsForList = transformedProducts.map(p => ({
@@ -274,7 +329,10 @@ export async function GET(request: NextRequest) {
         notes: undefined,
       }))
 
-      console.log(`⏱️ [API] Request completed in ${Date.now() - startTime}ms (all=${productsForList.length})`)
+      console.log(`⏱️ [API] Request completed in ${Date.now() - startTime}ms (all=${productsForList.length}, includeInactive=${includeInactive}, isAdmin=${isAdmin})`)
+      if (includeInactive && isAdmin) {
+        console.log(`📊 [API] Admin analytics - Total: ${productsForList.length}, Active: ${productsForList.filter(p => p.isActive).length}, New: ${productsForList.filter(p => p.isNew).length}, Bestsellers: ${productsForList.filter(p => p.isBestseller).length}, OutOfStock: ${productsForList.filter(p => p.isOutOfStock).length}`)
+      }
       const headers = {
         "Content-Type": "application/json",
         "Cache-Control": "public, max-age=30, stale-while-revalidate=150",

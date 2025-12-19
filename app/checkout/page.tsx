@@ -256,17 +256,38 @@ export default function CheckoutPage() {
       })
 
       if (response.ok) {
-        const order = await response.json()
+        const orderResponse = await response.json()
+        const order = orderResponse.order || orderResponse
 
-        // Send confirmation email
+        // Send confirmation email with the original order data to ensure country code is preserved
         try {
+          const orderForEmail = {
+            ...order,
+            shippingAddress: {
+              ...order.shippingAddress,
+              ...order.shipping_address,
+              countryCode: orderData.shippingAddress.countryCode || order.shippingAddress?.countryCode || order.shipping_address?.countryCode,
+              country: orderData.shippingAddress.country || order.shippingAddress?.country || order.shipping_address?.country,
+            },
+            shipping_address: {
+              ...order.shipping_address,
+              ...order.shippingAddress,
+              countryCode: orderData.shippingAddress.countryCode || order.shippingAddress?.countryCode || order.shipping_address?.countryCode,
+              country_code: orderData.shippingAddress.countryCode || order.shippingAddress?.countryCode || order.shipping_address?.countryCode,
+              country: orderData.shippingAddress.country || order.shippingAddress?.country || order.shipping_address?.country,
+            }
+          }
+          
+          console.log("📧 [CHECKOUT] Sending email with order data:", JSON.stringify(orderForEmail, null, 2))
+          console.log("📧 [CHECKOUT] Country code being sent:", orderForEmail.shippingAddress?.countryCode)
+          
           await fetch("/api/send-order-confirmation", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              order: order.order,
+              order: orderForEmail,
             }),
           })
         } catch (emailError) {

@@ -124,7 +124,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform to expected format
-    const transformedCodes = (codes || []).map(code => ({
+    const transformedCodes = (codes || []).map((code: any) => ({
       _id: code.id, // For backward compatibility
       id: code.id,
       code: code.code,
@@ -227,10 +227,10 @@ export async function PUT(request: NextRequest) {
       updateData.discount_value = Number(body.value)
     }
     if (body.minOrderAmount !== undefined) {
-      updateData.min_purchase = body.minOrderAmount ? Number(body.minOrderAmount) : null
+      updateData.min_purchase = body.minOrderAmount ? Number(body.minOrderAmount) : undefined
     }
     if (body.maxUses !== undefined) {
-      updateData.usage_limit = body.maxUses ? Number(body.maxUses) : null
+      updateData.usage_limit = body.maxUses ? Number(body.maxUses) : undefined
     }
     if (body.expiresAt !== undefined) {
       updateData.valid_until = body.expiresAt ? new Date(body.expiresAt) : null
