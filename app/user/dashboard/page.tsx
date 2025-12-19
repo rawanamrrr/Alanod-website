@@ -12,21 +12,46 @@ import { Separator } from "@/components/ui/separator"
 import { Package, ShoppingCart, User, MapPin, ArrowLeft, Eye } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { useOrders } from "@/lib/order-context"
 
 export default function UserDashboard() {
   const { state: authState } = useAuth()
-  const { getUserOrders } = useOrders()
   const router = useRouter()
   const [userOrders, setUserOrders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!authState.isAuthenticated) {
       router.push("/auth/login")
-    } else if (authState.user) {
-      setUserOrders(getUserOrders(authState.user.id))
+    } else if (authState.user && authState.token) {
+      // Fetch orders from API
+      const fetchOrders = async () => {
+        setLoading(true)
+        try {
+          const response = await fetch("/api/orders", {
+            headers: {
+              Authorization: `Bearer ${authState.token}`,
+            },
+          })
+          
+          if (response.ok) {
+            const orders = await response.json()
+            console.log("Fetched orders:", orders)
+            setUserOrders(orders)
+          } else {
+            console.error("Failed to fetch orders:", response.status)
+            setUserOrders([])
+          }
+        } catch (error) {
+          console.error("Error fetching orders:", error)
+          setUserOrders([])
+        } finally {
+          setLoading(false)
+        }
+      }
+      
+      fetchOrders()
     }
-  }, [authState, router, getUserOrders])
+  }, [authState.isAuthenticated, authState.user?.id, authState.token, router])
 
   if (!authState.isAuthenticated) {
     return null
@@ -172,7 +197,12 @@ export default function UserDashboard() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {userOrders.length === 0 ? (
+                  {loading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading orders...</p>
+                    </div>
+                  ) : userOrders.length === 0 ? (
                     <div className="text-center py-8">
                       <Package className="h-12 w-12 mx-auto text-gray-300 mb-4" />
                       <p className="text-gray-600 mb-4">No orders yet</p>
@@ -201,14 +231,14 @@ export default function UserDashboard() {
                                         : "outline"
                                 }
                               >
-                                {order.status}
+                                {order.status || "pending"}
                               </Badge>
-                              <p className="text-sm font-medium mt-1">${order.total.toFixed(2)}</p>
+                              <p className="text-sm font-medium mt-1">${(order.total || 0).toFixed(2)}</p>
                             </div>
                           </div>
 
                           <div className="space-y-2">
-                            {order.items.map((item: any, index: number) => (
+                            {(order.items || []).map((item: any, index: number) => (
                               <div key={index} className="flex items-center space-x-3">
                                 <Image
                                   src={item.image || "/placeholder.svg"}
@@ -251,12 +281,14 @@ export default function UserDashboard() {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center text-sm text-gray-600">
                               <MapPin className="h-4 w-4 mr-1" />
-                              {order.shippingAddress.city}, {order.shippingAddress.country}
+                              {order.shippingAddress?.city || order.shipping_address?.city || "N/A"}, {order.shippingAddress?.country || order.shipping_address?.country || "N/A"}
                             </div>
-                            <Button size="sm" variant="outline">
-                              <Eye className="h-4 w-4 mr-1" />
-                              View Details
-                            </Button>
+                            <Link href={`/account/review/${order.id || order.order_id || order._id}`}>
+                              <Button size="sm" variant="outline">
+                                <Eye className="h-4 w-4 mr-1" />
+                                View Details
+                              </Button>
+                            </Link>
                           </div>
                         </div>
                       ))}

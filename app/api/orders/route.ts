@@ -44,7 +44,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 })
     }
 
-    let query = supabase
+    // Use admin client to bypass RLS for reading orders
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block order reading.")
+    }
+
+    let query = client
       .from("orders")
       .select("*")
       .order("created_at", { ascending: false })

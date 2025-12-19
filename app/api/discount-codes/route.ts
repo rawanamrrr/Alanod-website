@@ -106,7 +106,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 })
     }
 
-    const { data: codes, error } = await supabase
+    // Use admin client to bypass RLS for reading discount codes
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block discount code reading.")
+    }
+
+    const { data: codes, error } = await client
       .from("discount_codes")
       .select("*")
       .order("created_at", { ascending: false })
@@ -135,6 +142,186 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(transformedCodes)
   } catch (error) {
     console.error("Get discount codes error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const token = request.headers.get("authorization")?.replace("Bearer ", "")
+
+    if (!token) {
+      return NextResponse.json({ error: "Authorization required" }, { status: 401 })
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+
+    if (decoded.role !== "admin") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const codeId = searchParams.get("id")
+
+    if (!codeId) {
+      return NextResponse.json({ error: "Discount code ID is required" }, { status: 400 })
+    }
+
+    const body = await request.json()
+
+    // Use admin client to bypass RLS for discount code updates
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block discount code updates.")
+    }
+
+    // If only isActive is being updated (toggle status)
+    if (Object.keys(body).length === 1 && body.hasOwnProperty("isActive")) {
+      const { data: result, error } = await client
+        .from("discount_codes")
+        .update({ is_active: body.isActive })
+        .eq("id", codeId)
+        .select()
+        .single()
+
+      if (error) {
+        console.error("Error updating discount code status:", error)
+        return NextResponse.json({ 
+          error: error.message || "Failed to update discount code status" 
+        }, { status: 500 })
+      }
+
+      // Transform to expected format
+      const transformedCode = {
+        _id: result.id,
+        id: result.id,
+        code: result.code,
+        type: result.discount_type,
+        value: result.discount_value,
+        minOrderAmount: result.min_purchase,
+        maxUses: result.usage_limit,
+        currentUses: result.usage_count,
+        isActive: result.is_active,
+        expiresAt: result.valid_until ? new Date(result.valid_until) : null,
+        createdAt: result.created_at ? new Date(result.created_at) : new Date(),
+        updatedAt: result.updated_at ? new Date(result.updated_at) : new Date(),
+      }
+
+      return NextResponse.json({
+        success: true,
+        discountCode: transformedCode,
+      })
+    }
+
+    // Full update
+    const updateData: Partial<DiscountCode> = {}
+
+    if (body.code !== undefined) {
+      updateData.code = body.code.toUpperCase()
+    }
+    if (body.type !== undefined) {
+      updateData.discount_type = body.type
+    }
+    if (body.value !== undefined) {
+      updateData.discount_value = Number(body.value)
+    }
+    if (body.minOrderAmount !== undefined) {
+      updateData.min_purchase = body.minOrderAmount ? Number(body.minOrderAmount) : null
+    }
+    if (body.maxUses !== undefined) {
+      updateData.usage_limit = body.maxUses ? Number(body.maxUses) : null
+    }
+    if (body.expiresAt !== undefined) {
+      updateData.valid_until = body.expiresAt ? new Date(body.expiresAt) : null
+    }
+    if (body.isActive !== undefined) {
+      updateData.is_active = body.isActive
+    }
+
+    const { data: result, error } = await client
+      .from("discount_codes")
+      .update(updateData)
+      .eq("id", codeId)
+      .select()
+      .single()
+
+    if (error) {
+      console.error("Error updating discount code:", error)
+      return NextResponse.json({ 
+        error: error.message || "Failed to update discount code" 
+      }, { status: 500 })
+    }
+
+    // Transform to expected format
+    const transformedCode = {
+      _id: result.id,
+      id: result.id,
+      code: result.code,
+      type: result.discount_type,
+      value: result.discount_value,
+      minOrderAmount: result.min_purchase,
+      maxUses: result.usage_limit,
+      currentUses: result.usage_count,
+      isActive: result.is_active,
+      expiresAt: result.valid_until ? new Date(result.valid_until) : null,
+      createdAt: result.created_at ? new Date(result.created_at) : new Date(),
+      updatedAt: result.updated_at ? new Date(result.updated_at) : new Date(),
+    }
+
+    return NextResponse.json({
+      success: true,
+      discountCode: transformedCode,
+    })
+  } catch (error) {
+    console.error("Update discount code error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const token = request.headers.get("authorization")?.replace("Bearer ", "")
+
+    if (!token) {
+      return NextResponse.json({ error: "Authorization required" }, { status: 401 })
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+
+    if (decoded.role !== "admin") {
+      return NextResponse.json({ error: "Admin access required" }, { status: 403 })
+    }
+
+    const { searchParams } = new URL(request.url)
+    const codeId = searchParams.get("id")
+
+    if (!codeId) {
+      return NextResponse.json({ error: "Discount code ID is required" }, { status: 400 })
+    }
+
+    // Use admin client to bypass RLS for discount code deletion
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block discount code deletion.")
+    }
+
+    const { error } = await client
+      .from("discount_codes")
+      .delete()
+      .eq("id", codeId)
+
+    if (error) {
+      console.error("Error deleting discount code:", error)
+      return NextResponse.json({ 
+        error: error.message || "Failed to delete discount code" 
+      }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Delete discount code error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

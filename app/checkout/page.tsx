@@ -20,6 +20,17 @@ import { CheckoutProgress } from "@/components/checkout-progress"
 import { OrderSummary } from "@/components/order-summary"
 import { useLocale } from "@/lib/locale-context"
 
+// Country name to code mapping
+const COUNTRY_CODE_MAP: Record<string, string> = {
+  "United States": "US",
+  "Saudi Arabia": "SA",
+  "United Arab Emirates": "AE",
+  "Kuwait": "KW",
+  "Qatar": "QA",
+  "United Kingdom": "GB",
+  "Egypt": "EG",
+}
+
 // Shipping costs by country (base currency units).
 const getShippingCost = (countryCode: string): number => {
   if (!countryCode) return 0
@@ -77,12 +88,14 @@ export default function CheckoutPage() {
     paymentMethod: "cod",
   })
 
-  // Keep shipping region in sync with the currently selected country from locale settings
+  // Initialize country with default from locale settings
   useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      country: settings.countryName,
-    }))
+    if (!formData.country) {
+      setFormData((prev) => ({
+        ...prev,
+        country: settings.countryName,
+      }))
+    }
   }, [settings.countryName])
 
   // Correct order of calculations:
@@ -198,6 +211,9 @@ export default function CheckoutPage() {
     setLoading(true)
 
     try {
+      // Get country code from selected country
+      const selectedCountryCode = COUNTRY_CODE_MAP[formData.country] || settings.countryCode
+
       const orderData = {
         items: cartState.items,
         total: total,
@@ -208,8 +224,8 @@ export default function CheckoutPage() {
           secondaryPhone: formData.altPhone,
           address: formData.address,
           city: formData.city,
-          country: settings.countryName,
-          countryCode: settings.countryCode,
+          country: formData.country || settings.countryName,
+          countryCode: selectedCountryCode,
           postalCode: formData.postalCode,
         },
         paymentMethod: formData.paymentMethod,
@@ -467,13 +483,23 @@ export default function CheckoutPage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="country" className="text-sm font-medium">Country</Label>
-                          <Input
+                          <Label htmlFor="country" className="text-sm font-medium">Country *</Label>
+                          <select
                             id="country"
-                            value={settings.countryName}
-                            disabled
-                            className="mt-1 border-gray-200 bg-gray-100 text-gray-700"
-                          />
+                            value={formData.country}
+                            onChange={(e) => handleInputChange("country", e.target.value)}
+                            required
+                            className="mt-1 flex h-10 w-full rounded-md border border-gray-200 bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            <option value="">Select a country</option>
+                            <option value="United States">United States</option>
+                            <option value="Saudi Arabia">Saudi Arabia</option>
+                            <option value="United Arab Emirates">United Arab Emirates</option>
+                            <option value="Kuwait">Kuwait</option>
+                            <option value="Qatar">Qatar</option>
+                            <option value="United Kingdom">United Kingdom</option>
+                            <option value="Egypt">Egypt</option>
+                          </select>
                         </div>
                         <div>
                           <Label htmlFor="postalCode" className="text-sm font-medium">Postal Code</Label>
@@ -568,7 +594,7 @@ export default function CheckoutPage() {
                       onRemoveDiscount={removeDiscount}
                       onSubmit={(e) => handleSubmit(e)}
                       loading={loading}
-                      governorate={settings.countryName}
+                      governorate={formData.country || settings.countryName}
                       formError={error}
                     />
                   </div>

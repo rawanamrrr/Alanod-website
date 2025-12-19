@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 import type { Order } from "@/lib/models/types"
 
 export async function GET(request: NextRequest, { params }: { params: { orderId: string } }) {
@@ -19,15 +19,46 @@ export async function GET(request: NextRequest, { params }: { params: { orderId:
 
     const { orderId } = params
 
-    const { data: order, error } = await supabase
+    // Use admin client to bypass RLS for reading orders
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block order reading.")
+    }
+
+    console.log("🔍 [API] Looking for order with ID:", orderId)
+
+    // Try both order_id and id fields
+    let { data: order, error } = await client
       .from("orders")
       .select("*")
       .eq("order_id", orderId)
-      .single()
+      .maybeSingle()
 
+    // If not found by order_id, try by id
     if (error || !order) {
+      console.log("⚠️ [API] Order not found by order_id, trying by id...")
+      const result = await client
+        .from("orders")
+        .select("*")
+        .eq("id", orderId)
+        .maybeSingle()
+      
+      if (result.error) {
+        console.error("❌ [API] Error fetching order:", result.error)
+        return NextResponse.json({ error: "Order not found" }, { status: 404 })
+      }
+      
+      order = result.data
+      error = result.error
+    }
+
+    if (!order) {
+      console.error("❌ [API] Order not found with ID:", orderId)
       return NextResponse.json({ error: "Order not found" }, { status: 404 })
     }
+
+    console.log("✅ [API] Order found:", order.order_id || order.id)
 
     // Transform to expected format
     const transformedOrder = {
@@ -74,8 +105,15 @@ export async function PATCH(request: NextRequest, { params }: { params: { orderI
       return NextResponse.json({ error: "Status is required" }, { status: 400 })
     }
 
+    // Use admin client to bypass RLS
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block order updates.")
+    }
+
     // Get the current order to check previous status
-    const { data: currentOrder } = await supabase
+    const { data: currentOrder } = await client
       .from("orders")
       .select("*")
       .eq("order_id", orderId)
@@ -91,7 +129,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { orderI
     // Skipping balance updates for now as it's not in the core schema
 
     // Update the order status
-    const { data: updatedOrder, error } = await supabase
+    const { data: updatedOrder, error } = await client
       .from("orders")
       .update({ status: status })
       .eq("order_id", orderId)
@@ -173,8 +211,15 @@ export async function PUT(request: NextRequest, { params }: { params: { orderId:
       return NextResponse.json({ error: "Status is required" }, { status: 400 })
     }
 
+    // Use admin client to bypass RLS
+    const client = supabaseAdmin || supabase
+    
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block order updates.")
+    }
+
     // Get the current order to check previous status
-    const { data: currentOrder } = await supabase
+    const { data: currentOrder } = await client
       .from("orders")
       .select("*")
       .eq("order_id", orderId)
@@ -190,7 +235,7 @@ export async function PUT(request: NextRequest, { params }: { params: { orderId:
     // Skipping balance updates for now as it's not in the core schema
 
     // Update the order status
-    const { data: updatedOrder, error } = await supabase
+    const { data: updatedOrder, error } = await client
       .from("orders")
       .update({ status: status })
       .eq("order_id", orderId)
@@ -245,8 +290,8 @@ export async function PUT(request: NextRequest, { params }: { params: { orderId:
     if (status === 'delivered') {
       try {
         for (const item of updatedOrder.items || []) {
-          // Get product details
-          const { data: product } = await supabase
+          // Get product details (use admin client for consistency)
+          const { data: product } = await client
             .from("products")
             .select("*")
             .eq("product_id", item.productId || item.id)
