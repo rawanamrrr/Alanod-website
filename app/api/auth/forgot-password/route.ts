@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
         <hr class="divider">
         
         <p style="text-align: center;">
-          Still having trouble? <a href="mailto:${process.env.EMAIL_USER}">Contact our support team</a>
+          Still having trouble? Contact us at <a href="mailto:alanodalqadi@gmail.com">alanodalqadi@gmail.com</a> or WhatsApp: +971 50 299 6885
         </p>
       `
     })

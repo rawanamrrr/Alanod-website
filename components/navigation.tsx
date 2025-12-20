@@ -792,7 +792,7 @@ export function Navigation() {
                        {/* Social Media Links */}
                        <div className="flex items-center space-x-4 pt-2 border-t border-gray-200">
                          <a 
-                           href="https://instagram.com" 
+                           href="https://www.instagram.com/alanodalqadi?igsh=MWVxaXBvaXhjNm50ZQ==" 
                            target="_blank" 
                            rel="noopener noreferrer"
                            className="text-black hover:opacity-70 transition-opacity"
@@ -802,7 +802,7 @@ export function Navigation() {
                            </svg>
                          </a>
                          <a 
-                           href="https://tiktok.com" 
+                           href="https://www.tiktok.com/@alanodalqadi?_r=1&_t=ZS-92NsFxJ48xs" 
                            target="_blank" 
                            rel="noopener noreferrer"
                            className="text-black hover:opacity-70 transition-opacity"

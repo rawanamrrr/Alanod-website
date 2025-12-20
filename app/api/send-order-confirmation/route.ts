@@ -240,7 +240,8 @@ export async function POST(request: NextRequest) {
         <ul style="margin: 0; padding-left: 20px;">
           <li>We'll process your order within 1-2 business days</li>
           <li>You'll receive a shipping confirmation with tracking details</li>
-          <li>Your order will be delivered within 3-7 business days</li>
+          <li>Your order is expected to arrive within 15 to 20 days</li>
+          <li>Note: Custom designs outside our collection may require additional time, depending on the style and level of detail</li>
           <li>Payment will be collected upon delivery</li>
         </ul>
         
@@ -256,7 +257,7 @@ export async function POST(request: NextRequest) {
         </div>
         
         <p style="text-align: center; margin-top: 20px;">
-          Have questions? <a href="mailto:${process.env.EMAIL_USER}">Contact our support team</a>
+          Have questions? Contact us at <a href="mailto:alanodalqadi@gmail.com">alanodalqadi@gmail.com</a> or WhatsApp: +971 50 299 6885
         </p>
       `
     })

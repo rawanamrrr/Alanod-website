@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, Mail, Phone, MapPin, Clock, Send, Instagram, Facebook } from "lucide-react"
+import { ArrowLeft, Mail, Phone, MapPin, Send, Instagram } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import { useLocale } from "@/lib/locale-context"
@@ -231,30 +231,20 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <h3 className="font-medium mb-1">{t("email")}</h3>
-                    <p className="text-gray-600">atelier@alanoudalqadi.com</p>
-                  </div>
-                </div>
-
-                <div className={`flex items-start ${settings.language === "ar" ? "flex-row-reverse space-x-reverse" : "space-x-4"}`}>
-                  <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Clock className="h-6 w-6 text-gray-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium mb-1">{t("businessHours")}</h3>
-                    <p className="text-gray-600">{t("businessHoursWeek")}</p>
-                    <p className="text-gray-600">{t("businessHoursWeekend")}</p>
+                    <p className="text-gray-600">alanodalqadi@gmail.com</p>
                   </div>
                 </div>
               </div>
 
               <div className="pt-8">
                 <h3 className="font-medium font-serif tracking-wide mb-4">{t("followUs")}</h3>
-                <p className="text-gray-600 mb-4">
+                <p className="text-gray-600 mb-2">
                   {t("followUsDesc")}
                 </p>
-                <div className="flex space-x-3">
+                <p className="text-gray-600 mb-4">WhatsApp: +971 50 299 6885</p>
+                <div className="flex flex-wrap gap-3">
                   <Link
-                    href="https://www.instagram.com/alanoudalqadiofficial"
+                    href="https://www.instagram.com/alanodalqadi?igsh=MWVxaXBvaXhjNm50ZQ=="
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group"
@@ -264,17 +254,7 @@ export default function ContactPage() {
                     </div>
                   </Link>
                   <Link
-                    href="https://www.facebook.com/alanoudalqadiofficial"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group"
-                  >
-                    <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
-                      <Facebook className="h-5 w-5 text-white" />
-                    </div>
-                  </Link>
-                  <Link
-                    href="https://www.tiktok.com/@alanoudalqadiofficial"
+                    href="https://www.tiktok.com/@alanodalqadi?_r=1&_t=ZS-92NsFxJ48xs"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group"
@@ -285,6 +265,24 @@ export default function ContactPage() {
                       </svg>
                     </div>
                   </Link>
+                  <a
+                    href="mailto:alanodalqadi@gmail.com"
+                    className="group"
+                  >
+                    <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
+                      <Mail className="h-5 w-5 text-gray-700" />
+                    </div>
+                  </a>
+                  <a
+                    href="https://wa.me/971502996885"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group"
+                  >
+                    <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
+                      <Phone className="h-5 w-5 text-white" />
+                    </div>
+                  </a>
                 </div>
               </div>
             </motion.div>
@@ -360,6 +358,7 @@ export default function ContactPage() {
                 {t("faq4Answer")}
               </p>
             </motion.div>
+
           </div>
         </div>
       </section>

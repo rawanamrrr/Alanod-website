@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
         <hr class="divider">
         
         <p style="text-align: center;">
-          Have questions about your order? <a href="mailto:${process.env.EMAIL_USER}">Contact our support team</a>
+          Have questions about your order? Contact us at <a href="mailto:alanodalqadi@gmail.com">alanodalqadi@gmail.com</a> or WhatsApp: +971 50 299 6885
         </p>
       `
     })
@@ -248,10 +248,11 @@ function getStatusContent(status: string, order: any) {
         badgeColor: '#2196F3',
         description: `
           <h3>Your order is on its way!</h3>
-          <p>Your order has been shipped and is heading to your address. Delivery typically takes 3-7 business days.</p>
+          <p>Your order has been shipped and is heading to your address. The shipment is expected to arrive within 15 to 20 days.</p>
           <ul>
             <li>Package has been picked up by courier</li>
-            <li>Estimated delivery: 3-7 business days</li>
+            <li>Estimated delivery: 15 to 20 days</li>
+            <li>Note: Custom designs outside our collection may require additional time</li>
             <li>You'll receive a call from the courier before delivery</li>
           </ul>
         `

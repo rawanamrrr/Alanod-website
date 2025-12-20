@@ -3,7 +3,7 @@
 import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
-import { Instagram, Facebook } from "lucide-react"
+import { Instagram, Mail, Phone } from "lucide-react"
 import { useLocale } from "@/lib/locale-context"
 import { useTranslation } from "@/lib/translations"
 
@@ -91,11 +91,30 @@ export function Footer() {
           >
             <h3 className="font-medium mb-4">{t("contact")}</h3>
             <div className="space-y-2 text-sm text-gray-400">
-              <p>Email: atelier@alanoudalqadi.com</p>
+              <p>Email: alanodalqadi@gmail.com</p>
+              <p>WhatsApp: +971 50 299 6885</p>
               <p className="mb-3">{t("followMaison")}</p>
               <div className="flex space-x-3">
                 <Link
-                  href="https://www.instagram.com/alanoudalqadiofficial"
+                  href="mailto:alanodalqadi@gmail.com"
+                  className="group"
+                >
+                  <div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
+                    <Mail className="h-4 w-4 text-white" />
+                  </div>
+                </Link>
+                <Link
+                  href="https://wa.me/971502996885"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group"
+                >
+                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
+                    <Phone className="h-4 w-4 text-white" />
+                  </div>
+                </Link>
+                <Link
+                  href="https://www.instagram.com/alanodalqadi?igsh=MWVxaXBvaXhjNm50ZQ=="
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group"
@@ -105,17 +124,7 @@ export function Footer() {
                   </div>
                 </Link>
                 <Link
-                  href="https://www.facebook.com/alanoudalqadiofficial"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group"
-                >
-                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center transition-all duration-300 group-hover:scale-110 shadow-lg">
-                    <Facebook className="h-4 w-4 text-white" />
-                  </div>
-                </Link>
-                <Link
-                  href="https://www.tiktok.com/@alanoudalqadiofficial"
+                  href="https://www.tiktok.com/@alanodalqadi?_r=1&_t=ZS-92NsFxJ48xs"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group"
@@ -138,7 +147,18 @@ export function Footer() {
           viewport={{ once: true }}
           className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400"
         >
-          <p>&copy; 2025 Alanoud Alqadi Atelier. All rights reserved.</p>
+          <p>
+            &copy; 2025 Alanoud Alqadi Atelier. All rights reserved. | 
+            <span className="text-gray-500"> Made by </span>
+            <a 
+              href="https://www.instagram.com/digitiva.co?igsh=MXNteGgyZjIzenQwaQ==" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              Digitiva
+            </a>
+          </p>
         </motion.div>
       </div>
     </motion.footer>
