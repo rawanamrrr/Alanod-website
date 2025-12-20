@@ -7,9 +7,16 @@ import { measurementLabels, MeasurementFields, MeasurementUnit, useCustomSize } 
 
 export interface SizeChartRow {
   label: string
-  bust: string
-  waist: string
-  hips: string
+  shoulderIn: string
+  waistIn: string
+  bustIn: string
+  hipsIn: string
+  sleeveIn: string
+  shoulderCm: string
+  waistCm: string
+  bustCm: string
+  hipsCm: string
+  sleeveCm: string
 }
 
 export interface ProductSizeLite {
@@ -60,8 +67,24 @@ export const CustomSizeForm = ({
     setConfirmMeasurements,
   } = controller
 
+  const inchFields: { id: keyof SizeChartRow; label: string }[] = [
+    { id: "shoulderIn", label: "Shoulder" },
+    { id: "waistIn", label: "Waist" },
+    { id: "bustIn", label: "Bust" },
+    { id: "hipsIn", label: "Hips" },
+    { id: "sleeveIn", label: "Sleeve" },
+  ]
+
+  const cmFields: { id: keyof SizeChartRow; label: string }[] = [
+    { id: "shoulderCm", label: "Shoulder" },
+    { id: "waistCm", label: "Waist" },
+    { id: "bustCm", label: "Bust" },
+    { id: "hipsCm", label: "Hips" },
+    { id: "sleeveCm", label: "Sleeve" },
+  ]
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 overflow-x-hidden">
       <div className="grid grid-cols-2 gap-3">
         <button
           type="button"
@@ -117,6 +140,19 @@ export const CustomSizeForm = ({
               </div>
             ))}
           </div>
+
+          <div className="mt-4 space-y-2">
+            <p className="text-[11px] font-medium text-gray-500">Custom size guide</p>
+            <div className="flex justify-center">
+              <Image
+                src="/size-guide.PNG"
+                alt="Size guide"
+                width={360}
+                height={760}
+                className="h-auto w-auto max-w-full rounded-lg border border-gray-200"
+              />
+            </div>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
@@ -130,8 +166,8 @@ export const CustomSizeForm = ({
                 className={`border-2 rounded-xl p-3 text-center transition-all ${
                   size.stockCount !== undefined && size.stockCount === 0
                     ? "border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50"
-                    : selectedSize?.size === size.size 
-                    ? "border-black bg-black text-white shadow-md" 
+                    : selectedSize?.size === size.size
+                    ? "border-black bg-black text-white shadow-md"
                     : "border-gray-200 hover:border-gray-400"
                 }`}
                 onClick={() => onSelectSize(size)}
@@ -153,26 +189,84 @@ export const CustomSizeForm = ({
             ))}
           </div>
 
-          <div className="rounded-2xl border border-gray-200 p-4">
-            <p className="text-xs uppercase tracking-[0.3em] text-gray-500 mb-3">Size chart (cm)</p>
-            <div className="grid grid-cols-4 text-xs font-medium text-gray-500 border-b border-gray-100 pb-2">
-              <span>Size</span>
-              <span>Bust</span>
-              <span>Waist</span>
-              <span>Hips</span>
-            </div>
-            {sizeChart.map((row) => (
-              <div key={row.label} className="grid grid-cols-4 text-xs text-gray-700 py-1 border-b border-gray-50 last:border-none">
-                <span>{row.label}</span>
-                <span>{row.bust}</span>
-                <span>{row.waist}</span>
-                <span>{row.hips}</span>
+          <div className="rounded-2xl border border-gray-200 p-4 space-y-4">
+            <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Size chart</p>
+
+            <div>
+              <p className="text-[11px] font-medium text-gray-500 mb-1">In inches</p>
+              <div className="grid grid-cols-6 text-xs font-medium text-gray-500 border-b border-gray-100 pb-2">
+                <span className="text-left">Measure</span>
+                {sizeChart.map((row) => (
+                  <span key={row.label} className="text-center">{row.label}</span>
+                ))}
               </div>
-            ))}
+              {inchFields.map((field) => (
+                <div
+                  key={field.id}
+                  className="grid grid-cols-6 text-xs text-gray-700 py-1 border-b border-gray-50 last:border-none"
+                >
+                  <span className="text-left uppercase text-[10px] sm:text-xs tracking-[0.08em] sm:tracking-[0.2em] text-gray-500 whitespace-normal leading-tight">
+                    {field.label}
+                  </span>
+                  {sizeChart.map((row) => (
+                    <span
+                      key={`${row.label}-${field.id}`}
+                      className="text-center"
+                    >
+                      {row[field.id]}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-3 border-t border-gray-100">
+              <p className="text-[11px] font-medium text-gray-500 mb-1">In cm</p>
+              <div className="grid grid-cols-6 text-xs font-medium text-gray-500 border-b border-gray-100 pb-2">
+                <span className="text-left">Measure</span>
+                {sizeChart.map((row) => (
+                  <span key={row.label} className="text-center">{row.label}</span>
+                ))}
+              </div>
+              {cmFields.map((field) => (
+                <div
+                  key={field.id}
+                  className="grid grid-cols-6 text-xs text-gray-700 py-1 border-b border-gray-50 last:border-none"
+                >
+                  <span className="text-left uppercase text-[10px] sm:text-xs tracking-[0.08em] sm:tracking-[0.2em] text-gray-500 whitespace-normal leading-tight">
+                    {field.label}
+                  </span>
+                  {sizeChart.map((row) => (
+                    <span
+                      key={`${row.label}-${field.id}`}
+                      className="text-center"
+                    >
+                      {row[field.id]}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 space-y-2">
+              <p className="text-[11px] font-medium text-gray-500">Size guide</p>
+              <div className="flex justify-center">
+                <Image
+                  src="/size-guide.PNG"
+                  alt="Size guide"
+                  width={360}
+                  height={760}
+                  className="h-auto w-auto max-w-full rounded-lg border border-gray-200"
+                />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-gray-500 mt-1">
+              Not sure about your size? Select the Custom Size option and include your measurements with your order.
+            </p>
           </div>
         </div>
       )}
     </div>
   )
 }
-

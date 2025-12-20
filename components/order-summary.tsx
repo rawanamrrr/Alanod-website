@@ -107,7 +107,11 @@ export const OrderSummary = ({
         <div className="sm:hidden">
           <button
             type="button"
-            onClick={() => setIsExpanded(!isExpanded)}
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setIsExpanded(!isExpanded)
+            }}
             className="flex items-center justify-between w-full p-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg hover:from-purple-100 hover:to-pink-100 transition-all duration-300"
           >
             <span className="text-sm font-medium text-purple-800">

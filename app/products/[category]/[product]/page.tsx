@@ -23,6 +23,7 @@ import { GiftPackageSelector } from "@/components/gift-package-selector"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
+import { toast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/translations"
 import { useLocale } from "@/lib/locale-context"
 import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
@@ -98,12 +99,73 @@ export default function ProductDetailPage() {
     isMeasurementsValid,
   } = useCustomSize()
   const sizeChart: SizeChartRow[] = [
-    { label: "XS", bust: "80-84", waist: "60-64", hips: "86-90" },
-    { label: "S", bust: "85-89", waist: "65-69", hips: "91-95" },
-    { label: "M", bust: "90-94", waist: "70-74", hips: "96-100" },
-    { label: "L", bust: "95-100", waist: "75-80", hips: "101-106" },
-    { label: "XL", bust: "101-106", waist: "81-86", hips: "107-112" },
+    {
+      label: "XL",
+      shoulderIn: "16",
+      waistIn: "32",
+      bustIn: "40",
+      hipsIn: "42",
+      sleeveIn: "23",
+      shoulderCm: "40",
+      waistCm: "81",
+      bustCm: "101",
+      hipsCm: "106",
+      sleeveCm: "58",
+    },
+    {
+      label: "L",
+      shoulderIn: "15",
+      waistIn: "31",
+      bustIn: "39",
+      hipsIn: "40",
+      sleeveIn: "22.5",
+      shoulderCm: "38",
+      waistCm: "78",
+      bustCm: "99",
+      hipsCm: "101",
+      sleeveCm: "57",
+    },
+    {
+      label: "M",
+      shoulderIn: "14.5",
+      waistIn: "29",
+      bustIn: "37",
+      hipsIn: "38",
+      sleeveIn: "22",
+      shoulderCm: "37",
+      waistCm: "73",
+      bustCm: "94",
+      hipsCm: "96",
+      sleeveCm: "55",
+    },
+    {
+      label: "S",
+      shoulderIn: "14",
+      waistIn: "27",
+      bustIn: "35",
+      hipsIn: "36",
+      sleeveIn: "21.5",
+      shoulderCm: "35",
+      waistCm: "68",
+      bustCm: "90",
+      hipsCm: "91",
+      sleeveCm: "54",
+    },
+    {
+      label: "XS",
+      shoulderIn: "14",
+      waistIn: "25",
+      bustIn: "34",
+      hipsIn: "35",
+      sleeveIn: "21",
+      shoulderCm: "34",
+      waistCm: "63",
+      bustCm: "86",
+      hipsCm: "88",
+      sleeveCm: "53",
+    },
   ]
+
   const [reviews, setReviews] = useState<Review[]>([])
   const [relatedProducts, setRelatedProducts] = useState<ProductDetail[]>([])
   const { state: authState } = useAuth()
@@ -265,7 +327,11 @@ export default function ProductDetailPage() {
       
       // Check stock availability
       if (selectedSizeObj.stockCount !== undefined && selectedSizeObj.stockCount < quantity) {
-        alert(`Insufficient stock for ${product.name} - Size ${selectedSizeObj.size}. Available: ${selectedSizeObj.stockCount}, Requested: ${quantity}`)
+        toast({
+          variant: "destructive",
+          title: "Insufficient stock",
+          description: `You requested ${quantity}, but only ${selectedSizeObj.stockCount} piece${selectedSizeObj.stockCount === 1 ? "" : "s"} are available for size ${selectedSizeObj.size}.`,
+        })
         return
       }
       
@@ -497,13 +563,11 @@ export default function ProductDetailPage() {
                   className="w-full h-64 sm:h-80 lg:h-[500px] relative select-none"
                   onMouseEnter={() => setIsHovered(true)}
                   onMouseLeave={() => setIsHovered(false)}
-                  onWheel={handleWheel}
                   onKeyDown={handleKeyDown}
-                  onTouchStart={handleTouchStart}
-                  onTouchEnd={handleTouchEnd}
                   tabIndex={0}
                   role="img"
-                  aria-label="Product image gallery. Use scroll, swipe, or arrow keys to change image."
+                  aria-label="Product image gallery. Use the arrows or thumbnails to change image."
+                  style={{ userSelect: 'none', touchAction: 'none' }}
                 >
                   <Image
                     src={product.images[selectedImage] || "/placeholder.svg"}
@@ -548,7 +612,6 @@ export default function ProductDetailPage() {
                       New Arrival
                     </Badge>
                   )}
-                 
                 </div>
               </div>
 
@@ -616,7 +679,7 @@ export default function ProductDetailPage() {
                               <div className="flex flex-col items-start">
                                 <span className="text-gray-600 text-base sm:text-lg">Package Price:</span>
                                 <div className="flex items-center space-x-3">
-                          <span className="line-through text-gray-400 text-lg sm:text-xl">{formatPrice(packageOriginalPrice)}</span>
+                          <span className="line-through text-gray-400 text-lg">{formatPrice(packageOriginalPrice)}</span>
                           <span className="text-xl sm:text-2xl font-bold text-red-600">{formatPrice(packagePrice)}</span>
                                 </div>
                                 <span className="text-xs sm:text-sm text-green-600 font-medium bg-green-50 px-2 py-1 rounded-full">
@@ -748,46 +811,6 @@ export default function ProductDetailPage() {
 
               <Separator />
 
-              {/* Design Story */}
-              {product.notes && (
-                <div>
-                  <h3 className="text-base sm:text-lg font-medium mb-4 text-gray-900">Design Story</h3>
-                  <div className="space-y-4">
-                    <div className="border-l-2 border-rose-400 pl-3 py-1">
-                      <span className="text-xs sm:text-sm font-medium text-gray-900">First Impression:</span>
-                      <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2">
-                        {product.notes.top.map((note, idx) => (
-                          <span key={idx} className="bg-gradient-to-r from-rose-50 to-pink-50 text-rose-700 text-xs font-medium px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-rose-200 shadow-sm">
-                            {note}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="border-l-2 border-violet-500 pl-3 py-1">
-                      <span className="text-xs sm:text-sm font-medium text-gray-900">Statement Detail:</span>
-                      <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2">
-                        {product.notes.middle.map((note, idx) => (
-                          <span key={idx} className="bg-gradient-to-r from-violet-50 to-purple-100 text-violet-700 text-xs font-medium px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-violet-200 shadow-sm">
-                            {note}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="border-l-2 border-indigo-600 pl-3 py-1">
-                      <span className="text-xs sm:text-sm font-medium text-gray-900">Lasting Finish:</span>
-                      <div className="flex flex-wrap gap-1.5 sm:gap-2 mt-2">
-                        {product.notes.base.map((note, idx) => (
-                          <span key={idx} className="bg-gradient-to-r from-indigo-50 to-purple-100 text-indigo-800 text-xs font-medium px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-indigo-200 shadow-sm">
-                            {note}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <Separator />
             </motion.div>
           </div>
         </div>
@@ -821,7 +844,7 @@ export default function ProductDetailPage() {
                           </div>
                         );
                       } else {
-                      return <span className="text-green-600 font-bold text-sm md:text-xl">{formatPrice(packagePrice)}</span>;
+                      return <span className="text-sm md:text-xl">{formatPrice(packagePrice)}</span>;
                       }
                     })()}
                   </div>
@@ -867,7 +890,7 @@ export default function ProductDetailPage() {
                     <motion.button
                       whileHover={{ scale: 1.03 }}
                       whileTap={{ scale: 0.98 }}
-                    className="bg-gradient-to-r from-gray-900 to-black text-white py-2 px-3 md:py-3 md:px-6 rounded-lg font-medium flex items-center justify-center shadow-md hover:shadow-lg transition-all text-xs md:text-sm"
+                    className="bg-gradient-to-r text-white py-2 px-3 md:py-3 md:px-6 rounded-lg font-medium flex items-center justify-center shadow-md hover:shadow-lg transition-all text-xs md:text-sm"
                       onClick={() => setShowGiftPackageSelector(true)}
                       aria-label="Customize Package"
                     >
@@ -900,11 +923,11 @@ export default function ProductDetailPage() {
                           size.stockCount !== undefined && size.stockCount === 0
                             ? 'border-gray-300 bg-gray-100 text-gray-400 cursor-not-allowed opacity-50'
                             : selectedSize === index
-                            ? 'border-black bg-black text-white'
+                            ? 'border-black bg-black text-white shadow-md'
                             : 'border-gray-200 hover:border-gray-400 bg-white'
                         }`}
                       >
-                        {`${size.size} (${size.volume})${size.stockCount !== undefined && size.stockCount === 0 ? ' - Out of Stock' : ''}`}
+                        {`${size.size} ${size.volume}${size.stockCount !== undefined && size.stockCount === 0 ? ' - Out of Stock' : ''}`}
                       </motion.button>
                     ))}
                   </div>
@@ -1001,7 +1024,11 @@ export default function ProductDetailPage() {
                       if (product.isOutOfStock) return
                       if (!isCustomSizeMode) {
                         if (selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) {
-                          alert(`Size ${product.sizes[selectedSize].size} is out of stock`)
+                          toast({
+                            variant: "destructive",
+                            title: "Out of stock",
+                            description: `Size ${product.sizes[selectedSize].size} is currently out of stock.`,
+                          })
                           return
                         }
                         handleAddToCart()
@@ -1009,7 +1036,11 @@ export default function ProductDetailPage() {
                       }
                       // Custom size flow
                       if (!isMeasurementsValid) {
-                        alert("Please complete your custom measurements")
+                        toast({
+                          variant: "destructive",
+                          title: "Incomplete measurements",
+                          description: "Please complete your custom measurements before adding to cart.",
+                        })
                         return
                       }
                       setShowCustomSizeConfirmation(true)
@@ -1047,7 +1078,7 @@ export default function ProductDetailPage() {
                         : 'border-gray-200 hover:border-gray-400 bg-white'
                     }`}
                   >
-                    <div className="font-medium">{size.size}{size.stockCount !== undefined && size.stockCount === 0 ? ' (Out of Stock)' : ''}</div>
+                    <div className="font-medium">{size.size}{size.stockCount !== undefined && size.stockCount === 0 ? ' Out of Stock' : ''}</div>
                   </motion.button>
                 ))}
               </div>

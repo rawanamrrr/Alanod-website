@@ -89,11 +89,71 @@ export default function CategoryPage() {
   } = useCustomSize()
   
   const sizeChart: SizeChartRow[] = [
-    { label: "XS", bust: "80-84", waist: "60-64", hips: "86-90" },
-    { label: "S", bust: "85-89", waist: "65-69", hips: "91-95" },
-    { label: "M", bust: "90-94", waist: "70-74", hips: "96-100" },
-    { label: "L", bust: "95-100", waist: "75-80", hips: "101-106" },
-    { label: "XL", bust: "101-106", waist: "81-86", hips: "107-112" },
+    {
+      label: "XL",
+      shoulderIn: "16",
+      waistIn: "32",
+      bustIn: "40",
+      hipsIn: "42",
+      sleeveIn: "23",
+      shoulderCm: "40",
+      waistCm: "81",
+      bustCm: "101",
+      hipsCm: "106",
+      sleeveCm: "58",
+    },
+    {
+      label: "L",
+      shoulderIn: "15",
+      waistIn: "31",
+      bustIn: "39",
+      hipsIn: "40",
+      sleeveIn: "22.5",
+      shoulderCm: "38",
+      waistCm: "78",
+      bustCm: "99",
+      hipsCm: "101",
+      sleeveCm: "57",
+    },
+    {
+      label: "M",
+      shoulderIn: "14.5",
+      waistIn: "29",
+      bustIn: "37",
+      hipsIn: "38",
+      sleeveIn: "22",
+      shoulderCm: "37",
+      waistCm: "73",
+      bustCm: "94",
+      hipsCm: "96",
+      sleeveCm: "55",
+    },
+    {
+      label: "S",
+      shoulderIn: "14",
+      waistIn: "27",
+      bustIn: "35",
+      hipsIn: "36",
+      sleeveIn: "21.5",
+      shoulderCm: "35",
+      waistCm: "68",
+      bustCm: "90",
+      hipsCm: "91",
+      sleeveCm: "54",
+    },
+    {
+      label: "XS",
+      shoulderIn: "14",
+      waistIn: "25",
+      bustIn: "34",
+      hipsIn: "35",
+      sleeveIn: "21",
+      shoulderCm: "34",
+      waistCm: "63",
+      bustCm: "86",
+      hipsCm: "88",
+      sleeveCm: "53",
+    },
   ]
   
   // Function to calculate the smallest price from all sizes
@@ -342,6 +402,7 @@ export default function CategoryPage() {
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             onClick={(e) => e.stopPropagation()}
+            style={{ touchAction: 'pan-y' }}
           >
             <div className="p-6">
               <div className="flex justify-between items-start mb-4">
@@ -802,8 +863,9 @@ export default function CategoryPage() {
                                 {product.name}
                               </h3>
                               
-                              <div className="flex items-center justify-between">
-                                <div className="text-lg font-light">
+                              <div className="flex items-end justify-between gap-2">
+                                <div className="text-lg font-light flex-1 min-w-0">
+
                                   {(() => {
                                     // Handle gift packages
                                     if (product.isGiftPackage) {
@@ -840,7 +902,7 @@ export default function CategoryPage() {
                                 </div>
                                 
                                 <button 
-                                  className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors"
+                                  className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors flex-shrink-0"
                                   onClick={(e) => {
                                     e.preventDefault()
                                     e.stopPropagation()

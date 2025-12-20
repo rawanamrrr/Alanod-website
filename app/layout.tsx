@@ -10,6 +10,7 @@ import { LocaleProvider } from "@/lib/locale-context"
 import { ScrollProvider } from "@/lib/scroll-context"
 import { CartSuccessNotification } from "@/components/cart-success-notification"
 import { HtmlLangWrapper } from "@/components/html-lang-wrapper"
+import { Toaster } from "@/components/ui/toaster"
 
 // Configure fonts
 const playfairDisplay = Playfair_Display({
@@ -59,6 +60,7 @@ export default function RootLayout({
                       <ScrollProvider>
                         {children}
                         <CartSuccessNotification />
+                        <Toaster />
                       </ScrollProvider>
                     </CartProvider>
                   </FavoritesProvider>

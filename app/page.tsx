@@ -323,11 +323,71 @@ export default function HomePage() {
   }
 
   const sizeChart: SizeChartRow[] = [
-    { label: "XS", bust: "80-84", waist: "60-64", hips: "86-90" },
-    { label: "S", bust: "85-89", waist: "65-69", hips: "91-95" },
-    { label: "M", bust: "90-94", waist: "70-74", hips: "96-100" },
-    { label: "L", bust: "95-100", waist: "75-80", hips: "101-106" },
-    { label: "XL", bust: "101-106", waist: "81-86", hips: "107-112" },
+    {
+      label: "XL",
+      shoulderIn: "16",
+      waistIn: "32",
+      bustIn: "40",
+      hipsIn: "42",
+      sleeveIn: "23",
+      shoulderCm: "40",
+      waistCm: "81",
+      bustCm: "101",
+      hipsCm: "106",
+      sleeveCm: "58",
+    },
+    {
+      label: "L",
+      shoulderIn: "15",
+      waistIn: "31",
+      bustIn: "39",
+      hipsIn: "40",
+      sleeveIn: "22.5",
+      shoulderCm: "38",
+      waistCm: "78",
+      bustCm: "99",
+      hipsCm: "101",
+      sleeveCm: "57",
+    },
+    {
+      label: "M",
+      shoulderIn: "14.5",
+      waistIn: "29",
+      bustIn: "37",
+      hipsIn: "38",
+      sleeveIn: "22",
+      shoulderCm: "37",
+      waistCm: "73",
+      bustCm: "94",
+      hipsCm: "96",
+      sleeveCm: "55",
+    },
+    {
+      label: "S",
+      shoulderIn: "14",
+      waistIn: "27",
+      bustIn: "35",
+      hipsIn: "36",
+      sleeveIn: "21.5",
+      shoulderCm: "35",
+      waistCm: "68",
+      bustCm: "90",
+      hipsCm: "91",
+      sleeveCm: "54",
+    },
+    {
+      label: "XS",
+      shoulderIn: "14",
+      waistIn: "25",
+      bustIn: "34",
+      hipsIn: "35",
+      sleeveIn: "21",
+      shoulderCm: "34",
+      waistCm: "63",
+      bustCm: "86",
+      hipsCm: "88",
+      sleeveCm: "53",
+    },
   ]
 
   return (
@@ -374,12 +434,14 @@ export default function HomePage() {
               animate={{ opacity: 1 }}
               className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
               onClick={closeSizeSelector}
+              style={{ touchAction: 'none' }}
             >
               <motion.div 
-                className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+                className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-2xl"
                 initial={{ scale: 0.9, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
                 onClick={(e) => e.stopPropagation()}
+                style={{ touchAction: 'pan-y' }}
               >
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-4">
@@ -508,10 +570,10 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center py-4 border-t border-gray-100">
-                    <div>
-                      <span className="text-gray-600">{t("total")}:</span>
-                      <span className="text-xl font-medium ml-2">
+                  <div className="flex items-center justify-between gap-3 py-4 border-t border-gray-100">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-600 mb-1">{t("total")}:</div>
+                      <div className="text-lg font-light">
                         {(() => {
                           const qty = quantity;
 
@@ -520,13 +582,13 @@ export default function HomePage() {
                             const unitDiscount = selectedSize.discountedPrice || 0;
                             const hasDiscount = unitOriginal > 0 && selectedSize.discountedPrice !== undefined && unitDiscount < unitOriginal;
                             const totalOriginal = unitOriginal * qty;
-                            const totalPrice = (hasDiscount ? unitDiscount : unitOriginal || unitDiscount) * qty;
+                            const totalPrice = (hasDiscount ? unitDiscount : (unitOriginal || unitDiscount)) * qty;
 
                             if (hasDiscount) {
                               return (
                                 <>
-                                  <span className="line-through text-gray-400 mr-2 text-lg">{formatPrice(totalOriginal)}</span>
-                                  <span className="text-red-600 font-bold">{formatPrice(totalPrice)}</span>
+                                  <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(totalOriginal)}</span>
+                                  <span className="text-red-500 font-bold">{formatPrice(totalPrice)}</span>
                                 </>
                               );
                             }
@@ -537,7 +599,7 @@ export default function HomePage() {
                           const baseUnitPrice = getSmallestPrice(selectedProduct.sizes);
                           return <>{formatPrice(baseUnitPrice * qty)}</>;
                         })()}
-                      </span>
+                      </div>
                     </div>
                     
                     <Button 
@@ -553,7 +615,7 @@ export default function HomePage() {
                         }
                         setShowCustomSizeConfirmation(true)
                       }} 
-                      className={`flex items-center rounded-full px-6 py-5 ${
+                      className={`flex items-center rounded-full px-6 py-5 flex-shrink-0 ${
                         selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0)
                           ? 'bg-gray-400 cursor-not-allowed opacity-60' 
                           : 'bg-black hover:bg-gray-800'
@@ -815,15 +877,43 @@ export default function HomePage() {
                             {product.name}
                           </h3>
                           <div className="flex items-center justify-between">
-                            <div className="text-left">
-                              {product.sizes && product.sizes.length > 0 && (
-                                <span className="text-lg font-light">
-                                  {formatPrice(Math.min(...product.sizes.map(s => s.discountedPrice || s.originalPrice || 0).filter(p => p > 0)))}
-                                </span>
-                              )}
+                            <div className="text-lg font-light flex-1 min-w-0">
+                              {(() => {
+                                // Handle gift packages
+                                if (product.isGiftPackage) {
+                                  const packagePrice = product.packagePrice || 0;
+                                  const packageOriginalPrice = product.packageOriginalPrice || 0;
+
+                                  if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
+                                    return (
+                                      <>
+                                        <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(packageOriginalPrice)}</span>
+                                        <span className="text-red-500 font-bold">{formatPrice(packagePrice)}</span>
+                                      </>
+                                    );
+                                  } else {
+                                    return <>{formatPrice(packagePrice)}</>;
+                                  }
+                                }
+
+                                // Handle regular products
+                                const smallestPrice = getSmallestPrice(product.sizes);
+                                const smallestOriginalPrice = getSmallestOriginalPrice(product.sizes);
+
+                                if (smallestOriginalPrice > 0 && smallestPrice < smallestOriginalPrice) {
+                                  return (
+                                    <>
+                                      <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(smallestOriginalPrice)}</span>
+                                      <span className="text-red-500 font-bold">{formatPrice(smallestPrice)}</span>
+                                    </>
+                                  );
+                                } else {
+                                  return <>{formatPrice(smallestPrice)}</>;
+                                }
+                              })()}
                             </div>
                             <button 
-                              className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors"
+                              className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors flex-shrink-0"
                               onClick={(e) => {
                                 e.preventDefault()
                                 e.stopPropagation()
@@ -831,7 +921,7 @@ export default function HomePage() {
                               }}
                               aria-label="Add to cart"
                             >
-                              <ShoppingCart className="h-5 w-5" />
+                              <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
                             </button>
                           </div>
                         </div>
