@@ -396,6 +396,9 @@ export default function CheckoutPage() {
         try {
           const orderForEmail = {
             ...order,
+            currencyCode: settings.currencyCode,
+            currency: settings.currencyCode,
+            currency_code: settings.currencyCode,
             shippingAddress: {
               ...order.shippingAddress,
               ...order.shipping_address,

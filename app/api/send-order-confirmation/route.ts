@@ -57,8 +57,11 @@ export async function POST(request: NextRequest) {
       }, { status: 500 })
     }
 
-    // Get country code and currency first (needed for conversion)
-    // Check multiple possible locations for country code
+    // Determine preferred currency code based on order data / locale
+    // 1) Try explicit currency fields on the order, if present
+    const explicitCurrency = order.currencyCode || order.currency || order.currency_code
+
+    // 2) Fallback to country-based detection (shipping country)
     const countryCode = order.shippingAddress?.countryCode || 
                         order.shipping_address?.countryCode || 
                         order.shipping_address?.country_code ||
@@ -106,29 +109,64 @@ export async function POST(request: NextRequest) {
       "TR": "TRY",
       "LB": "LBP",
     }
-    
-    const currencyCode = COUNTRY_TO_CURRENCY[countryCode] || "USD"
+
+    // Prefer explicit currency from the order if available,
+    // otherwise derive it from the shipping country.
+    const derivedCurrencyCode = COUNTRY_TO_CURRENCY[countryCode] || "USD"
+    const currencyCode = (typeof explicitCurrency === "string" && explicitCurrency.trim()) || derivedCurrencyCode
     console.log("📧 [EMAIL] Using currency code:", currencyCode)
-    
-    // Get exchange rate (order total is in USD, need to convert to customer's currency)
-    const DEFAULT_RATES: Record<string, number> = {
-      USD: 1,
-      SAR: 3.75,
-      AED: 3.67,
-      KWD: 0.31,
-      QAR: 3.64,
-      GBP: 0.79,
-      EGP: 50,
-      OMR: 0.38,
-      BHD: 0.38,
-      IQD: 1310,
-      JOD: 0.71,
-      TRY: 32,
-      LBP: 15000,
+
+    // Helper to fetch a near real-time exchange rate (USD -> target currency)
+    const fetchExchangeRateForEmail = async (targetCurrency: string): Promise<number> => {
+      try {
+        if (!targetCurrency || targetCurrency === "USD") {
+          return 1
+        }
+
+        // Primary API
+        try {
+          const response = await fetch(
+            `https://api.exchangerate.host/latest?base=USD&symbols=${encodeURIComponent(targetCurrency)}`,
+            { cache: "no-store" }
+          )
+          if (response.ok) {
+            const data = await response.json()
+            const rate = data?.rates?.[targetCurrency]
+            if (typeof rate === "number" && rate > 0) {
+              return rate
+            }
+          }
+        } catch (err) {
+          console.warn("📧 [EMAIL] Primary exchange rate API failed, trying fallback...", err)
+        }
+
+        // Fallback API
+        try {
+          const response = await fetch("https://api.exchangerate-api.com/v4/latest/USD", {
+            cache: "no-store",
+          })
+          if (response.ok) {
+            const data = await response.json()
+            const rate = data?.rates?.[targetCurrency]
+            if (typeof rate === "number" && rate > 0) {
+              return rate
+            }
+          }
+        } catch (err) {
+          console.warn("📧 [EMAIL] Fallback exchange rate API failed", err)
+        }
+
+        console.error(`📧 [EMAIL] Failed to fetch exchange rate for ${targetCurrency}, using 1`)
+        return 1
+      } catch (err) {
+        console.error("📧 [EMAIL] Unexpected error while fetching exchange rate", err)
+        return 1
+      }
     }
-    
-    const exchangeRate = DEFAULT_RATES[currencyCode] || 1
-    
+
+    // Get exchange rate (order.total is in USD, need to convert to customer's currency)
+    const exchangeRate = await fetchExchangeRateForEmail(currencyCode)
+
     // Convert USD amounts to customer's currency
     const convertToCurrency = (usdAmount: number) => {
       return usdAmount * exchangeRate
@@ -143,6 +181,12 @@ export async function POST(request: NextRequest) {
     const shipping = convertToCurrency(shippingUSD)
     const discountAmount = convertToCurrency(order.discountAmount || 0)
     const total = convertToCurrency(order.total)
+
+    // Match checkout rounding: round all displayed monetary amounts to nearest integer
+    const roundedSubtotal = Math.round(subtotal)
+    const roundedShipping = Math.round(shipping)
+    const roundedDiscount = Math.round(discountAmount)
+    const roundedTotal = Math.round(total)
     
     // Create order items for the table (convert prices to customer's currency)
     console.log("📧 [EMAIL] Processing order items...")
@@ -150,14 +194,19 @@ export async function POST(request: NextRequest) {
     
     const orderItems = order.items.map((item: any) => {
       console.log("📧 [EMAIL] Processing item:", item)
-      const itemPriceUSD = item.price || 0
+      const itemPriceBase = item.price || 0
       const itemQuantity = item.quantity || 1
-      const itemTotalUSD = itemPriceUSD * itemQuantity
+      const itemTotalBase = itemPriceBase * itemQuantity
+
+      // Match checkout rounding: convert then round to nearest integer
+      const convertedPrice = convertToCurrency(itemPriceBase)
+      const convertedTotal = convertToCurrency(itemTotalBase)
+
       return {
         name: `${item.name}${item.size ? ` - ${item.size}` : ''}${item.volume ? ` (${item.volume})` : ''}`,
         quantity: itemQuantity,
-        price: convertToCurrency(itemPriceUSD),
-        total: convertToCurrency(itemTotalUSD)
+        price: Math.round(convertedPrice),
+        total: Math.round(convertedTotal)
       }
     })
 
@@ -173,7 +222,7 @@ export async function POST(request: NextRequest) {
     console.log("📧 [EMAIL] Creating order summary section...")
     let orderTable
     try {
-      orderTable = createOrderItemsTable(orderItems)
+      orderTable = createOrderItemsTable(orderItems, currencyCode)
       console.log("📧 [EMAIL] Order table created successfully")
     } catch (tableError) {
       console.error("📧 [EMAIL] Error creating order table:", tableError)
@@ -196,24 +245,24 @@ export async function POST(request: NextRequest) {
         <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid currentColor;">
           <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
             <span>Subtotal:</span>
-            <span>${subtotal.toFixed(2)} ${currencyCode}</span>
+            <span>${roundedSubtotal.toFixed(0)} ${currencyCode}</span>
           </div>
           
           ${order.discountAmount ? `
           <div style="display: flex; justify-content: space-between; margin-bottom: 10px; color: #16a34a;">
             <span>Discount (${order.discountCode}):</span>
-            <span>-${discountAmount.toFixed(2)} ${currencyCode}</span>
+            <span>-${roundedDiscount.toFixed(0)} ${currencyCode}</span>
           </div>
           ` : ''}
           
           <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
             <span>Shipping:</span>
-            <span>${shipping > 0 ? `${shipping.toFixed(2)} ${currencyCode}` : "Free"}</span>
+            <span>${roundedShipping > 0 ? `${roundedShipping.toFixed(0)} ${currencyCode}` : "Free"}</span>
           </div>
           
           <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: 600; padding-top: 15px; border-top: 2px solid currentColor;">
             <span>Total:</span>
-            <span>${total.toFixed(2)} ${currencyCode}</span>
+            <span>${roundedTotal.toFixed(0)} ${currencyCode}</span>
           </div>
         </div>
       `

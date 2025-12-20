@@ -470,13 +470,15 @@ export function createOrderItemsTable(items: Array<{
   quantity: number
   price: number
   total: number
-}>) {
+}>, currencyCode: string) {
+  const safeCurrency = currencyCode || 'USD'
+
   const itemsHtml = items.map(item => `
     <tr>
       <td>${item.name}</td>
       <td style="text-align: center;">${item.quantity}</td>
-      <td style="text-align: right;">${item.price.toFixed(2)} EGP</td>
-      <td style="text-align: right; font-weight: 600;">${item.total.toFixed(2)} EGP</td>
+      <td style="text-align: right;">${item.price.toFixed(0)} ${safeCurrency}</td>
+      <td style="text-align: right; font-weight: 600;">${item.total.toFixed(0)} ${safeCurrency}</td>
     </tr>
   `).join('')
   

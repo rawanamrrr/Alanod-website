@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 import type { User } from "@/lib/models/types"
 
 export async function PATCH(request: NextRequest) {
@@ -19,8 +19,11 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "Name and email are required" }, { status: 400 })
     }
 
+    // Use admin client when available to avoid RLS issues
+    const client = supabaseAdmin || supabase
+
     // Fetch user
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await client
       .from("users")
       .select("*")
       .eq("id", decoded.userId)
@@ -32,7 +35,7 @@ export async function PATCH(request: NextRequest) {
 
     // Check if email is being changed and if new email already exists
     if (email !== user.email) {
-      const { data: existingUser } = await supabase
+      const { data: existingUser } = await client
         .from("users")
         .select("id")
         .eq("email", email)
@@ -64,7 +67,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Update user
-    const { error: updateError } = await supabase
+    const { error: updateError } = await client
       .from("users")
       .update(updateData)
       .eq("id", decoded.userId)

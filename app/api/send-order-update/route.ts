@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       console.error("❌ [EMAIL] Transporter verification failed:", verifyError)
       return NextResponse.json({ 
         error: "Email service configuration error. Please check your email credentials.", 
-        details: verifyError.message 
+        details: verifyError instanceof Error ? verifyError.message : String(verifyError)
       }, { status: 500 })
     }
 
@@ -65,7 +65,11 @@ export async function POST(request: NextRequest) {
       return nameToCode[countryName] || 'US'
     }
     
-    // Get country code and currency from order (check multiple locations)
+    // Determine preferred currency code based on order data / locale
+    // 1) Try explicit currency fields on the order, if present
+    const explicitCurrency = order.currencyCode || order.currency || order.currency_code
+
+    // 2) Fallback to country-based detection (shipping country)
     const countryCode = order.shippingAddress?.countryCode || 
                         order.shipping_address?.countryCode || 
                         order.shipping_address?.country_code ||
@@ -93,27 +97,62 @@ export async function POST(request: NextRequest) {
       "LB": "LBP",
     }
     
-    const currencyCode = COUNTRY_TO_CURRENCY[countryCode] || "USD"
+    // Prefer explicit currency from the order if available,
+    // otherwise derive it from the shipping country.
+    const derivedCurrencyCode = COUNTRY_TO_CURRENCY[countryCode] || "USD"
+    const currencyCode = (typeof explicitCurrency === "string" && explicitCurrency.trim()) || derivedCurrencyCode
     console.log("📧 [EMAIL UPDATE] Using currency code:", currencyCode)
     
-    // Get exchange rate (order total is in USD, need to convert to customer's currency)
-    const DEFAULT_RATES: Record<string, number> = {
-      USD: 1,
-      SAR: 3.75,
-      AED: 3.67,
-      KWD: 0.31,
-      QAR: 3.64,
-      GBP: 0.79,
-      EGP: 50,
-      OMR: 0.38,
-      BHD: 0.38,
-      IQD: 1310,
-      JOD: 0.71,
-      TRY: 32,
-      LBP: 15000,
+    // Helper to fetch a near real-time exchange rate (USD -> target currency)
+    const fetchExchangeRateForEmail = async (targetCurrency: string): Promise<number> => {
+      try {
+        if (!targetCurrency || targetCurrency === "USD") {
+          return 1
+        }
+
+        // Primary API
+        try {
+          const response = await fetch(
+            `https://api.exchangerate.host/latest?base=USD&symbols=${encodeURIComponent(targetCurrency)}`,
+            { cache: "no-store" }
+          )
+          if (response.ok) {
+            const data = await response.json()
+            const rate = data?.rates?.[targetCurrency]
+            if (typeof rate === "number" && rate > 0) {
+              return rate
+            }
+          }
+        } catch (err) {
+          console.warn("📧 [EMAIL UPDATE] Primary exchange rate API failed, trying fallback...", err)
+        }
+
+        // Fallback API
+        try {
+          const response = await fetch("https://api.exchangerate-api.com/v4/latest/USD", {
+            cache: "no-store",
+          })
+          if (response.ok) {
+            const data = await response.json()
+            const rate = data?.rates?.[targetCurrency]
+            if (typeof rate === "number" && rate > 0) {
+              return rate
+            }
+          }
+        } catch (err) {
+          console.warn("📧 [EMAIL UPDATE] Fallback exchange rate API failed", err)
+        }
+
+        console.error(`📧 [EMAIL UPDATE] Failed to fetch exchange rate for ${targetCurrency}, using 1`)
+        return 1
+      } catch (err) {
+        console.error("📧 [EMAIL UPDATE] Unexpected error while fetching exchange rate", err)
+        return 1
+      }
     }
-    
-    const exchangeRate = DEFAULT_RATES[currencyCode] || 1
+
+    // Get exchange rate (order.total is in USD, need to convert to customer's currency)
+    const exchangeRate = await fetchExchangeRateForEmail(currencyCode)
     
     // Convert USD amounts to customer's currency
     const convertToCurrency = (usdAmount: number) => {

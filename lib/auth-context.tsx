@@ -22,6 +22,7 @@ type AuthAction =
   | { type: "LOGIN_FAILURE" }
   | { type: "LOGOUT" }
   | { type: "SET_LOADING"; payload: boolean }
+  | { type: "UPDATE_USER"; payload: User }
 
 interface AuthContextType {
   state: AuthState
@@ -30,6 +31,7 @@ interface AuthContextType {
   logout: () => void
   register: (email: string, password: string, name: string) => Promise<{ success: boolean; error?: string }>
   forgotPassword: (email: string) => Promise<boolean>
+  updateUser: (user: User) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -61,6 +63,11 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
       }
     case "SET_LOADING":
       return { ...state, isLoading: action.payload }
+    case "UPDATE_USER":
+      return {
+        ...state,
+        user: action.payload,
+      }
     default:
       return state
   }
@@ -294,7 +301,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ state, dispatch, login, logout, register, forgotPassword }}>
+    <AuthContext.Provider
+      value={{
+        state,
+        dispatch,
+        login,
+        logout,
+        register,
+        forgotPassword,
+        updateUser: (user: User) => {
+          try {
+            const authDataRaw = localStorage.getItem("sense_auth")
+            if (authDataRaw) {
+              const parsed = JSON.parse(authDataRaw)
+              const next = {
+                ...parsed,
+                user,
+              }
+              localStorage.setItem("sense_auth", JSON.stringify(next))
+            }
+          } catch (error) {
+            console.error("Failed to update auth data in storage:", error)
+          }
+          dispatch({ type: "UPDATE_USER", payload: user })
+        },
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

@@ -194,6 +194,28 @@ export async function POST(request: NextRequest) {
       console.log("👤 [API] Guest order (no token provided)")
     }
 
+    // If still a guest, try to link the order to an existing account using the shipping email
+    if (userId === "guest") {
+      const shippingEmail: string | undefined = orderData.shippingAddress?.email
+      const normalizedEmail = shippingEmail?.trim()
+
+      if (normalizedEmail) {
+        const userClient = supabaseAdmin || supabase
+        const { data: existingUser, error: existingUserError } = await userClient
+          .from("users")
+          .select("id, email")
+          .eq("email", normalizedEmail)
+          .maybeSingle()
+
+        if (existingUser) {
+          userId = existingUser.id
+          console.log("🔗 [API] Linked guest order to existing user by email:", existingUser.email)
+        } else if (existingUserError) {
+          console.error("Error looking up user by email for order linking:", existingUserError)
+        }
+      }
+    }
+
     // Validate stock availability before creating order
     for (const item of orderData.items as any[]) {
       // Skip validation for gift packages and custom sizes
