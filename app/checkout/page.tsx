@@ -431,7 +431,8 @@ export default function CheckoutPage() {
         // Clear cart
         cartDispatch({ type: "CLEAR_CART" })
         // Redirect to success page
-        router.push(`/checkout/success?orderId=${order.order.id}`)
+        const orderId = (order && (order.id || order._id || order.order_id || order.order?.id)) || ""
+        router.push(`/checkout/success?orderId=${orderId}`)
       } else {
         const errorData = await response.json()
         setError(errorData.error || "Failed to place order")
