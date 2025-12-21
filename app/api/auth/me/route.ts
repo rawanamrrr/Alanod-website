@@ -4,6 +4,8 @@ import jwt from "jsonwebtoken";
 import { supabase } from "@/lib/supabase";
 import type { User } from "@/lib/models/types";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const token = request.cookies.get("token")?.value;
