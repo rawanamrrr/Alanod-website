@@ -33,16 +33,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Find active discount code (case insensitive)
-    const { data: discountCodes } = await client
+    // Normalize the code to uppercase for consistent comparison
+    const normalizedCode = code.trim().toUpperCase()
+    
+    const { data: discountCodes, error: discountError } = await client
       .from("discount_codes")
       .select("*")
       .eq("is_active", true)
-      .ilike("code", code.toUpperCase())
+      .ilike("code", normalizedCode)
+
+    if (discountError) {
+      console.error("Error fetching discount code:", discountError)
+      return NextResponse.json(
+        { error: "Failed to validate discount code" },
+        { status: 500 }
+      )
+    }
 
     const discountCode = discountCodes && discountCodes.length > 0 ? discountCodes[0] : null
 
     if (!discountCode) {
       return NextResponse.json({ error: "Invalid discount code" }, { status: 400 })
+    }
+
+    // Check if code is valid from (start date)
+    if (discountCode.valid_from && new Date() < new Date(discountCode.valid_from)) {
+      return NextResponse.json({ error: "Discount code is not yet valid" }, { status: 400 })
     }
 
     // Check expiration

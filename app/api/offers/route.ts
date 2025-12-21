@@ -50,7 +50,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Otherwise return all active offers
-    const now = new Date().toISOString()
     const { data: offers, error } = await supabase
       .from("offers")
       .select("*")
@@ -64,22 +63,29 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform to expected format
-    const transformedOffers = (offers || []).map((offer: any) => ({
-      _id: offer.id, // For backward compatibility
-      id: offer.id,
-      title: offer.title,
-      description: offer.description,
-      imageUrl: offer.image_url,
-      linkUrl: offer.link_url,
-      discountCode: offer.discount_code,
-      isActive: offer.is_active,
-      priority: offer.display_order,
-      expiresAt: null,
-      createdAt: offer.created_at ? new Date(offer.created_at) : new Date(),
-      updatedAt: offer.updated_at ? new Date(offer.updated_at) : new Date(),
-    }))
+    const transformedOffers = (offers || [])
+      .filter((offer: any) => offer && offer.is_active === true) // Ensure only active offers
+      .map((offer: any) => ({
+        _id: offer.id, // For backward compatibility
+        id: offer.id,
+        title: offer.title || "",
+        description: offer.description || "",
+        imageUrl: offer.image_url || null,
+        linkUrl: offer.link_url || null,
+        discountCode: offer.discount_code || null,
+        isActive: offer.is_active === true,
+        priority: offer.display_order || 0,
+        expiresAt: null,
+        createdAt: offer.created_at ? new Date(offer.created_at) : new Date(),
+        updatedAt: offer.updated_at ? new Date(offer.updated_at) : new Date(),
+      }))
 
-    return NextResponse.json(transformedOffers)
+    const response = NextResponse.json(transformedOffers)
+    // Add cache headers to prevent stale data in Netlify
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
+    return response
   } catch (error) {
     console.error("Error fetching offers:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
