@@ -349,7 +349,7 @@ export async function GET(request: NextRequest) {
 
       const transformedProducts = (products || []).map(transformProductList)
       // For list view, only include first image
-      const productsForList = transformedProducts.map(p => ({
+      const productsForList = transformedProducts.map((p: ApiProduct) => ({
         ...p,
         images: p.images.slice(0, 1),
         longDescription: undefined,
@@ -398,7 +398,7 @@ export async function GET(request: NextRequest) {
       
       const transformedProducts = (products || []).map(transformProduct)
       // For list view, only include first image
-      const productsForList = transformedProducts.map(p => ({
+      const productsForList = transformedProducts.map((p: ApiProduct) => ({
         ...p,
         images: p.images.slice(0, 1),
         longDescription: undefined,

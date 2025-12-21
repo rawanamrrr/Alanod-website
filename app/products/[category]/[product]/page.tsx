@@ -562,11 +562,11 @@ export default function ProductDetailPage() {
             className="mb-8"
           >
             <Link
-              href={`/products/${category}`}
+              href="/products"
               className="inline-flex items-center text-gray-600 hover:text-black transition-colors font-medium text-sm sm:text-base"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to {categoryTitles[category as keyof typeof categoryTitles]} Collection
+              Back to Collections
             </Link>
           </motion.div>
 
