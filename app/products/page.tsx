@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -12,14 +13,23 @@ import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
-import { GiftPackageSelector } from "@/components/gift-package-selector"
 import useEmblaCarousel from 'embla-carousel-react'
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
-import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
+import type { SizeChartRow } from "@/components/custom-size-form"
 import { useLocale } from "@/lib/locale-context"
 import { useTranslation } from "@/lib/translations"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+
+const GiftPackageSelector = dynamic(
+  () => import("@/components/gift-package-selector").then((m) => m.GiftPackageSelector),
+  { ssr: false }
+)
+
+const CustomSizeForm = dynamic(
+  () => import("@/components/custom-size-form").then((m) => m.CustomSizeForm),
+  { ssr: false }
+)
 
 interface ProductSize {
   size: string
@@ -205,6 +215,9 @@ export default function ProductsPage() {
     loading: favoritesLoading 
   } = useFavorites()
 
+  type ProductCardLayout = "mobile" | "desktop"
+  type ProductSection = "winter" | "summer" | "fall"
+
   const fetchProducts = async () => {
   try {
     // إذا الكود شغال على client استخدم relative URL
@@ -253,11 +266,14 @@ useEffect(() => {
 }, [showSizeSelector, showGiftPackageSelector, showCustomSizeConfirmation])
 
 
-  const categorizedProducts = {
-    winter: products.filter((p) => p.category === "winter" && p.isActive),
-    summer: products.filter((p) => p.category === "summer" && p.isActive),
-    fall: products.filter((p) => p.category === "fall" && p.isActive),
-  }
+  const categorizedProducts = useMemo(
+    () => ({
+      winter: products.filter((p) => p.category === "winter" && p.isActive),
+      summer: products.filter((p) => p.category === "summer" && p.isActive),
+      fall: products.filter((p) => p.category === "fall" && p.isActive),
+    }),
+    [products]
+  )
 
   const openSizeSelector = (product: Product) => {
     // For gift packages, open the gift package selector instead
@@ -387,6 +403,186 @@ useEffect(() => {
     if (!emblaApiOutlet) return
     emblaApiOutlet.scrollTo(index)
   }, [emblaApiOutlet])
+
+  interface ProductCardProps {
+    product: Product
+    layout: ProductCardLayout
+    section: ProductSection
+    index: number
+  }
+
+  const ProductCard = ({ product, layout, section, index }: ProductCardProps) => {
+    const priceData = useMemo(() => {
+      if (product.isGiftPackage) {
+        const price = product.packagePrice || 0
+        const original = product.packageOriginalPrice || 0
+        return { price, original }
+      }
+
+      const price = getSmallestPrice(product.sizes)
+      const original = getSmallestOriginalPrice(product.sizes)
+      return { price, original }
+    }, [product])
+
+    const hasDiscount = priceData.original > 0 && priceData.price < priceData.original
+
+    const handleFavoriteClick = useCallback(
+      async (e: any) => {
+        e.stopPropagation()
+        await toggleFavorite(product)
+      },
+      [product, toggleFavorite]
+    )
+
+    const handleAddToCartClick = useCallback(
+      (e: any) => {
+        e.preventDefault()
+        e.stopPropagation()
+        openSizeSelector(product)
+      },
+      [product, openSizeSelector]
+    )
+
+    const isWinter = section === "winter"
+
+    const priceRowClassName =
+      layout === "mobile"
+        ? isWinter
+          ? "flex items-end justify-between gap-2"
+          : "flex items-center justify-between"
+        : "flex items-center justify-between"
+
+    const priceTextWrapperClassName =
+      layout === "mobile" && isWinter ? "text-left flex-1 min-w-0" : "text-left"
+
+    const addToCartButtonClassNameBase =
+      layout === "desktop"
+        ? `p-2 backdrop-blur-sm rounded-full transition-colors ${
+            product.isGiftPackage
+              ? "bg-gradient-to-r from-gray-800/30 to-black/30 hover:from-gray-800/50 hover:to-black/50"
+              : "bg-white/20 hover:bg-white/30"
+          }`
+        : "p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors"
+
+    const addToCartButtonClassName =
+      layout === "mobile" && isWinter
+        ? `${addToCartButtonClassNameBase} flex-shrink-0`
+        : addToCartButtonClassNameBase
+
+    const cartIconClassName =
+      layout === "desktop" || section === "fall"
+        ? "h-4 w-4 sm:h-5 sm:w-5"
+        : "h-5 w-5"
+
+    const addToCartAriaLabel =
+      layout === "desktop" && product.isGiftPackage ? "Customize Package" : "Add to cart"
+
+    const imageSizes = "(max-width: 768px) 80vw, (max-width: 1200px) 33vw, 25vw"
+
+    return (
+      <div className="group relative h-full">
+        {/* Favorite Button */}
+        <button
+          onClick={handleFavoriteClick}
+          className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
+          aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
+        >
+          <Heart
+            className={`h-5 w-5 ${
+              isFavorite(product.id)
+                ? "text-red-500 fill-red-500"
+                : "text-gray-700"
+            }`}
+          />
+        </button>
+
+        {/* Badges */}
+        <div className="absolute top-4 left-4 z-10 space-y-2">
+          {layout === "mobile" && product.isOutOfStock && (
+            <Badge className="bg-red-600 text-white">Out of Stock</Badge>
+          )}
+          {product.isBestseller && (
+            <Badge className="bg-black text-white">Bestseller</Badge>
+          )}
+          {product.isNew && !product.isBestseller && (
+            <Badge variant="secondary">New</Badge>
+          )}
+        </div>
+
+        {/* Product Card */}
+        <Card className={`border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full ${layout === "mobile" ? "mr-4" : ""}`}>
+          <CardContent className="p-0 h-full flex flex-col">
+            <Link
+              href={`/products/${product.category}/${product.id}`}
+              className="block relative aspect-square flex-grow"
+            >
+              <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
+                <Image
+                  src={product.images[0] || "/placeholder.svg"}
+                  alt={product.name}
+                  fill
+                  className="object-cover"
+                  sizes={imageSizes}
+                  priority={index < 4}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                <div className="flex items-center mb-1">
+                  <div className="flex items-center">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`h-4 w-4 ${
+                          i < Math.floor(product.rating)
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-300"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs ml-2">({product.rating.toFixed(1)})</span>
+                </div>
+
+                <h3 className="text-lg font-medium mb-1">{product.name}</h3>
+
+                <div className={priceRowClassName}>
+                  <div className={priceTextWrapperClassName}>
+                    {hasDiscount ? (
+                      <>
+                        <span className="line-through text-gray-300 text-sm block">
+                          {formatPrice(priceData.original)}
+                        </span>
+                        <span className="text-lg font-light text-red-400">
+                          {formatPrice(priceData.price)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-lg font-light">
+                        {formatPrice(priceData.price)}
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    className={addToCartButtonClassName}
+                    onClick={handleAddToCartClick}
+                    aria-label={addToCartAriaLabel}
+                  >
+                    {layout === "desktop" && product.isGiftPackage ? (
+                      <Package className={cartIconClassName} />
+                    ) : (
+                      <ShoppingCart className={cartIconClassName} />
+                    )}
+                  </button>
+                </div>
+              </div>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   // Carousel event listeners
   useEffect(() => {
@@ -793,125 +989,12 @@ useEffect(() => {
                 <div className="flex">
                   {categorizedProducts.winter?.slice(0, 8).map((product, index) => (
                     <div key={product._id} className="flex-[0_0_80%] min-w-0 pl-4 relative h-full">
-                      <div className="group relative h-full">
-                        {/* Favorite Button */}
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation()
-                            await toggleFavorite(product)
-                          }}
-                          className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-                          aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
-                        >
-                          <Heart 
-                            className={`h-5 w-5 ${
-                              isFavorite(product.id) 
-                                ? "text-red-500 fill-red-500" 
-                                : "text-gray-700"
-                            }`} 
-                          />
-                        </button>
-                        
-                        {/* Badges */}
-                        <div className="absolute top-4 left-4 z-10 space-y-2">
-                          {product.isOutOfStock && (
-                            <Badge className="bg-red-600 text-white">Out of Stock</Badge>
-                          )}
-                          {product.isBestseller && (
-                            <Badge className="bg-black text-white">Bestseller</Badge>
-                          )}
-                          {product.isNew && !product.isBestseller && (
-                            <Badge variant="secondary">New</Badge>
-                          )}
-                        </div>
-                        
-                        {/* Product Card - Mobile Carousel */}
-                        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full mr-4">
-                          <CardContent className="p-0 h-full flex flex-col">
-                            <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
-                              <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
-                                <Image
-                                  src={product.images[0] || "/placeholder.svg"}
-                                  alt={product.name}
-                                  fill
-                                  className="object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                                <div className="flex items-center mb-1">
-                                  <div className="flex items-center">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={`h-4 w-4 ${
-                                          i < Math.floor(product.rating) 
-                                            ? "fill-yellow-400 text-yellow-400" 
-                                            : "text-gray-300"
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                  <span className="text-xs ml-2">
-                                    ({product.rating.toFixed(1)})
-                                  </span>
-                                </div>
-
-                                <h3 className="text-lg font-medium mb-1">
-                                  {product.name}
-                                </h3>
-                                
-                                <div className="flex items-end justify-between gap-2">
-                                  <div className="text-left flex-1 min-w-0">
-                                    {(() => {
-                                      // Handle gift packages
-                                      if (product.isGiftPackage) {
-                                        const packagePrice = product.packagePrice || 0;
-                                        const packageOriginalPrice = product.packageOriginalPrice || 0;
-                                        
-                                        if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
-                                          return (
-                                            <>
-                                              <span className="line-through text-gray-300 text-sm block">{formatPrice(packageOriginalPrice)}</span>
-                                              <span className="text-lg font-light text-red-400">{formatPrice(packagePrice)}</span>
-                                            </>
-                                          );
-                                        } else {
-                                          return <span className="text-lg font-light">{formatPrice(packagePrice)}</span>;
-                                        }
-                                      }
-                                      
-                                      // Handle regular products
-                                      if (getSmallestOriginalPrice(product.sizes) > 0 && getSmallestPrice(product.sizes) < getSmallestOriginalPrice(product.sizes)) {
-                                        return (
-                                      <>
-                                        <span className="line-through text-gray-300 text-sm block">{formatPrice(getSmallestOriginalPrice(product.sizes))}</span>
-                                        <span className="text-lg font-light text-red-400">{formatPrice(getSmallestPrice(product.sizes))}</span>
-                                      </>
-                                        );
-                                      } else {
-                                        return <span className="text-lg font-light">{formatPrice(getSmallestPrice(product.sizes))}</span>;
-                                      }
-                                    })()}
-                                  </div>
-                                  
-                                  <button 
-                                    className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors flex-shrink-0"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      e.stopPropagation()
-                                      openSizeSelector(product)
-                                    }}
-                                    aria-label="Add to cart"
-                                  >
-                                    <ShoppingCart className="h-5 w-5" />
-                                  </button>
-                                </div>
-                              </div>
-                            </Link>
-                          </CardContent>
-                        </Card>
-                      </div>
+                      <ProductCard
+                        product={product}
+                        layout="mobile"
+                        section="winter"
+                        index={index}
+                      />
                     </div>
                   ))}
                 </div>
@@ -933,138 +1016,13 @@ useEffect(() => {
             {/* Desktop Grid */}
             <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {categorizedProducts.winter?.slice(0, 8).map((product, index) => (
-                <motion.div
+                <ProductCard
                   key={product._id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <div className="group relative h-full">
-                    {/* Favorite Button */}
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        await toggleFavorite(product)
-                      }}
-                      className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-                      aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      <Heart 
-                        className={`h-5 w-5 ${
-                          isFavorite(product.id) 
-                            ? "text-red-500 fill-red-500" 
-                            : "text-gray-700"
-                        }`} 
-                      />
-                    </button>
-                    
-                    {/* Badges */}
-                    <div className="absolute top-4 left-4 z-10 space-y-2">
-                      {product.isBestseller && (
-                        <Badge className="bg-black text-white">Bestseller</Badge>
-                      )}
-                      {product.isNew && !product.isBestseller && (
-                        <Badge variant="secondary">New</Badge>
-                      )}
-                    </div>
-                    
-                    {/* Product Card - Desktop Grid */}
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
-                      <CardContent className="p-0 h-full flex flex-col">
-                        <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
-                          <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
-                            <Image
-                              src={product.images[0] || "/placeholder.svg"}
-                              alt={product.name}
-                              fill
-                              className="object-cover"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                            <div className="flex items-center mb-1">
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-4 w-4 ${
-                                      i < Math.floor(product.rating) 
-                                        ? "fill-yellow-400 text-yellow-400" 
-                                        : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-xs ml-2">
-                                ({product.rating.toFixed(1)})
-                              </span>
-                            </div>
-
-                            <h3 className="text-lg font-medium mb-1">
-                              {product.name}
-                            </h3>
-                            
-                            <div className="flex items-center justify-between">
-                              <div className="text-left">
-                                {(() => {
-                                  // Handle gift packages
-                                  if (product.isGiftPackage) {
-                                    const packagePrice = product.packagePrice || 0;
-                                    const packageOriginalPrice = product.packageOriginalPrice || 0;
-                                    
-                                    if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
-                                      return (
-                                        <>
-                                          <span className="line-through text-gray-300 text-sm block">{formatPrice(packageOriginalPrice)}</span>
-                                          <span className="text-lg font-light text-red-400">{formatPrice(packagePrice)}</span>
-                                        </>
-                                      );
-                                    } else {
-                                      return <span className="text-lg font-light">{formatPrice(packagePrice)}</span>;
-                                    }
-                                  }
-                                  
-                                  // Handle regular products
-                                  if (getSmallestOriginalPrice(product.sizes) > 0 && getSmallestPrice(product.sizes) < getSmallestOriginalPrice(product.sizes)) {
-                                    return (
-                                  <>
-                                    <span className="line-through text-gray-300 text-sm block">{formatPrice(getSmallestOriginalPrice(product.sizes))}</span>
-                                    <span className="text-lg font-light text-red-400">{formatPrice(getSmallestPrice(product.sizes))}</span>
-                                  </>
-                                    );
-                                  } else {
-                                    return <span className="text-lg font-light">{formatPrice(getSmallestPrice(product.sizes))}</span>;
-                                  }
-                                })()}
-                              </div>
-                              
-                              <button 
-                                className={`p-2 backdrop-blur-sm rounded-full transition-colors ${
-                                  product.isGiftPackage 
-                                    ? "bg-gradient-to-r from-gray-800/30 to-black/30 hover:from-gray-800/50 hover:to-black/50" 
-                                    : "bg-white/20 hover:bg-white/30"
-                                }`}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  openSizeSelector(product)
-                                }}
-                                aria-label={product.isGiftPackage ? "Customize Package" : "Add to cart"}
-                              >
-                                {product.isGiftPackage ? (
-                                  <Package className="h-4 w-4 sm:h-5 sm:w-5" />
-                                ) : (
-                                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        </Link>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </motion.div>
+                  product={product}
+                  layout="desktop"
+                  section="winter"
+                  index={index}
+                />
               ))}
             </div>
           </motion.div>
@@ -1126,125 +1084,12 @@ useEffect(() => {
                 <div className="flex">
                   {categorizedProducts.summer?.slice(0, 8).map((product, index) => (
                     <div key={product._id} className="flex-[0_0_80%] min-w-0 pl-4 relative h-full">
-                      <div className="group relative h-full">
-                        {/* Favorite Button */}
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation()
-                            await toggleFavorite(product)
-                          }}
-                          className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-                          aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
-                        >
-                          <Heart 
-                            className={`h-5 w-5 ${
-                              isFavorite(product.id) 
-                                ? "text-red-500 fill-red-500" 
-                                : "text-gray-700"
-                            }`} 
-                          />
-                        </button>
-                        
-                        {/* Badges */}
-                        <div className="absolute top-4 left-4 z-10 space-y-2">
-                          {product.isOutOfStock && (
-                            <Badge className="bg-red-600 text-white">Out of Stock</Badge>
-                          )}
-                          {product.isBestseller && (
-                            <Badge className="bg-black text-white">Bestseller</Badge>
-                          )}
-                          {product.isNew && !product.isBestseller && (
-                            <Badge variant="secondary">New</Badge>
-                          )}
-                        </div>
-                        
-                        {/* Product Card - Women Mobile */}
-                        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full mr-4">
-                          <CardContent className="p-0 h-full flex flex-col">
-                            <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
-                              <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
-                                <Image
-                                  src={product.images[0] || "/placeholder.svg"}
-                                  alt={product.name}
-                                  fill
-                                  className="object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                                <div className="flex items-center mb-1">
-                                  <div className="flex items-center">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={`h-4 w-4 ${
-                                          i < Math.floor(product.rating) 
-                                            ? "fill-yellow-400 text-yellow-400" 
-                                            : "text-gray-300"
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                  <span className="text-xs ml-2">
-                                    ({product.rating.toFixed(1)})
-                                  </span>
-                                </div>
-
-                                <h3 className="text-lg font-medium mb-1">
-                                  {product.name}
-                                </h3>
-                                
-                                <div className="flex items-center justify-between">
-                                  <div className="text-left">
-                                    {(() => {
-                                      // Handle gift packages
-                                      if (product.isGiftPackage) {
-                                        const packagePrice = product.packagePrice || 0;
-                                        const packageOriginalPrice = product.packageOriginalPrice || 0;
-                                        
-                                        if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
-                                          return (
-                                            <>
-                                              <span className="line-through text-gray-300 text-sm block">{formatPrice(packageOriginalPrice)}</span>
-                                              <span className="text-lg font-light text-red-400">{formatPrice(packagePrice)}</span>
-                                            </>
-                                          );
-                                        } else {
-                                          return <span className="text-lg font-light">{formatPrice(packagePrice)}</span>;
-                                        }
-                                      }
-                                      
-                                      // Handle regular products
-                                      if (getSmallestOriginalPrice(product.sizes) > 0 && getSmallestPrice(product.sizes) < getSmallestOriginalPrice(product.sizes)) {
-                                        return (
-                                      <>
-                                        <span className="line-through text-gray-300 text-sm block">{formatPrice(getSmallestOriginalPrice(product.sizes))}</span>
-                                        <span className="text-lg font-light text-red-400">{formatPrice(getSmallestPrice(product.sizes))}</span>
-                                      </>
-                                        );
-                                      } else {
-                                        return <span className="text-lg font-light">{formatPrice(getSmallestPrice(product.sizes))}</span>;
-                                      }
-                                    })()}
-                                  </div>
-                                  
-                                  <button 
-                                    className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      e.stopPropagation()
-                                      openSizeSelector(product)
-                                    }}
-                                    aria-label="Add to cart"
-                                  >
-                                    <ShoppingCart className="h-5 w-5" />
-                                  </button>
-                                </div>
-                              </div>
-                            </Link>
-                          </CardContent>
-                        </Card>
-                      </div>
+                      <ProductCard
+                        product={product}
+                        layout="mobile"
+                        section="summer"
+                        index={index}
+                      />
                     </div>
                   ))}
                 </div>
@@ -1266,138 +1111,13 @@ useEffect(() => {
             {/* Desktop Grid */}
             <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {categorizedProducts.summer?.slice(0, 8).map((product, index) => (
-                <motion.div
+                <ProductCard
                   key={product._id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <div className="group relative h-full">
-                    {/* Favorite Button */}
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        await toggleFavorite(product)
-                      }}
-                      className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-                      aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      <Heart 
-                        className={`h-5 w-5 ${
-                          isFavorite(product.id) 
-                            ? "text-red-500 fill-red-500" 
-                            : "text-gray-700"
-                        }`} 
-                      />
-                    </button>
-                    
-                    {/* Badges */}
-                    <div className="absolute top-4 left-4 z-10 space-y-2">
-                      {product.isBestseller && (
-                        <Badge className="bg-black text-white">Bestseller</Badge>
-                      )}
-                      {product.isNew && !product.isBestseller && (
-                        <Badge variant="secondary">New</Badge>
-                      )}
-                    </div>
-                    
-                    {/* Product Card - Women Desktop */}
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
-                      <CardContent className="p-0 h-full flex flex-col">
-                        <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
-                          <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
-                            <Image
-                              src={product.images[0] || "/placeholder.svg"}
-                              alt={product.name}
-                              fill
-                              className="object-cover"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                            <div className="flex items-center mb-1">
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-4 w-4 ${
-                                      i < Math.floor(product.rating) 
-                                        ? "fill-yellow-400 text-yellow-400" 
-                                        : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-xs ml-2">
-                                ({product.rating.toFixed(1)})
-                              </span>
-                            </div>
-
-                            <h3 className="text-lg font-medium mb-1">
-                              {product.name}
-                            </h3>
-                            
-                            <div className="flex items-center justify-between">
-                              <div className="text-left">
-                                {(() => {
-                                  // Handle gift packages
-                                  if (product.isGiftPackage) {
-                                    const packagePrice = product.packagePrice || 0;
-                                    const packageOriginalPrice = product.packageOriginalPrice || 0;
-                                    
-                                    if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
-                                      return (
-                                        <>
-                                          <span className="line-through text-gray-300 text-sm block">{formatPrice(packageOriginalPrice)}</span>
-                                          <span className="text-lg font-light text-red-400">{formatPrice(packagePrice)}</span>
-                                        </>
-                                      );
-                                    } else {
-                                      return <span className="text-lg font-light">{formatPrice(packagePrice)}</span>;
-                                    }
-                                  }
-                                  
-                                  // Handle regular products
-                                  if (getSmallestOriginalPrice(product.sizes) > 0 && getSmallestPrice(product.sizes) < getSmallestOriginalPrice(product.sizes)) {
-                                    return (
-                                  <>
-                                    <span className="line-through text-gray-300 text-sm block">{formatPrice(getSmallestOriginalPrice(product.sizes))}</span>
-                                    <span className="text-lg font-light text-red-400">{formatPrice(getSmallestPrice(product.sizes))}</span>
-                                  </>
-                                    );
-                                  } else {
-                                    return <span className="text-lg font-light">{formatPrice(getSmallestPrice(product.sizes))}</span>;
-                                  }
-                                })()}
-                              </div>
-                              
-                              <button 
-                                className={`p-2 backdrop-blur-sm rounded-full transition-colors ${
-                                  product.isGiftPackage 
-                                    ? "bg-gradient-to-r from-gray-800/30 to-black/30 hover:from-gray-800/50 hover:to-black/50" 
-                                    : "bg-white/20 hover:bg-white/30"
-                                }`}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  openSizeSelector(product)
-                                }}
-                                aria-label={product.isGiftPackage ? "Customize Package" : "Add to cart"}
-                              >
-                                {product.isGiftPackage ? (
-                                  <Package className="h-4 w-4 sm:h-5 sm:w-5" />
-                                ) : (
-                                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        </Link>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </motion.div>
+                  product={product}
+                  layout="desktop"
+                  section="summer"
+                  index={index}
+                />
               ))}
             </div>
           </motion.div>
@@ -1459,125 +1179,12 @@ useEffect(() => {
                 <div className="flex">
                   {categorizedProducts.fall?.slice(0, 8).map((product, index) => (
                     <div key={product._id} className="flex-[0_0_80%] min-w-0 pl-4 relative h-full">
-                      <div className="group relative h-full">
-                        {/* Favorite Button */}
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation()
-                            await toggleFavorite(product)
-                          }}
-                          className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-                          aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
-                        >
-                          <Heart 
-                            className={`h-5 w-5 ${
-                              isFavorite(product.id) 
-                                ? "text-red-500 fill-red-500" 
-                                : "text-gray-700"
-                            }`} 
-                          />
-                        </button>
-                        
-                        {/* Badges */}
-                        <div className="absolute top-4 left-4 z-10 space-y-2">
-                          {product.isOutOfStock && (
-                            <Badge className="bg-red-600 text-white">Out of Stock</Badge>
-                          )}
-                          {product.isBestseller && (
-                            <Badge className="bg-black text-white">Bestseller</Badge>
-                          )}
-                          {product.isNew && !product.isBestseller && (
-                            <Badge variant="secondary">New</Badge>
-                          )}
-                        </div>
-                        
-                        {/* Product Card - Packages Mobile */}
-                        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full mr-4">
-                          <CardContent className="p-0 h-full flex flex-col">
-                            <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
-                              <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
-                                <Image
-                                  src={product.images[0] || "/placeholder.svg"}
-                                  alt={product.name}
-                                  fill
-                                  className="object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                              </div>
-                              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                                <div className="flex items-center mb-1">
-                                  <div className="flex items-center">
-                                    {[...Array(5)].map((_, i) => (
-                                      <Star
-                                        key={i}
-                                        className={`h-4 w-4 ${
-                                          i < Math.floor(product.rating) 
-                                            ? "fill-yellow-400 text-yellow-400" 
-                                            : "text-gray-300"
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                  <span className="text-xs ml-2">
-                                    ({product.rating.toFixed(1)})
-                                  </span>
-                                </div>
-
-                                <h3 className="text-lg font-medium mb-1">
-                                  {product.name}
-                                </h3>
-                                
-                                <div className="flex items-center justify-between">
-                                  <div className="text-left">
-                                    {(() => {
-                                      // Handle gift packages
-                                      if (product.isGiftPackage) {
-                                        const packagePrice = product.packagePrice || 0;
-                                        const packageOriginalPrice = product.packageOriginalPrice || 0;
-                                        
-                                        if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
-                                          return (
-                                            <>
-                                              <span className="line-through text-gray-300 text-sm block">{formatPrice(packageOriginalPrice)}</span>
-                                              <span className="text-lg font-light text-red-400">{formatPrice(packagePrice)}</span>
-                                            </>
-                                          );
-                                        } else {
-                                          return <span className="text-lg font-light">{formatPrice(packagePrice)}</span>;
-                                        }
-                                      }
-                                      
-                                      // Handle regular products
-                                      if (getSmallestOriginalPrice(product.sizes) > 0 && getSmallestPrice(product.sizes) < getSmallestOriginalPrice(product.sizes)) {
-                                        return (
-                                      <>
-                                        <span className="line-through text-gray-300 text-sm block">{formatPrice(getSmallestOriginalPrice(product.sizes))}</span>
-                                        <span className="text-lg font-light text-red-400">{formatPrice(getSmallestPrice(product.sizes))}</span>
-                                      </>
-                                        );
-                                      } else {
-                                        return <span className="text-lg font-light">{formatPrice(getSmallestPrice(product.sizes))}</span>;
-                                      }
-                                    })()}
-                                  </div>
-                                  
-                                  <button 
-                                    className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors"
-                                    onClick={(e) => {
-                                      e.preventDefault()
-                                      e.stopPropagation()
-                                      openSizeSelector(product)
-                                    }}
-                                    aria-label="Add to cart"
-                                  >
-                                    <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-                                  </button>
-                                </div>
-                              </div>
-                            </Link>
-                          </CardContent>
-                        </Card>
-                      </div>
+                      <ProductCard
+                        product={product}
+                        layout="mobile"
+                        section="fall"
+                        index={index}
+                      />
                     </div>
                   ))}
                 </div>
@@ -1599,138 +1206,13 @@ useEffect(() => {
             {/* Desktop Grid */}
             <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {categorizedProducts.fall?.map((product, index) => (
-                <motion.div
+                <ProductCard
                   key={product._id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: index * 0.1 }}
-                  viewport={{ once: true }}
-                >
-                  <div className="group relative h-full">
-                    {/* Favorite Button */}
-                    <button
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        await toggleFavorite(product)
-                      }}
-                      className="absolute top-4 right-4 z-10 p-2 bg-white rounded-full shadow-md hover:bg-gray-100 transition-colors"
-                      aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      <Heart 
-                        className={`h-5 w-5 ${
-                          isFavorite(product.id) 
-                            ? "text-red-500 fill-red-500" 
-                            : "text-gray-700"
-                        }`} 
-                      />
-                    </button>
-                    
-                    {/* Badges */}
-                    <div className="absolute top-4 left-4 z-10 space-y-2">
-                      {product.isBestseller && (
-                        <Badge className="bg-black text-white">Bestseller</Badge>
-                      )}
-                      {product.isNew && !product.isBestseller && (
-                        <Badge variant="secondary">New</Badge>
-                      )}
-                    </div>
-                    
-                    {/* Product Card - Packages Desktop */}
-                    <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
-                      <CardContent className="p-0 h-full flex flex-col">
-                        <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
-                          <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
-                            <Image
-                              src={product.images[0] || "/placeholder.svg"}
-                              alt={product.name}
-                              fill
-                              className="object-cover"
-                            />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                            <div className="flex items-center mb-1">
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star
-                                    key={i}
-                                    className={`h-4 w-4 ${
-                                      i < Math.floor(product.rating) 
-                                        ? "fill-yellow-400 text-yellow-400" 
-                                        : "text-gray-300"
-                                    }`}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-xs ml-2">
-                                ({product.rating.toFixed(1)})
-                              </span>
-                            </div>
-
-                            <h3 className="text-lg font-medium mb-1">
-                              {product.name}
-                            </h3>
-                            
-                            <div className="flex items-center justify-between">
-                              <div className="text-left">
-                                {(() => {
-                                  // Handle gift packages
-                                  if (product.isGiftPackage) {
-                                    const packagePrice = product.packagePrice || 0;
-                                    const packageOriginalPrice = product.packageOriginalPrice || 0;
-                                    
-                                    if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
-                                      return (
-                                        <>
-                                          <span className="line-through text-gray-300 text-sm block">{formatPrice(packageOriginalPrice)}</span>
-                                          <span className="text-lg font-light text-red-400">{formatPrice(packagePrice)}</span>
-                                        </>
-                                      );
-                                    } else {
-                                      return <span className="text-lg font-light">{formatPrice(packagePrice)}</span>;
-                                    }
-                                  }
-                                  
-                                  // Handle regular products
-                                  if (getSmallestOriginalPrice(product.sizes) > 0 && getSmallestPrice(product.sizes) < getSmallestOriginalPrice(product.sizes)) {
-                                    return (
-                                  <>
-                                    <span className="line-through text-gray-300 text-sm block">{formatPrice(getSmallestOriginalPrice(product.sizes))}</span>
-                                    <span className="text-lg font-light text-red-400">{formatPrice(getSmallestPrice(product.sizes))}</span>
-                                  </>
-                                    );
-                                  } else {
-                                    return <span className="text-lg font-light">{formatPrice(getSmallestPrice(product.sizes))}</span>;
-                                  }
-                                })()}
-                              </div>
-                              
-                              <button 
-                                className={`p-2 backdrop-blur-sm rounded-full transition-colors ${
-                                  product.isGiftPackage 
-                                    ? "bg-gradient-to-r from-gray-800/30 to-black/30 hover:from-gray-800/50 hover:to-black/50" 
-                                    : "bg-white/20 hover:bg-white/30"
-                                }`}
-                                onClick={(e) => {
-                                  e.preventDefault()
-                                  e.stopPropagation()
-                                  openSizeSelector(product)
-                                }}
-                                aria-label={product.isGiftPackage ? "Customize Package" : "Add to cart"}
-                              >
-                                {product.isGiftPackage ? (
-                                  <Package className="h-4 w-4 sm:h-5 sm:w-5" />
-                                ) : (
-                                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        </Link>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </motion.div>
+                  product={product}
+                  layout="desktop"
+                  section="fall"
+                  index={index}
+                />
               ))}
             </div>
           </motion.div>

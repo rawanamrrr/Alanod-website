@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import jwt from "jsonwebtoken"
 import { supabase, supabaseAdmin } from "@/lib/supabase"
-import type { Product } from "@/lib/models/types"
+import type { Product as BaseProduct } from "@/lib/models/types"
 
 type CachedProductsEntry = {
   status: number
@@ -75,7 +75,6 @@ const clearProductsCache = () => {
 // Configure the API route to handle larger payloads
 export const maxDuration = 60 // 60 seconds
 export const dynamic = 'force-dynamic' // Ensure dynamic evaluation
-export const fetchCache = 'force-no-store' // Disable caching for this route
 
 // Ensure this route runs on Node.js runtime (larger body size than Edge)
 export const runtime = 'nodejs'
@@ -102,8 +101,14 @@ const calculateIsOutOfStock = (sizes: any[]): boolean => {
   return allSizesOutOfStock
 }
 
+type ApiProduct = BaseProduct & {
+  _id: string
+  createdAt: string
+  updatedAt: string
+}
+
 // Transform Supabase product to match expected format
-const transformProduct = (product: any): Product => {
+const transformProduct = (product: any): ApiProduct => {
   const sizes = product.sizes || []
   // Auto-calculate isOutOfStock if not explicitly set
   const isOutOfStock = product.is_out_of_stock !== undefined 
@@ -145,6 +150,72 @@ const transformProduct = (product: any): Product => {
   }
 }
 
+// Lighter transform for product list views (used by collections / home pages)
+const transformProductList = (product: any): ApiProduct => {
+  const sizes = product.sizes || []
+
+  const productId = product.id || product.product_id
+
+  return {
+    _id: productId,
+    id: product.product_id,
+    product_id: product.product_id,
+    name: product.name,
+    description: product.description,
+    // Omit heavy fields for list views
+    longDescription: undefined as unknown as string,
+    price: product.price || 0,
+    beforeSalePrice: product.before_sale_price,
+    afterSalePrice: product.after_sale_price,
+    sizes: sizes.map((size: any) => ({
+      ...size,
+      stockCount: size.stockCount ?? size.stock_count,
+    })),
+    images: product.images || [],
+    rating: product.rating || 0,
+    reviews: product.reviews || 0,
+    notes: undefined as unknown as BaseProduct["notes"],
+    category: product.category,
+    isNew: product.is_new === true,
+    isBestseller: product.is_bestseller === true,
+    isActive: product.is_active !== false,
+    // Trust DB flag instead of recalculating for lists
+    isOutOfStock: product.is_out_of_stock ?? false,
+    isGiftPackage: product.is_gift_package || false,
+    packagePrice: product.package_price,
+    packageOriginalPrice: product.package_original_price,
+    giftPackageSizes: product.gift_package_sizes || [],
+    createdAt: product.created_at ? new Date(product.created_at).toISOString() : new Date().toISOString(),
+    updatedAt: product.updated_at ? new Date(product.updated_at).toISOString() : new Date().toISOString(),
+  }
+}
+
+// Columns used for list queries (omit long_description and notes for smaller payloads)
+const LIST_SELECT = `
+  id,
+  product_id,
+  name,
+  description,
+  price,
+  before_sale_price,
+  after_sale_price,
+  sizes,
+  images,
+  rating,
+  reviews,
+  category,
+  is_new,
+  is_bestseller,
+  is_active,
+  is_out_of_stock,
+  is_gift_package,
+  package_price,
+  package_original_price,
+  gift_package_sizes,
+  created_at,
+  updated_at
+`
+
 export async function GET(request: NextRequest) {
   const startTime = Date.now()
   console.log("🔍 [API] GET /api/products - Request received")
@@ -182,9 +253,10 @@ export async function GET(request: NextRequest) {
     const isBestsellerParam = searchParams.get("isBestseller")
     const isNewParam = searchParams.get("isNew")
     const isGiftPackageParam = searchParams.get("isGiftPackage")
-    const hasPagination = searchParams.has("page") || searchParams.has("limit")
+    const hasPageParam = searchParams.has("page")
+    const hasLimitParam = searchParams.has("limit")
     const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1)
-    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20", 10), 1), 1000)
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "20", 10), 1), 40)
     const skip = (page - 1) * limit
 
     // Single product request
@@ -226,7 +298,7 @@ export async function GET(request: NextRequest) {
     
     let query = client
       .from("products")
-      .select("*")
+      .select(LIST_SELECT)
     
     // Only filter by is_active if not including inactive products (or if not admin)
     if (!includeInactive || !isAdmin) {
@@ -246,21 +318,21 @@ export async function GET(request: NextRequest) {
       query = query.eq("is_gift_package", isGiftPackageParam === 'true')
     }
 
-    if (hasPagination) {
+    if (hasPageParam) {
       query = query.order("created_at", { ascending: false })
         .range(skip, skip + limit - 1)
 
-      const { data: products, error, count } = await query
+      const { data: products, error } = await query
 
       if (error) {
         console.error("Error fetching products:", error)
         return errorResponse("Failed to fetch products", 500)
       }
 
-      // Get total count separately for pagination
+      // Get total count separately for pagination (estimated for speed)
       let countQuery = client
         .from("products")
-        .select("*", { count: 'exact', head: true })
+        .select("product_id", { count: 'estimated', head: true })
       
       // Only filter by is_active if not including inactive products (or if not admin)
       if (!includeInactive || !isAdmin) {
@@ -275,7 +347,7 @@ export async function GET(request: NextRequest) {
       const { count: total } = await countQuery
       const totalPages = Math.max(Math.ceil((total || 0) / limit), 1)
 
-      const transformedProducts = (products || []).map(transformProduct)
+      const transformedProducts = (products || []).map(transformProductList)
       // For list view, only include first image
       const productsForList = transformedProducts.map(p => ({
         ...p,
@@ -298,6 +370,10 @@ export async function GET(request: NextRequest) {
       return new NextResponse(body, { status: 200, headers })
     } else {
       query = query.order("created_at", { ascending: false })
+
+      if (hasLimitParam) {
+        query = query.limit(limit)
+      }
 
       console.log(`🔍 [API] Executing query with: includeInactive=${includeInactive}, isAdmin=${isAdmin}, client=${client === supabaseAdmin ? 'admin' : 'anon'}`)
       const { data: products, error } = await query

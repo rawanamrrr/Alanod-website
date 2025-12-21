@@ -5,6 +5,8 @@ import { useState, useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
+import dynamic from "next/dynamic"
+
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -19,14 +21,23 @@ import { useFavorites } from "@/lib/favorites-context"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent } from "@/components/ui/card"
-import { GiftPackageSelector } from "@/components/gift-package-selector"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
 import { toast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/translations"
 import { useLocale } from "@/lib/locale-context"
-import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
+import type { SizeChartRow } from "@/components/custom-size-form"
+
+const GiftPackageSelector = dynamic(
+  () => import("@/components/gift-package-selector").then((m) => m.GiftPackageSelector),
+  { ssr: false }
+)
+
+const CustomSizeForm = dynamic(
+  () => import("@/components/custom-size-form").then((m) => m.CustomSizeForm),
+  { ssr: false }
+)
 
 interface ProductDetail {
   _id: string
