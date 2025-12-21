@@ -204,7 +204,7 @@ export default function CategoryPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch(`/api/products?category=${category}&limit=200`)
+      const response = await fetch(`/api/products?category=${category}&limit=40`)
       if (response.ok) {
         const data = await response.json()
         setProducts(data)

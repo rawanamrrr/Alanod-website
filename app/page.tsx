@@ -162,7 +162,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchAllProducts = async () => {
       try {
-        const response = await fetch("/api/products?limit=100")
+        const response = await fetch("/api/products?limit=40")
         if (response.ok) {
           const data = await response.json()
           // Filter active products and ensure they have valid data

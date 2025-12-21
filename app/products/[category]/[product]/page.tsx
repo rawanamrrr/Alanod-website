@@ -476,29 +476,38 @@ export default function ProductDetailPage() {
     return id;
   }
 
+  const fetchReviewsForProduct = async (productIdFromApi: string) => {
+    try {
+      const baseProductId = getBaseProductId(productIdFromApi)
+      console.log("Product ID from API:", productIdFromApi)
+      console.log("URL product ID:", productId)
+      console.log("Fetching reviews for base product ID:", baseProductId)
+
+      const reviewsResponse = await fetch(`/api/reviews/product/${baseProductId}`)
+      if (reviewsResponse.ok) {
+        const reviewsData = await reviewsResponse.json()
+        console.log("Fetched reviews:", reviewsData.reviews?.length || 0)
+        setReviews(reviewsData.reviews || [])
+      } else {
+        console.error("Failed to fetch reviews:", await reviewsResponse.text())
+      }
+    } catch (error) {
+      console.error("Error fetching reviews:", error)
+    }
+  }
+
   const fetchProduct = async () => {
     try {
       const response = await fetch(`/api/products/${category}/${productId}`)
       if (response.ok) {
         const data = await response.json()
-        setProduct(data)
-
-        // Get base product ID (without size suffix)
-        const baseProductId = getBaseProductId(data.id)
         console.log("Product data:", data)
         console.log("Product ID from API:", data.id)
         console.log("URL product ID:", productId)
-        console.log("Fetching reviews for base product ID:", baseProductId)
-        
-        // Fetch reviews for the BASE product ID using the correct endpoint
-        const reviewsResponse = await fetch(`/api/reviews/product/${baseProductId}`)
-        if (reviewsResponse.ok) {
-          const reviewsData = await reviewsResponse.json()
-          console.log("Fetched reviews:", reviewsData.reviews?.length || 0)
-          setReviews(reviewsData.reviews || [])
-        } else {
-          console.error("Failed to fetch reviews:", await reviewsResponse.text())
-        }
+        setProduct(data)
+
+        // Fire-and-forget reviews fetch so the page doesn't block on reviews
+        void fetchReviewsForProduct(data.id)
       }
     } catch (error) {
       console.error("Error fetching product:", error)
