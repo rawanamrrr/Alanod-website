@@ -284,7 +284,7 @@ export async function GET(request: NextRequest) {
 
       const transformedProduct = transformProduct(product)
       const headers = {
-        "Cache-Control": "public, max-age=300, stale-while-revalidate=600",
+        "Cache-Control": "no-store",
         "Content-Type": "application/json",
       }
       const body = JSON.stringify(transformedProduct)
@@ -363,7 +363,7 @@ export async function GET(request: NextRequest) {
         "X-Page": String(page),
         "X-Limit": String(limit),
         "X-Total-Pages": String(totalPages),
-        "Cache-Control": "public, max-age=30, stale-while-revalidate=150",
+        "Cache-Control": "no-store",
       }
       const body = JSON.stringify(productsForList)
       setCachedResponse(requestUrl, 200, body, headers, LIST_CACHE_TTL_MS)
@@ -411,7 +411,7 @@ export async function GET(request: NextRequest) {
       }
       const headers = {
         "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=30, stale-while-revalidate=150",
+        "Cache-Control": "no-store",
       }
       const body = JSON.stringify(productsForList)
       setCachedResponse(requestUrl, 200, body, headers, LIST_CACHE_TTL_MS)
