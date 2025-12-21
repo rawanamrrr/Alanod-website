@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
@@ -203,15 +203,21 @@ export default function AdminDashboard() {
     return formatPriceUSD(price);
   };
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const token = getAuthToken()
       
+      // Use cache: no-store for fresh data but optimize with parallel requests
+      const fetchOptions = {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store' as RequestCache
+      }
+      
       const [productsRes, ordersRes, discountCodesRes, offersRes] = await Promise.all([
-        fetch("/api/products?includeInactive=true", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/orders", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/discount-codes", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch("/api/offers", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch("/api/products?includeInactive=true", fetchOptions),
+        fetch("/api/orders", fetchOptions),
+        fetch("/api/discount-codes", fetchOptions),
+        fetch("/api/offers", fetchOptions),
       ])
 
       if (productsRes.ok) {
@@ -248,12 +254,12 @@ export default function AdminDashboard() {
       setLoading(false)
       setRefreshing(false)
     }
-  }
+  }, [authState.token])
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setRefreshing(true)
     await fetchData()
-  }
+  }, [fetchData])
 
   const handleStatusUpdate = async (orderId: string, newStatus: string) => {
     setUpdatingOrderStatus(orderId)
@@ -289,7 +295,7 @@ export default function AdminDashboard() {
     } else if (!authState.isLoading) {
       router.push("/")
     }
-  }, [authState.isAuthenticated, authState.isLoading, authState.user?.role])
+  }, [authState.isAuthenticated, authState.isLoading, authState.user?.role, fetchData, router])
 
   const handleCreateDiscountCode = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -741,22 +747,29 @@ export default function AdminDashboard() {
     return null
   }
 
-  // Calculate revenue without shipping costs, excluding cancelled orders, AFTER discounts
-  // ALL PRICES IN DASHBOARD ARE IN USD - NO CONVERSION NEEDED
-  const totalRevenue = orders.reduce((sum, order) => {
-    if (order.status === 'cancelled') return sum; // Skip cancelled orders
-    
-    // Order total is already in USD (stored as USD in database)
-    const discount = order.discountAmount || 0
-    const orderTotal = order.total - discount
-    
-    // No conversion needed - order.total is already in USD
-    return sum + orderTotal
-  }, 0)
+  // Memoize expensive calculations to prevent recalculation on every render
+  const dashboardStats = useMemo(() => {
+    // Calculate revenue without shipping costs, excluding cancelled orders, AFTER discounts
+    // ALL PRICES IN DASHBOARD ARE IN USD - NO CONVERSION NEEDED
+    const totalRevenue = orders.reduce((sum, order) => {
+      if (order.status === 'cancelled') return sum; // Skip cancelled orders
+      
+      // Order total is already in USD (stored as USD in database)
+      const discount = order.discountAmount || 0
+      const orderTotal = order.total - discount
+      
+      // No conversion needed - order.total is already in USD
+      return sum + orderTotal
+    }, 0)
 
-  const pendingOrders = orders.filter((order) => order.status === "pending").length
-  const totalProducts = products.length
-  const activeProducts = products.filter((p) => p.isActive).length
+    const pendingOrders = orders.filter((order) => order.status === "pending").length
+    const totalProducts = products.length
+    const activeProducts = products.filter((p) => p.isActive).length
+    
+    return { totalRevenue, pendingOrders, totalProducts, activeProducts }
+  }, [orders, products])
+
+  const { totalRevenue, pendingOrders, totalProducts, activeProducts } = dashboardStats
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -770,7 +783,7 @@ export default function AdminDashboard() {
             transition={{ duration: 0.8 }}
             className="mb-6 sm:mb-8"
           >
-            <Link href="/" className="inline-flex items-center text-gray-600 hover:text-black transition-colors mb-4 sm:mb-6">
+            <Link href="/" prefetch={true} className="inline-flex items-center text-gray-600 hover:text-black transition-colors mb-4 sm:mb-6">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Home
             </Link>
@@ -794,7 +807,7 @@ export default function AdminDashboard() {
                   <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
                   Refresh
                 </Button>
-                <Link href="/admin/products/add" className="w-full sm:w-auto">
+                <Link href="/admin/products/add" prefetch={true} className="w-full sm:w-auto">
                   <Button className="bg-black text-white hover:bg-gray-800 w-full sm:w-auto text-sm" size="sm">
                     <Plus className="mr-2 h-4 w-4" />
                     Add Product
@@ -983,6 +996,8 @@ export default function AdminDashboard() {
                                   alt={product.name}
                                   fill
                                     className="object-cover rounded-xl shadow-sm"
+                                    loading="lazy"
+                                    sizes="(max-width: 768px) 80px, 96px"
                                   />
                                   {/* Enhanced Gift Package Indicator */}
                                   {product.isGiftPackage && (
