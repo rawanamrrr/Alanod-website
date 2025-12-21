@@ -845,12 +845,8 @@ export default function HomePage() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
               {allProducts.map((product, index) => (
-                <motion.div
+                <div
                   key={product.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.8, delay: index * 0.05 }}
-                  viewport={{ once: true }}
                   className="group relative"
                 >
                   <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
@@ -938,7 +934,7 @@ export default function HomePage() {
                       </Link>
                     </CardContent>
                   </Card>
-                </motion.div>
+                </div>
               ))}
             </div>
           )}

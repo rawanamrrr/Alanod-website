@@ -51,14 +51,19 @@ export function OffersBanner() {
 
       if (response.ok) {
         const data = await response.json()
-        const activeOffers = data
-          .filter((offer: Offer) => offer.isActive)
-          .sort((a: Offer, b: Offer) => b.priority - a.priority)
+        // Ensure data is an array
+        const offersArray = Array.isArray(data) ? data : []
+        // Filter active offers (though API already filters, this is a safety check)
+        const activeOffers = offersArray
+          .filter((offer: Offer) => offer && offer.isActive !== false)
+          .sort((a: Offer, b: Offer) => (b.priority || 0) - (a.priority || 0))
 
         setOffers(activeOffers)
         // Update the cache
         cachedOffers = { data: activeOffers, timestamp: now }
       } else {
+        const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
+        console.error("Offers API error:", errorData)
         setOffers([])
       }
     } catch (err) {
@@ -292,12 +297,16 @@ export function OffersBanner() {
                   >
                     <Tag className="h-4 w-4 text-purple-300 flex-shrink-0" strokeWidth={2} />
                     <div className="flex flex-col justify-center min-w-0 flex-1">
-                      <span className="font-bold text-[10px] uppercase tracking-[0.15em] text-purple-200 leading-tight truncate">
-                        {currentOffer.title}
-                      </span>
-                      <p className="text-white text-xs font-medium leading-tight truncate">
-                        {currentOffer.description}
-                      </p>
+                      {currentOffer.title && (
+                        <span className="font-bold text-[10px] uppercase tracking-[0.15em] text-purple-200 leading-tight truncate">
+                          {currentOffer.title}
+                        </span>
+                      )}
+                      {currentOffer.description && (
+                        <p className="text-white text-xs font-medium leading-tight truncate">
+                          {currentOffer.description}
+                        </p>
+                      )}
                     </div>
                   </div>
 
