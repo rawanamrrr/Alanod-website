@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken"
 import { supabase } from "@/lib/supabase"
 import type { Order } from "@/lib/models/types"
 
-export async function PATCH(request: NextRequest, { params }: { params: { orderId: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ orderId: string }> }) {
   try {
     const token = request.headers.get("authorization")?.replace("Bearer ", "")
 
@@ -19,7 +19,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { orderI
     }
 
     const { status } = await request.json()
-    const { orderId } = params
+    const { orderId } = await params
 
     const { data: updatedOrder, error } = await supabase
       .from("orders")

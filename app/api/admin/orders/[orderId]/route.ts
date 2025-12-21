@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken"
 import { supabase, supabaseAdmin } from "@/lib/supabase"
 import type { Order } from "@/lib/models/types"
 
-export async function GET(request: NextRequest, { params }: { params: { orderId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ orderId: string }> }) {
   try {
     const token = request.headers.get("authorization")?.replace("Bearer ", "")
 
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: { params: { orderId:
       return NextResponse.json({ error: "Admin access required" }, { status: 403 })
     }
 
-    const { orderId } = params
+    const { orderId } = await params
 
     // Use admin client to bypass RLS for reading orders
     const client = supabaseAdmin || supabase
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest, { params }: { params: { orderId:
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { orderId: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ orderId: string }> }) {
   try {
     const token = request.headers.get("authorization")?.replace("Bearer ", "")
 
@@ -98,7 +98,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { orderI
       return NextResponse.json({ error: "Admin access required" }, { status: 403 })
     }
 
-    const { orderId } = params
+    const { orderId } = await params
     const { status } = await request.json()
 
     if (!status) {
@@ -190,7 +190,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { orderI
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { orderId: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ orderId: string }> }) {
   try {
     const token = request.headers.get("authorization")?.replace("Bearer ", "")
 
@@ -204,7 +204,7 @@ export async function PUT(request: NextRequest, { params }: { params: { orderId:
       return NextResponse.json({ error: "Admin access required" }, { status: 403 })
     }
 
-    const { orderId } = params
+    const { orderId } = await params
     const { status } = await request.json()
 
     if (!status) {

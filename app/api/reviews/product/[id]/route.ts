@@ -3,11 +3,12 @@ import { supabase, supabaseAdmin } from "@/lib/supabase"
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     // Validate product ID
-    if (!params.id || params.id === "undefined") {
+    if (!id || id === "undefined") {
       return NextResponse.json(
         { error: "Product ID is required" },
         { status: 400 }
@@ -17,8 +18,8 @@ export async function GET(
     const { searchParams } = new URL(req.url)
     const orderId = searchParams.get("orderId")
 
-    // The params.id is already the base product ID from the product page
-    const baseProductId = params.id
+    // The id is already the base product ID from the product page
+    const baseProductId = id
 
     console.log("Base product ID from params:", baseProductId)
 

@@ -37,10 +37,10 @@ const transformProduct = (product: any): Product => {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { category: string; productId: string } }
+  { params }: { params: Promise<{ category: string; productId: string }> }
 ) {
   try {
-    const { category, productId } = params;
+    const { category, productId } = await params;
 
     // Validate category
     if (!validCategories.includes(category as ValidCategory)) {

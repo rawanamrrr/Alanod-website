@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo, useCallback, memo } from "react"
 import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
@@ -158,6 +158,7 @@ export default function AdminDashboard() {
   // Discount code form
   const [discountForm, setDiscountForm] = useState({
     code: "",
+    description: "",
     type: "percentage" as DiscountType,
     value: "",
     minOrderAmount: "",
@@ -729,25 +730,8 @@ export default function AdminDashboard() {
     return Math.min(...prices)
   }
 
-  if (authState.isLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <Navigation />
-        <div className="pt-32 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading dashboard...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!authState.isAuthenticated || authState.user?.role !== "admin") {
-    return null
-  }
-
   // Memoize expensive calculations to prevent recalculation on every render
+  // IMPORTANT: All hooks must be called before any conditional returns
   const dashboardStats = useMemo(() => {
     // Calculate revenue without shipping costs, excluding cancelled orders, AFTER discounts
     // ALL PRICES IN DASHBOARD ARE IN USD - NO CONVERSION NEEDED
@@ -770,6 +754,24 @@ export default function AdminDashboard() {
   }, [orders, products])
 
   const { totalRevenue, pendingOrders, totalProducts, activeProducts } = dashboardStats
+
+  if (authState.isLoading || loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navigation />
+        <div className="pt-32 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!authState.isAuthenticated || authState.user?.role !== "admin") {
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1284,15 +1286,15 @@ export default function AdminDashboard() {
                                   <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
                                     <div className="mb-2 sm:mb-0">
                                       <p className="font-medium text-sm sm:text-base">Order #{order.id}</p>
-                                      <p className="text-sm text-gray-500">Total: {formatPriceByCountry(order.total, order.shippingAddress.countryCode)}</p>
-                                      {order.shippingAddress.phone && (
+                                      <p className="text-sm text-gray-500">Total: {formatPriceByCountry(order.total, order.shippingAddress?.countryCode)}</p>
+                                      {order.shippingAddress?.phone && (
                                         <p className="text-xs sm:text-sm text-gray-600">{order.shippingAddress.phone}{order.shippingAddress.secondaryPhone ? ` / ${order.shippingAddress.secondaryPhone}` : ""}</p>
                                       )}
                                       <p className="text-xs sm:text-sm text-gray-600">{new Date(order.createdAt).toLocaleString()}</p>
                                     </div>
                                   <div className="flex-1">
                                       <p className="text-xs sm:text-sm text-gray-600">
-                                        {order.items.length} item(s) • {formatPriceByCountry(total, order.shippingAddress.countryCode)}
+                                        {order.items.length} item(s) • {formatPriceByCountry(total, order.shippingAddress?.countryCode)}
                                     </p>
                                       <p className="text-xs text-gray-500 truncate sm:truncate-none">
                                       {order.items.map((item: any) => {
@@ -1367,17 +1369,18 @@ export default function AdminDashboard() {
                             size="sm"
                             onClick={() => {
                               setEditingDiscount(null)
-                              setDiscountForm({
-                                code: "",
-                                type: "percentage",
-                                value: "",
-                                minOrderAmount: "",
-                                maxUses: "",
-                                expiresAt: "",
-                                buyX: "",
-                                getX: "",
-                                discountPercentage: ""
-                              })
+    setDiscountForm({
+      code: "",
+      description: "",
+      type: "percentage",
+      value: "",
+      minOrderAmount: "",
+      maxUses: "",
+      expiresAt: "",
+      buyX: "",
+      getX: "",
+      discountPercentage: ""
+    })
                             }}
                           >
                             Cancel

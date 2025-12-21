@@ -13,13 +13,6 @@ interface Offer {
   priority: number
 }
 
-// Simple in-memory cache for offers to prevent re-fetching on every navigation
-let cachedOffers: {
-  data: Offer[]
-  timestamp: number
-} | null = null
-const OFFERS_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
-
 export function OffersBanner() {
   const [offers, setOffers] = useState<Offer[]>([])
   const [currentOfferIndex, setCurrentOfferIndex] = useState(0)
@@ -33,21 +26,10 @@ export function OffersBanner() {
   const hasMounted = useRef(false)
 
   const fetchOffers = useCallback(async () => {
-    const now = Date.now()
-    // Use cache if it's not stale
-    if (cachedOffers && now - cachedOffers.timestamp < OFFERS_CACHE_TTL_MS) {
-      setOffers(cachedOffers.data)
-      setLoading(false)
-      setIsVisible(true)
-      setError(false)
-      return
-    }
-
     try {
       setLoading(true)
       setError(false)
-      // Fetch without "no-store" to allow default browser caching, though our logic handles it
-      const response = await fetch("/api/offers")
+      const response = await fetch("/api/offers", { cache: "no-store" })
 
       if (response.ok) {
         const data = await response.json()
@@ -59,8 +41,6 @@ export function OffersBanner() {
           .sort((a: Offer, b: Offer) => (b.priority || 0) - (a.priority || 0))
 
         setOffers(activeOffers)
-        // Update the cache
-        cachedOffers = { data: activeOffers, timestamp: now }
       } else {
         const errorData = await response.json().catch(() => ({ error: "Unknown error" }))
         console.error("Offers API error:", errorData)
@@ -81,8 +61,7 @@ export function OffersBanner() {
     hasMounted.current = true
 
     fetchOffers()
-    // Set up an interval to refresh offers periodically
-    const refreshInterval = setInterval(fetchOffers, OFFERS_CACHE_TTL_MS)
+    const refreshInterval = setInterval(fetchOffers, 5 * 60 * 1000)
     return () => clearInterval(refreshInterval)
   }, [fetchOffers])
 
