@@ -694,15 +694,12 @@ export default function HomePage() {
       <motion.section 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 1.5 }}
+        transition={{ duration: 0.6 }}
         className="relative h-screen flex items-center justify-center overflow-hidden"
       >
         {/* Image Background - Full Screen (with subtle continuous zoom) */}
-        <motion.div 
+        <div 
           className="absolute inset-0 z-0"
-          initial={{ scale: 1 }}
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 10, ease: "easeInOut", repeat: Infinity }}
         >
           <Image
             src="/Alanod-bg.jpeg"
@@ -712,7 +709,7 @@ export default function HomePage() {
             className="object-cover"
           />
           <div className="absolute inset-0 bg-black/45" />
-        </motion.div>
+        </div>
 
         {/* Logo Over Hero - Only show when not scrolled and logo not visible in header */}
         {isHeroLogoVisible && !isLogoVisible && (
@@ -721,7 +718,7 @@ export default function HomePage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.2 }}
           >
             <Image 
               src="/Anod-logo-white.png" 
@@ -739,15 +736,15 @@ export default function HomePage() {
       <motion.section 
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
-        transition={{ duration: 1.2 }}
+        transition={{ duration: 0.6 }}
         viewport={{ once: true, amount: 0.3 }}
         className="py-20 bg-gradient-to-b from-gray-50 to-white overflow-hidden"
       >
         <div className="container mx-auto px-6">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
             viewport={{ once: true }}
             className="text-center space-y-4"
           >
@@ -755,7 +752,7 @@ export default function HomePage() {
               className="text-4xl md:text-6xl font-light tracking-wider text-gray-900 font-serif"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.3 }}
+              transition={{ duration: 0.4, delay: 0.15 }}
               viewport={{ once: true }}
             >
               {t("embraceYour")}
@@ -764,7 +761,7 @@ export default function HomePage() {
               className="text-4xl md:text-6xl font-light tracking-wider text-gray-900 font-serif"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 1, delay: 0.5 }}
+              transition={{ duration: 0.4, delay: 0.25 }}
               viewport={{ once: true }}
             >
               {t("soiréeMoment")}
@@ -773,7 +770,7 @@ export default function HomePage() {
               className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed"
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
-              transition={{ duration: 1.5, delay: 0.7 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
               viewport={{ once: true }}
             >
               {t("homeDescription")}
@@ -781,9 +778,9 @@ export default function HomePage() {
             
             {/* Explore Collections Button */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 10 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 1.0 }}
+              transition={{ duration: 0.4, delay: 0.35 }}
               viewport={{ once: true }}
             >
               <Link href="/products">
@@ -796,7 +793,7 @@ export default function HomePage() {
                     className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100"
                     initial={{ x: "-100%" }}
                     whileHover={{ x: 0 }}
-                    transition={{ duration: 0.4 }}
+                    transition={{ duration: 0.2 }}
                   />
                 </Button>
               </Link>
@@ -810,15 +807,15 @@ export default function HomePage() {
       <motion.section 
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
-        transition={{ duration: 1.2 }}
+        transition={{ duration: 0.6 }}
         viewport={{ once: true, amount: 0.3 }}
         className="py-20 bg-white overflow-hidden"
       >
         <div className="container mx-auto px-6">
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            transition={{ duration: 0.4, delay: 0.15 }}
             viewport={{ once: true }}
             className="text-center mb-16"
           >
@@ -826,7 +823,7 @@ export default function HomePage() {
             <motion.div
               initial={{ width: 0 }}
               whileInView={{ width: "100px" }}
-              transition={{ duration: 0.8, delay: 0.5 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
               viewport={{ once: true }}
               className="h-1 bg-gradient-to-r from-purple-400 to-pink-400 mx-auto my-6 rounded-full"
             />
@@ -854,7 +851,7 @@ export default function HomePage() {
                   <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
                     <CardContent className="p-0 h-full flex flex-col">
                       <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
-                        <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
+                        <div className="relative w-full h-full">
                           <Image
                             src={product.images[0] || "/placeholder.svg"}
                             alt={product.name}
@@ -947,16 +944,16 @@ export default function HomePage() {
       <motion.section 
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
-        transition={{ duration: 1.2 }}
+        transition={{ duration: 0.6 }}
         viewport={{ once: true, amount: 0.3 }}
         className="py-20 bg-white overflow-hidden"
       >
         <div className="container mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <motion.div
-              initial={{ opacity: 0, x: -30 }}
+              initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8 }}
+              transition={{ duration: 0.4 }}
               viewport={{ once: true }}
             >
               <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-6">{t("theArtOfCouture")}</h2>
@@ -964,7 +961,7 @@ export default function HomePage() {
                 className="text-gray-600 mb-6 leading-relaxed"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
+                transition={{ duration: 0.4, delay: 0.15 }}
                 viewport={{ once: true }}
               >
                 {t("artOfCoutureDesc1")}
@@ -973,7 +970,7 @@ export default function HomePage() {
                 className="text-gray-600 mb-8 leading-relaxed"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
-                transition={{ duration: 0.8, delay: 0.4 }}
+                transition={{ duration: 0.4, delay: 0.25 }}
                 viewport={{ once: true }}
               >
                 {t("artOfCoutureDesc2")}
@@ -981,7 +978,7 @@ export default function HomePage() {
               <motion.div
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
-                transition={{ duration: 0.8, delay: 0.6 }}
+                transition={{ duration: 0.4, delay: 0.35 }}
                 viewport={{ once: true }}
               >
                 <Link href="/about">
@@ -995,7 +992,7 @@ export default function HomePage() {
                       className="absolute inset-0 bg-black opacity-0 group-hover:opacity-100"
                       initial={{ x: "-100%" }}
                       whileHover={{ x: 0 }}
-                      transition={{ duration: 0.4 }}
+                      transition={{ duration: 0.2 }}
                     />
                   </Button>
                 </Link>
