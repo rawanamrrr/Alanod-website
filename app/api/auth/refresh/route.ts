@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase';
 import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
@@ -16,8 +16,14 @@ export async function POST(request: NextRequest) {
     // Verify old token
     const decoded = jwt.verify(oldToken, JWT_SECRET) as { userId: string; email: string };
     
+    // Use admin client to bypass RLS
+    if (!supabaseAdmin) {
+      console.error("Supabase admin client not configured");
+      return NextResponse.json({ error: "Server configuration error" }, { status: 500 });
+    }
+
     // Find user in Supabase
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from('users')
       .select('id, email, name, role')
       .eq('id', decoded.userId)

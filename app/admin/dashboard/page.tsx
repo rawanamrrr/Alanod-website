@@ -141,6 +141,9 @@ interface Offer {
   createdAt: string
 }
 
+const PRODUCTS_PER_PAGE = 10
+const ORDERS_PER_PAGE = 10
+
 export default function AdminDashboard() {
   const router = useRouter()
   const { state: authState } = useAuth()
@@ -154,6 +157,12 @@ export default function AdminDashboard() {
   const [error, setError] = useState("")
   const [refreshing, setRefreshing] = useState(false)
   const [updatingOrderStatus, setUpdatingOrderStatus] = useState<string | null>(null)
+  const [productPage, setProductPage] = useState(1)
+  const [orderPage, setOrderPage] = useState(1)
+  const [productTotalPages, setProductTotalPages] = useState(1)
+  const [productTotalCount, setProductTotalCount] = useState(0)
+  const [orderTotalPages, setOrderTotalPages] = useState(1)
+  const [orderTotalCount, setOrderTotalCount] = useState(0)
 
   // Discount code form
   const [discountForm, setDiscountForm] = useState({
@@ -204,8 +213,93 @@ export default function AdminDashboard() {
     return formatPriceUSD(price);
   };
 
+  const fetchProductsPage = useCallback(async (page: number) => {
+    try {
+      const token = getAuthToken()
+      const fetchOptions = {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store' as RequestCache,
+      }
+
+      const response = await fetch(`/api/products?includeInactive=true&page=${page}&limit=${PRODUCTS_PER_PAGE}`, fetchOptions)
+
+      if (response.ok) {
+        const products = await response.json()
+        const totalCountHeader = response.headers.get("x-total-count")
+        const totalPagesHeader = response.headers.get("x-total-pages")
+
+        const totalCount = totalCountHeader ? parseInt(totalCountHeader, 10) : products.length
+        const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1
+
+        const safeTotalCount = Number.isNaN(totalCount) ? products.length : totalCount
+        const safeTotalPages = Number.isNaN(totalPages) ? 1 : totalPages
+
+        setProductTotalCount(safeTotalCount)
+        setProductTotalPages(safeTotalPages)
+
+        console.log("📊 [Dashboard] Fetched products page:", {
+          page,
+          totalPages: safeTotalPages,
+          total: safeTotalCount,
+          pageSize: products.length,
+          activeOnPage: products.filter((p: Product) => p.isActive).length,
+        })
+
+        setProducts(products)
+      } else {
+        console.error("❌ [Dashboard] Failed to fetch products page:", response.status, response.statusText)
+      }
+    } catch (error) {
+      console.error("Error fetching products page:", error)
+    }
+  }, [authState.token])
+
+  const fetchOrdersPage = useCallback(async (page: number) => {
+    try {
+      const token = getAuthToken()
+      const fetchOptions = {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store' as RequestCache,
+      }
+
+      const response = await fetch(`/api/orders?page=${page}&limit=${ORDERS_PER_PAGE}`, fetchOptions)
+
+      if (response.ok) {
+        const orders = await response.json()
+        const totalCountHeader = response.headers.get("x-total-count")
+        const totalPagesHeader = response.headers.get("x-total-pages")
+
+        const totalCount = totalCountHeader ? parseInt(totalCountHeader, 10) : orders.length
+        const totalPages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1
+
+        const safeTotalCount = Number.isNaN(totalCount) ? orders.length : totalCount
+        const safeTotalPages = Number.isNaN(totalPages) ? 1 : totalPages
+
+        setOrderTotalCount(safeTotalCount)
+        setOrderTotalPages(safeTotalPages)
+
+        console.log("📊 [Dashboard] Fetched orders page:", {
+          page,
+          totalPages: safeTotalPages,
+          total: safeTotalCount,
+          pageSize: orders.length,
+        })
+
+        setOrders(orders)
+      } else {
+        console.error("❌ [Dashboard] Failed to fetch orders page:", response.status, response.statusText)
+      }
+    } catch (error) {
+      console.error("Error fetching orders page:", error)
+    }
+  }, [authState.token])
+
   const fetchData = useCallback(async () => {
     try {
+      // Always reset to first products page on full dashboard refresh
+      setProductPage(1)
+      setOrderPage(1)
+
       const token = getAuthToken()
       
       // Use cache: no-store for fresh data but optimize with parallel requests
@@ -213,32 +307,21 @@ export default function AdminDashboard() {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store' as RequestCache
       }
-      
-      const [productsRes, ordersRes, discountCodesRes, offersRes] = await Promise.all([
-        fetch("/api/products?includeInactive=true", fetchOptions),
-        fetch("/api/orders", fetchOptions),
+
+      // First load core data needed for initial dashboard render
+      await Promise.all([
+        fetchProductsPage(1),
+        fetchOrdersPage(1),
+      ])
+
+      // Core data is ready, hide main loading spinner
+      setLoading(false)
+
+      // Then load secondary data in the background (does not block initial render)
+      const [discountCodesRes, offersRes] = await Promise.all([
         fetch("/api/discount-codes", fetchOptions),
         fetch("/api/offers", fetchOptions),
       ])
-
-      if (productsRes.ok) {
-        const products = await productsRes.json()
-        console.log("📊 [Dashboard] Fetched products:", {
-          total: products.length,
-          active: products.filter((p: Product) => p.isActive).length,
-          new: products.filter((p: Product) => p.isNew).length,
-          bestsellers: products.filter((p: Product) => p.isBestseller).length,
-          outOfStock: products.filter((p: Product) => p.isOutOfStock).length,
-        })
-        setProducts(products)
-      } else {
-        console.error("❌ [Dashboard] Failed to fetch products:", productsRes.status, productsRes.statusText)
-      }
-
-      if (ordersRes.ok) {
-        const orders = await ordersRes.json()
-        setOrders(orders)
-      }
 
       if (discountCodesRes.ok) {
         const codes = await discountCodesRes.json()
@@ -251,11 +334,12 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error("Error fetching data:", error)
-    } finally {
+      // On error, ensure we still hide the spinner
       setLoading(false)
+    } finally {
       setRefreshing(false)
     }
-  }, [authState.token])
+  }, [authState.token, fetchProductsPage, fetchOrdersPage])
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -747,15 +831,18 @@ export default function AdminDashboard() {
     }, 0)
 
     const pendingOrders = orders.filter((order) => order.status === "pending").length
-    const totalProducts = products.length
+    const totalProducts = productTotalCount || products.length
     const activeProducts = products.filter((p) => p.isActive).length
     
     return { totalRevenue, pendingOrders, totalProducts, activeProducts }
-  }, [orders, products])
+  }, [orders, products, productTotalCount])
 
   const { totalRevenue, pendingOrders, totalProducts, activeProducts } = dashboardStats
 
-  if (authState.isLoading || loading) {
+  const totalProductPages = productTotalPages || 1
+  const totalOrderPages = orderTotalPages || 1
+
+  if (authState.isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Navigation />
@@ -858,7 +945,7 @@ export default function AdminDashboard() {
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                     <div className="mb-2 sm:mb-0">
                       <p className="text-xs sm:text-sm text-gray-600">Total Orders</p>
-                      <p className="text-lg sm:text-2xl font-light">{orders.length}</p>
+                      <p className="text-lg sm:text-2xl font-light">{orderTotalCount || orders.length}</p>
                     </div>
                     <ShoppingCart className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 self-end sm:self-auto" />
                   </div>
@@ -927,7 +1014,7 @@ export default function AdminDashboard() {
                 <Card>
                   <CardHeader className="p-4 sm:p-6">
                     <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
-                      <CardTitle className="text-lg sm:text-xl">Products Catalog ({products.length})</CardTitle>
+                      <CardTitle className="text-lg sm:text-xl">Products Catalog ({productTotalCount || products.length})</CardTitle>
                       <Link href="/admin/products/add" prefetch={true} className="w-full sm:w-auto">
                         <Button size="sm" className="bg-black text-white hover:bg-gray-800 w-full sm:w-auto">
                           <Plus className="mr-2 h-4 w-4" />
@@ -949,7 +1036,7 @@ export default function AdminDashboard() {
                         </Link>
                       </div>
                     ) : (
-                                            <div className="space-y-4">
+                      <div className="space-y-4">
                         {products.map((product) => (
                           <motion.div 
                             key={product._id} 
@@ -1212,11 +1299,11 @@ export default function AdminDashboard() {
                                     viewport={{ once: true }}
                                     whileHover={{ scale: 1.05 }}
                                   >
-                              <Link href={`/products/${product.category}/${product.id}`} prefetch={true}>
+                                    <Link href={`/products/${product.category}/${product.id}`} prefetch={true}>
                                       <Button size="sm" variant="outline" className="h-12 w-12 p-0 sm:h-10 sm:w-10 rounded-xl border-2 hover:border-blue-300 hover:bg-blue-50 transition-all">
                                         <Eye className="h-5 w-5 sm:h-4 sm:w-4 text-blue-600" />
-                                </Button>
-                              </Link>
+                                      </Button>
+                                    </Link>
                                   </motion.div>
                                   <motion.div
                                     initial={{ opacity: 0, scale: 0.8 }}
@@ -1225,11 +1312,11 @@ export default function AdminDashboard() {
                                     viewport={{ once: true }}
                                     whileHover={{ scale: 1.05 }}
                                   >
-                              <Link href={`/admin/products/edit?id=${product._id}`} prefetch={true}>
+                                    <Link href={`/admin/products/edit?id=${product.id}`} prefetch={true}>
                                       <Button size="sm" variant="outline" className="h-12 w-12 p-0 sm:h-10 sm:w-10 rounded-xl border-2 hover:border-green-300 hover:bg-green-50 transition-all">
                                         <Edit className="h-5 w-5 sm:h-4 sm:w-4 text-green-600" />
-                                </Button>
-                              </Link>
+                                      </Button>
+                                    </Link>
                                   </motion.div>
                                   <motion.div
                                     initial={{ opacity: 0, scale: 0.8 }}
@@ -1238,20 +1325,53 @@ export default function AdminDashboard() {
                                     viewport={{ once: true }}
                                     whileHover={{ scale: 1.05 }}
                                   >
-                              <Button
-                                size="sm"
-                                variant="outline"
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
                                       className="h-12 w-12 p-0 sm:h-10 sm:w-10 rounded-xl border-2 border-red-200 hover:border-red-400 hover:bg-red-50 transition-all"
-                                onClick={() => handleDeleteProduct(product._id)}
-                              >
+                                      onClick={() => handleDeleteProduct(product.id)}
+                                    >
                                       <Trash2 className="h-5 w-5 sm:h-4 sm:w-4 text-red-600" />
-                              </Button>
+                                    </Button>
                                   </motion.div>
                                 </div>
                               </div>
                             </div>
                           </motion.div>
                         ))}
+                        <div className="flex items-center justify-between mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={productPage === 1}
+                            onClick={() => {
+                              const targetPage = Math.max(productPage - 1, 1)
+                              if (targetPage !== productPage) {
+                                setProductPage(targetPage)
+                                fetchProductsPage(targetPage)
+                              }
+                            }}
+                          >
+                            Previous
+                          </Button>
+                          <span className="text-xs text-gray-600">
+                            Page {productPage} of {totalProductPages}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={productPage >= totalProductPages}
+                            onClick={() => {
+                              const targetPage = Math.min(productPage + 1, totalProductPages)
+                              if (targetPage !== productPage) {
+                                setProductPage(targetPage)
+                                fetchProductsPage(targetPage)
+                              }
+                            }}
+                          >
+                            Next
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </CardContent>
@@ -1347,6 +1467,27 @@ export default function AdminDashboard() {
                             </div>
                           )
                         })}
+                        <div className="flex items-center justify-between mt-4">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={orderPage === 1}
+                            onClick={() => setOrderPage((prev) => Math.max(prev - 1, 1))}
+                          >
+                            Previous
+                          </Button>
+                          <span className="text-xs text-gray-600">
+                            Page {orderPage} of {totalOrderPages}
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={orderPage >= totalOrderPages}
+                            onClick={() => setOrderPage((prev) => Math.min(prev + 1, totalOrderPages))}
+                          >
+                            Next
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </CardContent>

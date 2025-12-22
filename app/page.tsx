@@ -698,8 +698,16 @@ export default function HomePage() {
         className="relative h-screen flex items-center justify-center overflow-hidden"
       >
         {/* Image Background - Full Screen (with subtle continuous zoom) */}
-        <div 
+        <motion.div 
           className="absolute inset-0 z-0"
+          animate={{
+            scale: [1, 1.05, 1],
+          }}
+          transition={{
+            duration: 15,
+            ease: "easeInOut",
+            repeat: Infinity,
+          }}
         >
           <Image
             src="/Alanod-bg.jpeg"
@@ -709,7 +717,7 @@ export default function HomePage() {
             className="object-cover"
           />
           <div className="absolute inset-0 bg-black/45" />
-        </div>
+        </motion.div>
 
         {/* Logo Over Hero - Only show when not scrolled and logo not visible in header */}
         {isHeroLogoVisible && !isLogoVisible && (

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabase, supabaseAdmin } from "@/lib/supabase";
 import jwt from "jsonwebtoken";
 
 export async function PUT(request: NextRequest) {
@@ -23,7 +23,13 @@ export async function PUT(request: NextRequest) {
     }
 
     // Get the current order to check previous status
-    const { data: currentOrder } = await supabase
+    const client = supabaseAdmin || supabase
+
+    if (!supabaseAdmin) {
+      console.warn("Warning: SUPABASE_SERVICE_ROLE_KEY not set, using anon key. RLS policies may block order updates.")
+    }
+
+    const { data: currentOrder } = await client
       .from("orders")
       .select("*")
       .eq("order_id", orderId)
@@ -39,7 +45,7 @@ export async function PUT(request: NextRequest) {
     // For now, we'll skip balance updates as it's not in the core schema
 
     // Update the order status
-    const { data: updatedOrder, error } = await supabase
+    const { data: updatedOrder, error } = await client
       .from("orders")
       .update({ status: status })
       .eq("order_id", orderId)

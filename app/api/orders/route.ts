@@ -27,6 +27,13 @@ export async function GET(request: NextRequest) {
   console.log("🔍 [API] GET /api/orders - Request received")
 
   try {
+    const { searchParams } = new URL(request.url)
+    const hasLimitParam = searchParams.has("limit")
+    const hasPageParam = searchParams.has("page")
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") || "50", 10), 1), 200)
+    const page = Math.max(parseInt(searchParams.get("page") || "1", 10), 1)
+    const skip = (page - 1) * limit
+
     const token = request.headers.get("authorization")?.replace("Bearer ", "")
     console.log("🔐 [API] Token present:", !!token)
 
@@ -56,6 +63,12 @@ export async function GET(request: NextRequest) {
       .select("*")
       .order("created_at", { ascending: false })
 
+    if (hasPageParam) {
+      query = query.range(skip, skip + limit - 1)
+    } else if (hasLimitParam) {
+      query = query.limit(limit)
+    }
+
     // If user role, only show their orders
     if (decoded.role === "user") {
       query = query.eq("user_id", decoded.userId)
@@ -65,6 +78,23 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: orders, error } = await query
+
+    let totalCount: number | undefined
+    let totalPages: number | undefined
+
+    if (hasPageParam) {
+      let countQuery = client
+        .from("orders")
+        .select("id", { count: "estimated", head: true })
+
+      if (decoded.role === "user") {
+        countQuery = countQuery.eq("user_id", decoded.userId)
+      }
+
+      const { count } = await countQuery
+      totalCount = count || 0
+      totalPages = Math.max(Math.ceil((totalCount || 0) / limit), 1)
+    }
 
     if (error) {
       console.error("Error fetching orders:", error)
@@ -99,6 +129,21 @@ export async function GET(request: NextRequest) {
       createdAt: order.created_at ? new Date(order.created_at) : new Date(),
       updatedAt: order.updated_at ? new Date(order.updated_at) : new Date(),
     }))
+
+    if (hasPageParam) {
+      const safeTotalCount = typeof totalCount === "number" && !Number.isNaN(totalCount) ? totalCount : transformedOrders.length
+      const safeTotalPages = typeof totalPages === "number" && !Number.isNaN(totalPages) ? totalPages : 1
+
+      const headers = {
+        "X-Total-Count": String(safeTotalCount),
+        "X-Page": String(page),
+        "X-Limit": String(limit),
+        "X-Total-Pages": String(safeTotalPages),
+        "Cache-Control": "no-store",
+      }
+
+      return NextResponse.json(transformedOrders, { status: 200, headers })
+    }
 
     return NextResponse.json(transformedOrders)
   } catch (error) {

@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Plus, Trash2, Upload, X, Save } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { uploadImage } from "@/lib/supabase-storage"
 
 interface ProductSize {
   size: string
@@ -54,60 +55,39 @@ export default function AddProductPage() {
   }, [authState, router])
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0) return
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    // Detect mobile device for more aggressive compression
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
-    
-    const compressImage = (file: File, maxWidth = isMobile ? 800 : 1080, maxHeight = isMobile ? 800 : 1080, quality = isMobile ? 0.6 : 0.7): Promise<string> => {
-      return new Promise((resolve, reject) => {
-        const img = new Image()
-        const reader = new FileReader()
-        reader.onload = () => {
-          img.onload = () => {
-            const canvas = document.createElement("canvas")
-            let width = img.width
-            let height = img.height
-
-            if (width > maxWidth || height > maxHeight) {
-              const ratio = Math.min(maxWidth / width, maxHeight / height)
-              width = Math.round(width * ratio)
-              height = Math.round(height * ratio)
-            }
-
-            canvas.width = width
-            canvas.height = height
-            const ctx = canvas.getContext("2d")
-            if (!ctx) return reject(new Error("Canvas not supported"))
-            ctx.drawImage(img, 0, 0, width, height)
-            const dataUrl = canvas.toDataURL("image/jpeg", quality)
-            resolve(dataUrl)
-          }
-          img.onerror = reject
-          img.src = reader.result as string
-        }
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      })
-    }
+    setLoading(true);
+    setError('');
 
     try {
-      const images: string[] = []
-      for (const file of Array.from(files)) {
-        // Basic guard against non-images
-        if (!file.type.startsWith("image/")) continue
-        const compressed = await compressImage(file)
-        images.push(compressed)
-      }
-      if (images.length > 0) {
-        setUploadedImages((prev) => [...prev, ...images])
-      }
+      const imagePromises = Array.from(files).map(file => {
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = async () => {
+            try {
+              const base64 = reader.result as string;
+              const imageUrl = await uploadImage(base64, 'products');
+              resolve(imageUrl);
+            } catch (uploadError) {
+              reject(uploadError);
+            }
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const imageUrls = await Promise.all(imagePromises);
+      setUploadedImages(prev => [...prev, ...imageUrls]);
     } catch (err) {
-      console.error("Image compression failed", err)
-      setError("Failed to process images. Please try different files.")
+      console.error('Image upload failed', err);
+      setError('Failed to upload images. Please try again.');
+    } finally {
+      setLoading(false);
     }
-  }
+  };
 
   const removeImage = (index: number) => {
     setUploadedImages(prev => prev.filter((_, i) => i !== index))
@@ -119,25 +99,6 @@ export default function AddProductPage() {
     setLoading(true)
 
     try {
-      // Calculate actual size of the images data
-      const calculateImagesSize = (images: string[]) => {
-        // Remove data URL prefix to get just the base64 data
-        const base64Data = images.map(img => img.split(',')[1] || '').join('')
-        // Calculate size in bytes (each base64 character represents 6 bits)
-        return base64Data.length * 0.75
-      }
-
-      // Block submission if payload is too large (mobile: 6MB, desktop: 12MB)
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768
-      const maxSize = isMobile ? 6 * 1024 * 1024 : 12 * 1024 * 1024 // Increased limits slightly
-      
-      const imagesSize = uploadedImages.length > 0 ? calculateImagesSize(uploadedImages) : 0
-      
-      if (imagesSize > maxSize) {
-        setLoading(false)
-        setError(`Images are too large. Please reduce the number of images or use smaller files. (${(imagesSize / 1024 / 1024).toFixed(2)}MB / ${maxSize / 1024 / 1024}MB)`)
-        return
-      }
       const product: any = {
         name: formData.name,
         description: formData.description,

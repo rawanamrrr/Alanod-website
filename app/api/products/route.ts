@@ -227,17 +227,15 @@ export async function GET(request: NextRequest) {
     
     // Check if user is admin (for includeInactive parameter and cache bypass)
     let isAdmin = false
-    if (includeInactive) {
-      const token = request.headers.get("authorization")?.replace("Bearer ", "")
-      if (token) {
-        try {
-          const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
-          isAdmin = decoded.role === "admin"
-          console.log(`🔐 [API] Admin check: includeInactive=${includeInactive}, isAdmin=${isAdmin}`)
-        } catch (e) {
-          console.log(`⚠️ [API] Admin check failed:`, e)
-          // Not a valid token, ignore
-        }
+    const token = request.headers.get("authorization")?.replace("Bearer ", "")
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any
+        isAdmin = decoded.role === "admin"
+        console.log(`🔐 [API] Admin check: isAdmin=${isAdmin}`)
+      } catch (e) {
+        console.log(`⚠️ [API] Token verification failed:`, e)
+        // Not a valid token, ignore
       }
     }
     
@@ -262,7 +260,7 @@ export async function GET(request: NextRequest) {
     // Single product request
     if (id) {
       // Use admin client if including inactive products (for admin dashboard)
-      const client = (includeInactive && isAdmin) ? (supabaseAdmin || supabase) : supabase
+      const client = isAdmin ? (supabaseAdmin || supabase) : supabase
       
       let query = client
         .from("products")
@@ -407,7 +405,7 @@ export async function GET(request: NextRequest) {
 
       console.log(`⏱️ [API] Request completed in ${Date.now() - startTime}ms (all=${productsForList.length}, includeInactive=${includeInactive}, isAdmin=${isAdmin})`)
       if (includeInactive && isAdmin) {
-        console.log(`📊 [API] Admin analytics - Total: ${productsForList.length}, Active: ${productsForList.filter(p => p.isActive).length}, New: ${productsForList.filter(p => p.isNew).length}, Bestsellers: ${productsForList.filter(p => p.isBestseller).length}, OutOfStock: ${productsForList.filter(p => p.isOutOfStock).length}`)
+        console.log(`📊 [API] Admin analytics - Total: ${productsForList.length}, Active: ${productsForList.filter((p: ApiProduct) => p.isActive).length}, New: ${productsForList.filter((p: ApiProduct) => p.isNew).length}, Bestsellers: ${productsForList.filter((p: ApiProduct) => p.isBestseller).length}, OutOfStock: ${productsForList.filter((p: ApiProduct) => p.isOutOfStock).length}`)
       }
       const headers = {
         "Content-Type": "application/json",
@@ -528,7 +526,8 @@ export async function POST(request: NextRequest) {
         category: productData.category,
         is_new: productData.isNew ?? false,
         is_bestseller: productData.isBestseller ?? false,
-        is_out_of_stock: productData.isOutOfStock !== undefined ? productData.isOutOfStock : isOutOfStock,
+        // For regular products, always derive out-of-stock from size stock counts
+        is_out_of_stock: isOutOfStock,
         is_active: productData.isActive ?? true,
         is_gift_package: false,
         price: productData.sizes && productData.sizes.length > 0 
@@ -670,7 +669,8 @@ export async function PUT(request: NextRequest) {
         is_active: productData.isActive,
         is_new: productData.isNew,
         is_bestseller: productData.isBestseller,
-        is_out_of_stock: productData.isOutOfStock !== undefined ? productData.isOutOfStock : isOutOfStock,
+        // For regular products, always derive out-of-stock from size stock counts
+        is_out_of_stock: isOutOfStock,
         is_gift_package: false,
         price: productData.sizes && productData.sizes.length > 0
           ? Math.min(...productData.sizes.map((size: any) => 
