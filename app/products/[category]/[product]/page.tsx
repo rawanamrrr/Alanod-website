@@ -412,21 +412,20 @@ export default function ProductDetailPage() {
         volume: size.volume,
         image: product.images[0],
         category: product.category,
-        quantity: quantity
+        quantity: quantity,
       },
     })
-    setShowSizeSelector(false)
   }
 
   const fetchRelatedProducts = async () => {
     try {
       // Fetch products from the same category, excluding the current product
-      const response = await fetch(`/api/products?category=${category}&limit=4`)
+      const response = await fetch(`/api/products?category=${category}&page=1&limit=4`)
       if (response.ok) {
         const data = await response.json()
         const filteredProducts = data
           .filter((p: ProductDetail) => p.id !== productId && p.isActive !== false)
-          .sort((a: ProductDetail, b: ProductDetail) => b.rating - a.rating) // Sort by rating (highest first)
+          .sort((a: ProductDetail, b: ProductDetail) => b.rating - a.rating)
         setRelatedProducts(filteredProducts)
       }
     } catch (error) {
