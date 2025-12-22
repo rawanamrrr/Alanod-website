@@ -1822,7 +1822,7 @@ export default function AdminDashboard() {
                             id="description"
                             value={offerForm.description}
                             onChange={(e) => setOfferForm({ ...offerForm, description: e.target.value })}
-                            placeholder="Get 20% off on all fragrances this weekend only!"
+                            placeholder="Get 20% off on all products this weekend only!"
                             rows={3}
                             required
                             className="mt-1"

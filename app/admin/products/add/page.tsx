@@ -231,7 +231,7 @@ export default function AddProductPage() {
               Back to Dashboard
             </Link>
             <h1 className="text-3xl font-light tracking-wider mb-2">Add New Product</h1>
-            <p className="text-gray-600">Create a new fragrance for your catalog</p>
+            <p className="text-gray-600">Create a new product for your catalog</p>
           </motion.div>
 
           <div className="max-w-4xl mx-auto">
@@ -317,7 +317,7 @@ export default function AddProductPage() {
                           id="name"
                           value={formData.name}
                           onChange={(e) => handleChange("name", e.target.value)}
-                          placeholder="e.g., Midnight Essence"
+                          placeholder="e.g., Product Name"
                           required
                         />
                       </div>
