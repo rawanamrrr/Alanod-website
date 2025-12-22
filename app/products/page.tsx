@@ -219,26 +219,26 @@ export default function ProductsPage() {
   type ProductSection = "winter" | "summer" | "fall"
 
   const fetchProducts = async () => {
-  try {
-    // إذا الكود شغال على client استخدم relative URL
-    const baseUrl = typeof window !== "undefined"
-      ? ""
-      : process.env.NEXT_PUBLIC_BASE_URL;
+    try {
+      // إذا الكود شغال على client استخدم relative URL
+      const baseUrl = typeof window !== "undefined"
+        ? ""
+        : process.env.NEXT_PUBLIC_BASE_URL;
 
-    const response = await fetch(`${baseUrl}/api/products?limit=20`);
+      const response = await fetch(`${baseUrl}/api/products?page=1&limit=20`);
 
-    if (response.ok) {
-      const data = await response.json();
-      setProducts(data);
-    } else {
-      console.error("Error fetching products:", response.statusText);
+      if (response.ok) {
+        const data = await response.json();
+        setProducts(data);
+      } else {
+        console.error("Error fetching products:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error("Error fetching products:", error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 useEffect(() => {
   fetchProducts();
@@ -612,24 +612,6 @@ useEffect(() => {
       setSelectedIndexOutlet(emblaApiOutlet.selectedScrollSnap())
     })
   }, [emblaApiOutlet])
-
-  if (loading || favoritesLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-        <Navigation />
-        <div className="pt-28 md:pt-24 flex items-center justify-center">
-          <div className="text-center">
-            <motion.div 
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-              className="h-12 w-12 border-t-2 border-b-2 border-purple-500 rounded-full mx-auto mb-4"
-            />
-            <p className="text-gray-600">Loading products...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">

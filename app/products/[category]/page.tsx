@@ -62,6 +62,8 @@ const categoryDescriptions = {
   fall: "Rich textures and warm tones for autumn gatherings.",
 }
 
+const CATEGORY_PAGE_SIZE = 12
+
 export default function CategoryPage() {
   const { category } = useParams() as { category: string }
   const [products, setProducts] = useState<Product[]>([])
@@ -74,7 +76,10 @@ export default function CategoryPage() {
   const [showSizeSelector, setShowSizeSelector] = useState(false)
   const [showGiftPackageSelector, setShowGiftPackageSelector] = useState(false)
   const [showCustomSizeConfirmation, setShowCustomSizeConfirmation] = useState(false)
-  
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+
   const {
     isCustomSizeMode,
     setIsCustomSizeMode,
@@ -87,7 +92,7 @@ export default function CategoryPage() {
     resetMeasurements,
     isMeasurementsValid,
   } = useCustomSize()
-  
+
   const sizeChart: SizeChartRow[] = [
     {
       label: "XL",
@@ -155,11 +160,11 @@ export default function CategoryPage() {
       sleeveCm: "53",
     },
   ]
-  
+
   // Function to calculate the smallest price from all sizes
   const getSmallestPrice = (sizes: ProductSize[]) => {
     if (!sizes || sizes.length === 0) return 0
-    
+
     const prices = sizes.map(size => size.discountedPrice || size.originalPrice || 0)
     return Math.min(...prices.filter(price => price > 0))
   }
@@ -167,7 +172,7 @@ export default function CategoryPage() {
   // Function to calculate the smallest original price from all sizes
   const getSmallestOriginalPrice = (sizes: ProductSize[]) => {
     if (!sizes || sizes.length === 0) return 0
-    
+
     const prices = sizes.map(size => size.originalPrice || 0)
     return Math.min(...prices.filter(price => price > 0))
   }
@@ -180,7 +185,8 @@ export default function CategoryPage() {
 
   useEffect(() => {
     if (category) {
-      fetchProducts()
+      setPage(1)
+      fetchProducts(1)
     }
   }, [category])
 
@@ -202,12 +208,22 @@ export default function CategoryPage() {
     }
   }, [showSizeSelector, showGiftPackageSelector, showCustomSizeConfirmation])
 
-  const fetchProducts = async () => {
+  const fetchProducts = async (pageToLoad: number) => {
     try {
-      const response = await fetch(`/api/products?category=${category}&limit=40`)
+      setLoading(true)
+      const response = await fetch(`/api/products?category=${category}&page=${pageToLoad}&limit=${CATEGORY_PAGE_SIZE}`)
+
       if (response.ok) {
         const data = await response.json()
+        const totalCountHeader = response.headers.get("x-total-count")
+        const totalPagesHeader = response.headers.get("x-total-pages")
+
+        const total = totalCountHeader ? parseInt(totalCountHeader, 10) : data.length
+        const pages = totalPagesHeader ? parseInt(totalPagesHeader, 10) : 1
+
         setProducts(data)
+        setTotalCount(Number.isNaN(total) ? data.length : total)
+        setTotalPages(Number.isNaN(pages) ? 1 : pages)
       }
     } catch (error) {
       console.error("Error fetching products:", error)
@@ -241,7 +257,7 @@ export default function CategoryPage() {
     if (!selectedProduct) return
     if (!isCustomSizeMode && !selectedSize) return
     if (isCustomSizeMode && !isMeasurementsValid) return
-    
+
     // Check stock for standard sizes
     if (!isCustomSizeMode && selectedSize) {
       if (selectedSize.stockCount !== undefined && selectedSize.stockCount < quantity) {
@@ -253,7 +269,7 @@ export default function CategoryPage() {
         return
       }
     }
-    
+
     let firstSize: ProductSize | null = null
     if (selectedProduct.sizes && selectedProduct.sizes.length > 0) {
       firstSize = selectedProduct.sizes[0]
@@ -290,7 +306,7 @@ export default function CategoryPage() {
           : undefined,
       }
     })
-    
+
     closeSizeSelector()
   }
 
@@ -357,28 +373,14 @@ export default function CategoryPage() {
     return (
       <div className="min-h-screen bg-white">
         <Navigation />
-              <div className="pt-28 md:pt-24 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-medium mb-4">Category not found</h1>
-          <Link href="/products">
-            <Button className="bg-black text-white hover:bg-gray-800">
-              Back to Collections
-            </Button>
-          </Link>
-        </div>
-      </div>
-      </div>
-    )
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white">
-        <Navigation />
         <div className="pt-28 md:pt-24 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading products...</p>
+            <h1 className="text-2xl font-medium mb-4">Category not found</h1>
+            <Link href="/products">
+              <Button className="bg-black text-white hover:bg-gray-800">
+                Back to Collections
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
@@ -736,197 +738,232 @@ export default function CategoryPage() {
               </Link>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {filteredProducts.map((product, index) => {
-                return (
-                  <motion.div
-                    key={product._id}
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.8, delay: index * 0.1 }}
-                    viewport={{ once: true }}
-                    whileHover={{ y: -10 }}
-                    className="relative h-full"
-                  >
-                    <div className="group relative h-full">
-                      {/* Favorite Button */}
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (isFavorite(product.id)) {
-                            removeFromFavorites(product.id)
-                          } else {
-                            // For gift packages, use package price; for regular products, use smallest size price
-                            const price = product.isGiftPackage && product.packagePrice 
-                              ? product.packagePrice 
-                              : getSmallestPrice(product.sizes);
-                              
-                            addToFavorites({
-                              id: product.id,
-                              name: product.name,
-                              price: price,
-                              image: product.images[0],
-                              category: product.category,
-                              rating: product.rating,
-                              isNew: product.isNew,
-                              isBestseller: product.isBestseller,
-                              sizes: product.sizes,
-                              // Add gift package fields
-                              isGiftPackage: product.isGiftPackage,
-                              packagePrice: product.packagePrice,
-                              packageOriginalPrice: product.packageOriginalPrice,
-                              giftPackageSizes: product.giftPackageSizes,
-                            })
-                          }
-                        }}
-                        className="absolute top-4 right-6 z-10 p-2.5 bg-white/95 backdrop-blur-sm rounded-full shadow-lg hover:shadow-xl hover:bg-white transition-all duration-300"
-                        aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
-                      >
-                        <Heart 
-                          className={`h-5 w-5 ${
-                            isFavorite(product.id) 
-                              ? "text-red-500 fill-red-500" 
-                              : "text-gray-700"
-                          }`} 
-                        />
-                      </motion.button>
-                      
-                      {/* Badges */}
-                      <div className="absolute top-4 left-4 z-10 space-y-2">
-                        {product.isOutOfStock && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            whileInView={{ scale: 1 }}
-                            transition={{ duration: 0.5, delay: index * 0.1 + 0.3 }}
-                            viewport={{ once: true }}
-                          >
-                            <Badge className="bg-red-600 text-white">Out of Stock</Badge>
-                          </motion.div>
-                        )}
-                        {product.isBestseller && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            whileInView={{ scale: 1 }}
-                            transition={{ duration: 0.5, delay: index * 0.1 + 0.3 }}
-                            viewport={{ once: true }}
-                          >
-                            <Badge className="bg-black text-white">Bestseller</Badge>
-                          </motion.div>
-                        )}
-                        {product.isNew && !product.isBestseller && (
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            whileInView={{ scale: 1 }}
-                            transition={{ duration: 0.5, delay: index * 0.1 + 0.3 }}
-                            viewport={{ once: true }}
-                          >
-                            <Badge variant="secondary">New</Badge>
-                          </motion.div>
-                        )}
-                      </div>
-                      
-                      {/* Product Card */}
-                      <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
-                        <CardContent className="p-0 h-full flex flex-col">
-                          <Link href={`/products/${category}/${product.id}`} className="block relative aspect-square flex-grow">
-                            <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
-                              <Image
-                                src={product.images[0] || "/placeholder.svg"}
-                                alt={product.name}
-                                fill
-                                className="object-cover"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                            </div>
-                            <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
-                              <div className="flex items-center mb-1">
-                                <div className="flex items-center">
-                                  {[...Array(5)].map((_, i) => (
-                                    <Star
-                                      key={i}
-                                      className={`h-4 w-4 ${
-                                        i < Math.floor(product.rating) 
-                                          ? "fill-yellow-400 text-yellow-400" 
-                                          : "text-gray-300"
-                                      }`}
-                                    />
-                                  ))}
-                                </div>
-                                <span className="text-xs ml-2">
-                                  ({product.rating.toFixed(1)})
-                                </span>
+            <>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                {filteredProducts.map((product, index) => {
+                  return (
+                    <motion.div
+                      key={product._id}
+                      initial={{ opacity: 0, y: 30 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.8, delay: index * 0.1 }}
+                      viewport={{ once: true }}
+                      whileHover={{ y: -10 }}
+                      className="relative h-full"
+                    >
+                      <div className="group relative h-full">
+                        {/* Favorite Button */}
+                        <motion.button
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (isFavorite(product.id)) {
+                              removeFromFavorites(product.id)
+                            } else {
+                              // For gift packages, use package price; for regular products, use smallest size price
+                              const price = product.isGiftPackage && product.packagePrice 
+                                ? product.packagePrice 
+                                : getSmallestPrice(product.sizes);
+                                
+                              addToFavorites({
+                                id: product.id,
+                                name: product.name,
+                                price: price,
+                                image: product.images[0],
+                                category: product.category,
+                                rating: product.rating,
+                                isNew: product.isNew,
+                                isBestseller: product.isBestseller,
+                                sizes: product.sizes,
+                                // Add gift package fields
+                                isGiftPackage: product.isGiftPackage,
+                                packagePrice: product.packagePrice,
+                                packageOriginalPrice: product.packageOriginalPrice,
+                                giftPackageSizes: product.giftPackageSizes,
+                              })
+                            }
+                          }}
+                          className="absolute top-4 right-6 z-10 p-2.5 bg-white/95 backdrop-blur-sm rounded-full shadow-lg hover:shadow-xl hover:bg-white transition-all duration-300"
+                          aria-label={isFavorite(product.id) ? "Remove from favorites" : "Add to favorites"}
+                        >
+                          <Heart 
+                            className={`h-5 w-5 ${
+                              isFavorite(product.id) 
+                                ? "text-red-500 fill-red-500" 
+                                : "text-gray-700"
+                            }`} 
+                          />
+                        </motion.button>
+                        
+                        {/* Badges */}
+                        <div className="absolute top-4 left-4 z-10 space-y-2">
+                          {product.isOutOfStock && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              whileInView={{ scale: 1 }}
+                              transition={{ duration: 0.5, delay: index * 0.1 + 0.3 }}
+                              viewport={{ once: true }}
+                            >
+                              <Badge className="bg-red-600 text-white">Out of Stock</Badge>
+                            </motion.div>
+                          )}
+                          {product.isBestseller && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              whileInView={{ scale: 1 }}
+                              transition={{ duration: 0.5, delay: index * 0.1 + 0.3 }}
+                              viewport={{ once: true }}
+                            >
+                              <Badge className="bg-black text-white">Bestseller</Badge>
+                            </motion.div>
+                          )}
+                          {product.isNew && !product.isBestseller && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              whileInView={{ scale: 1 }}
+                              transition={{ duration: 0.5, delay: index * 0.1 + 0.3 }}
+                              viewport={{ once: true }}
+                            >
+                              <Badge variant="secondary">New</Badge>
+                            </motion.div>
+                          )}
+                        </div>
+                        
+                        {/* Product Card */}
+                        <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
+                          <CardContent className="p-0 h-full flex flex-col">
+                            <Link href={`/products/${category}/${product.id}`} className="block relative aspect-square flex-grow">
+                              <div className="relative w-full h-full group-hover:scale-105 transition-transform duration-500">
+                                <Image
+                                  src={product.images[0] || "/placeholder.svg"}
+                                  alt={product.name}
+                                  fill
+                                  className="object-cover"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
                               </div>
+                              <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                                <div className="flex items-center mb-1">
+                                  <div className="flex items-center">
+                                    {[...Array(5)].map((_, i) => (
+                                      <Star
+                                        key={i}
+                                        className={`h-4 w-4 ${
+                                          i < Math.floor(product.rating) 
+                                            ? "fill-yellow-400 text-yellow-400" 
+                                            : "text-gray-300"
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                  <span className="text-xs ml-2">
+                                    ({product.rating.toFixed(1)})
+                                  </span>
+                                </div>
 
-                              <h3 className="text-lg font-medium mb-1">
-                                {product.name}
-                              </h3>
-                              
-                              <div className="flex items-end justify-between gap-2">
-                                <div className="text-lg font-light flex-1 min-w-0">
+                                <h3 className="text-lg font-medium mb-1">
+                                  {product.name}
+                                </h3>
+                                
+                                <div className="flex items-end justify-between gap-2">
+                                  <div className="text-lg font-light flex-1 min-w-0">
 
-                                  {(() => {
-                                    // Handle gift packages
-                                    if (product.isGiftPackage) {
-                                      const packagePrice = product.packagePrice || 0;
-                                      const packageOriginalPrice = product.packageOriginalPrice || 0;
+                                    {(() => {
+                                      // Handle gift packages
+                                      if (product.isGiftPackage) {
+                                        const packagePrice = product.packagePrice || 0;
+                                        const packageOriginalPrice = product.packageOriginalPrice || 0;
+                                        
+                                        if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
+                                          return (
+                                            <>
+                                              <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(packageOriginalPrice)}</span>
+                                              <span className="text-red-500 font-bold">{formatPrice(packagePrice)}</span>
+                                            </>
+                                          );
+                                        } else {
+                                          return <>{formatPrice(packagePrice)}</>;
+                                        }
+                                      }
                                       
-                                      if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
+                                      // Handle regular products
+                                      const smallestPrice = getSmallestPrice(product.sizes);
+                                      const smallestOriginalPrice = getSmallestOriginalPrice(product.sizes);
+                                      
+                                      if (smallestOriginalPrice > 0 && smallestPrice < smallestOriginalPrice) {
                                         return (
                                           <>
-                                            <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(packageOriginalPrice)}</span>
-                                            <span className="text-red-500 font-bold">{formatPrice(packagePrice)}</span>
+                                            <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(smallestOriginalPrice)}</span>
+                                            <span className="text-red-500 font-bold">{formatPrice(smallestPrice)}</span>
                                           </>
                                         );
                                       } else {
-                                        return <>{formatPrice(packagePrice)}</>;
+                                        return <>{formatPrice(smallestPrice)}</>;
                                       }
-                                    }
-                                    
-                                    // Handle regular products
-                                    const smallestPrice = getSmallestPrice(product.sizes);
-                                    const smallestOriginalPrice = getSmallestOriginalPrice(product.sizes);
-                                    
-                                    if (smallestOriginalPrice > 0 && smallestPrice < smallestOriginalPrice) {
-                                      return (
-                                        <>
-                                          <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(smallestOriginalPrice)}</span>
-                                          <span className="text-red-500 font-bold">{formatPrice(smallestPrice)}</span>
-                                        </>
-                                      );
-                                    } else {
-                                      return <>{formatPrice(smallestPrice)}</>;
-                                    }
-                                  })()}
+                                    })()}
+                                  </div>
+                                  
+                                  <button 
+                                    className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors flex-shrink-0"
+                                    onClick={(e) => {
+                                      e.preventDefault()
+                                      e.stopPropagation()
+                                      if (product.isGiftPackage) {
+                                        setSelectedProduct(product)
+                                        setShowGiftPackageSelector(true)
+                                      } else {
+                                        openSizeSelector(product)
+                                      }
+                                    }}
+                                    aria-label="Add to cart"
+                                  >
+                                    <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
+                                  </button>
                                 </div>
-                                
-                                <button 
-                                  className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors flex-shrink-0"
-                                  onClick={(e) => {
-                                    e.preventDefault()
-                                    e.stopPropagation()
-                                    if (product.isGiftPackage) {
-                                      setSelectedProduct(product)
-                                      setShowGiftPackageSelector(true)
-                                    } else {
-                                      openSizeSelector(product)
-                                    }
-                                  }}
-                                  aria-label="Add to cart"
-                                >
-                                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
-                                </button>
                               </div>
-                            </div>
-                          </Link>
-                        </CardContent>
-                      </Card>
-                    </div>
-                  </motion.div>
-                )
-              })}
-            </div>
+                            </Link>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+              <div className="flex items-center justify-between mt-8">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page === 1}
+                  onClick={() => {
+                    const targetPage = Math.max(page - 1, 1)
+                    if (targetPage !== page) {
+                      setPage(targetPage)
+                      fetchProducts(targetPage)
+                    }
+                  }}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-gray-600">
+                  Page {page} of {totalPages}  Showing {filteredProducts.length} of {totalCount} products
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={page >= totalPages}
+                  onClick={() => {
+                    const targetPage = Math.min(page + 1, totalPages)
+                    if (targetPage !== page) {
+                      setPage(targetPage)
+                      fetchProducts(targetPage)
+                    }
+                  }}
+                >
+                  Next
+                </Button>
+              </div>
+            </>
           )}
         </div>
       </section>

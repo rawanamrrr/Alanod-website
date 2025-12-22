@@ -162,7 +162,7 @@ export default function HomePage() {
   useEffect(() => {
     const fetchAllProducts = async () => {
       try {
-        const response = await fetch("/api/products?limit=40", {
+        const response = await fetch("/api/products?page=1&limit=12", {
           cache: "no-store",
         })
         if (response.ok) {
