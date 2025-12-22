@@ -420,7 +420,7 @@ export default function ProductDetailPage() {
   const fetchRelatedProducts = async () => {
     try {
       // Fetch products from the same category, excluding the current product
-      const response = await fetch(`/api/products?category=${category}&page=1&limit=4`)
+      const response = await fetch(`/api/products?category=${category}&limit=4`)
       if (response.ok) {
         const data = await response.json()
         const filteredProducts = data
@@ -515,30 +515,25 @@ export default function ProductDetailPage() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-white">
-        <Navigation />
-        <div className="pt-28 md:pt-24 flex items-center justify-center px-4">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
-            <p className="text-gray-600 text-sm sm:text-base">Loading products...</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
   if (!product) {
     return (
       <div className="min-h-screen bg-white">
         <Navigation />
         <div className="pt-28 md:pt-24 flex items-center justify-center px-4">
           <div className="text-center">
-            <h1 className="text-xl sm:text-2xl font-light mb-4">Product not found</h1>
-            <Link href="/products">
-              <Button className="bg-black text-white hover:bg-gray-800 text-sm sm:text-base px-4 py-2">Browse All Products</Button>
-            </Link>
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                <p className="text-gray-600 text-sm sm:text-base">Loading products...</p>
+              </>
+            ) : (
+              <>
+                <h1 className="text-xl sm:text-2xl font-light mb-4">Product not found</h1>
+                <Link href="/products">
+                  <Button className="bg-black text-white hover:bg-gray-800 text-sm sm:text-base px-4 py-2">Browse All Products</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -554,6 +549,7 @@ export default function ProductDetailPage() {
       {/* Product Detail */}
       <section className="pt-28 md:pt-24 pb-20 sm:pb-16">
         <div className="container mx-auto px-4 md:px-6">
+
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -570,6 +566,15 @@ export default function ProductDetailPage() {
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-12">
+            {loading && !product && (
+              <div className="col-span-full flex items-center justify-center py-16">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
+                  <p className="text-gray-600 text-sm sm:text-base">Loading product details...</p>
+                </div>
+              </div>
+            )}
+
             {/* Product Images */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
