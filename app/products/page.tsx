@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge"
 import { Star, ShoppingCart, X, Heart, Sparkles, RefreshCw, Package, Instagram, Facebook, AlertCircle, MessageCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
-import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
 import useEmblaCarousel from 'embla-carousel-react'
 import { useCurrencyFormatter } from "@/hooks/use-currency"
@@ -20,6 +19,7 @@ import type { SizeChartRow } from "@/components/custom-size-form"
 import { useLocale } from "@/lib/locale-context"
 import { useTranslation } from "@/lib/translations"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { openWhatsAppOrder } from "@/lib/whatsapp"
 
 const GiftPackageSelector = dynamic(
   () => import("@/components/gift-package-selector").then((m) => m.GiftPackageSelector),
@@ -207,7 +207,6 @@ export default function ProductsPage() {
   })
   const [selectedIndexOutlet, setSelectedIndexOutlet] = useState(0)
 
-  const { dispatch: cartDispatch } = useCart()
   const { 
     addToFavorites, 
     removeFromFavorites, 
@@ -301,7 +300,7 @@ useEffect(() => {
     }, 300)
   }
 
-  const addToCart = () => {
+  const buyNow = () => {
     if (!selectedProduct) return
     if (isCustomSizeMode && !isMeasurementsValid) return
     if (!isCustomSizeMode && !selectedSize) return
@@ -325,27 +324,26 @@ useEffect(() => {
       originalPrice: (selectedProduct.sizes?.[0] as ProductSize | undefined)?.originalPrice,
     }
 
-    cartDispatch({
-      type: "ADD_ITEM",
-      payload: {
-        id: `${selectedProduct.id}-${isCustomSizeMode ? "custom" : baseSize.size}`,
-        productId: selectedProduct.id,
+    openWhatsAppOrder({
+      phoneNumber: "+971502996885",
+      product: {
+        id: selectedProduct.id,
         name: selectedProduct.name,
+        category: selectedProduct.category,
         price: baseSize.discountedPrice || baseSize.originalPrice || selectedProduct.packagePrice || 0,
         originalPrice: baseSize.originalPrice,
-        size: isCustomSizeMode ? "custom" : baseSize.size,
-        volume: isCustomSizeMode ? measurementUnit : baseSize.volume,
-        image: selectedProduct.images[0],
-        category: selectedProduct.category,
-        stockCount: isCustomSizeMode ? undefined : baseSize.stockCount,
-        quantity,
-        customMeasurements: isCustomSizeMode
-          ? {
-              unit: measurementUnit,
-              values: measurements,
-            }
-          : undefined,
-      }
+        image: selectedProduct.images?.[0],
+      },
+      quantity,
+      size: isCustomSizeMode
+        ? { size: "custom", volume: measurementUnit }
+        : { size: baseSize.size, volume: baseSize.volume },
+      customMeasurements: isCustomSizeMode
+        ? {
+            unit: measurementUnit,
+            values: measurements,
+          }
+        : null,
     })
     
     closeSizeSelector()
@@ -434,7 +432,7 @@ useEffect(() => {
       [product, toggleFavorite]
     )
 
-    const handleAddToCartClick = useCallback(
+    const handleBuyNowClick = useCallback(
       (e: any) => {
         e.preventDefault()
         e.stopPropagation()
@@ -475,7 +473,7 @@ useEffect(() => {
         : "h-5 w-5"
 
     const addToCartAriaLabel =
-      layout === "desktop" && product.isGiftPackage ? "Customize Package" : "Add to cart"
+      layout === "desktop" && product.isGiftPackage ? "Customize Package" : "Buy Now"
 
     const imageSizes = "(max-width: 768px) 80vw, (max-width: 1200px) 33vw, 25vw"
 
@@ -549,16 +547,16 @@ useEffect(() => {
                 <div className={priceRowClassName}>
                   <div className={priceTextWrapperClassName}>
                     {hasDiscount ? (
-                      <>
-                        <span className="line-through text-gray-300 text-sm block">
-                          {formatPrice(priceData.original)}
-                        </span>
-                        <span className="text-lg font-light text-red-400">
+                      <div className="flex flex-col">
+                        <span className="text-lg font-bold text-white">
                           {formatPrice(priceData.price)}
                         </span>
-                      </>
+                        <span className="line-through text-gray-300 text-sm">
+                          {formatPrice(priceData.original)}
+                        </span>
+                      </div>
                     ) : (
-                      <span className="text-lg font-light">
+                      <span className="text-lg font-bold text-white">
                         {formatPrice(priceData.price)}
                       </span>
                     )}
@@ -566,7 +564,7 @@ useEffect(() => {
 
                   <button
                     className={addToCartButtonClassName}
-                    onClick={handleAddToCartClick}
+                    onClick={handleBuyNowClick}
                     aria-label={addToCartAriaLabel}
                   >
                     {layout === "desktop" && product.isGiftPackage ? (
@@ -809,7 +807,7 @@ useEffect(() => {
                   onClick={() => {
                     if (!selectedProduct || selectedProduct.isOutOfStock) return
                     if (!isCustomSizeMode) {
-                      addToCart()
+                      buyNow()
                       return
                     }
                     if (!isMeasurementsValid) {
@@ -827,10 +825,10 @@ useEffect(() => {
                     selectedProduct?.isOutOfStock ||
                         (isCustomSizeMode ? !isMeasurementsValid : !selectedSize)
                   }
-                  aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Add to cart"}
+                  aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Buy Now"}
                 >
                   <ShoppingCart className="h-4 w-4 mr-2" />
-                  {selectedProduct?.isOutOfStock ? t("outOfStock") : t("addToCart")}
+                  {selectedProduct?.isOutOfStock ? t("outOfStock") : "Buy Now"}
                 </Button>
               </div>
             </div>
@@ -869,12 +867,12 @@ useEffect(() => {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                addToCart()
+                buyNow()
                 setShowCustomSizeConfirmation(false)
               }}
               className="bg-black hover:bg-gray-800"
             >
-              {t("confirmAddToCart")}
+              Confirm & Buy Now
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

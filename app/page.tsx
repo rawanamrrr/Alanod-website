@@ -1,5 +1,6 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { useEffect, useState, useRef, useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -13,7 +14,6 @@ import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import { Badge } from "@/components/ui/badge"
 import { useFavorites } from "@/lib/favorites-context"
-import { useCart } from "@/lib/cart-context"
 import { StarRating } from "@/lib/star-rating"
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
@@ -21,6 +21,7 @@ import type { SizeChartRow } from "@/components/custom-size-form"
 import { useLocale } from "@/lib/locale-context"
 import { useTranslation } from "@/lib/translations"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { openWhatsAppOrder } from "@/lib/whatsapp"
 
 const GiftPackageSelector = dynamic(
   () => import("@/components/gift-package-selector").then((m) => m.GiftPackageSelector),
@@ -67,6 +68,7 @@ interface Product {
 }
 
 export default function HomePage() {
+  const router = useRouter()
   const { scrollYProgress } = useViewportScroll()
   const [scrollY, setScrollY] = useState(0)
   const { isScrolled, isLogoVisible } = useScroll()
@@ -74,8 +76,12 @@ export default function HomePage() {
   const [favorites, setFavorites] = useState<any[]>([])
   const [allProducts, setAllProducts] = useState<Product[]>([])
   const [loadingProducts, setLoadingProducts] = useState(true)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [prefetchedProducts, setPrefetchedProducts] = useState<Product[]>([])
+  const [isPrefetching, setIsPrefetching] = useState(false)
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites()
-  const { dispatch: cartDispatch } = useCart()
   const collectionsRef = useRef<HTMLElement>(null)
   const { formatPrice } = useCurrencyFormatter()
   const { settings } = useLocale()
@@ -159,26 +165,112 @@ export default function HomePage() {
     fetchFavorites()
   }, [])
 
-  useEffect(() => {
-    const fetchAllProducts = async () => {
-      try {
-        const response = await fetch("/api/products?page=1&limit=12", {
-          cache: "no-store",
-        })
-        if (response.ok) {
-          const data = await response.json()
-          // Filter active products and ensure they have valid data
-          const activeProducts = data.filter((p: Product) => p.isActive && p.images && p.images.length > 0)
+  const prefetchProductDetails = async (products: Product[]) => {
+    if (typeof window === "undefined" || !products.length) return
+
+    // Run prefetches in background with a slight delay to prioritize main content
+    setTimeout(() => {
+      products.forEach((product) => {
+        const url = `/api/products/${product.category}/${product.id}`
+        // Use a simple fetch with cache for the data
+        fetch(url, { cache: "force-cache" }).catch(() => {})
+        
+        // Use Next.js router to prefetch the page components
+        router.prefetch(`/products/${product.category}/${product.id}`)
+      })
+    }, 100)
+  }
+
+  const prefetchNextPage = async (nextPage: number) => {
+    if (isPrefetching || !hasMore) return
+    
+    try {
+      setIsPrefetching(true)
+      const response = await fetch(`/api/products?page=${nextPage}&limit=12`, {
+        cache: "force-cache",
+        next: { revalidate: 3600 }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const activeProducts = data.filter((p: Product) => p.isActive && p.images && p.images.length > 0)
+        setPrefetchedProducts(activeProducts)
+        // Also prefetch details for the products we just prefetched for the list
+        prefetchProductDetails(activeProducts)
+      }
+    } catch (error) {
+      console.error("Error prefetching products", error)
+    } finally {
+      setIsPrefetching(false)
+    }
+  }
+
+  const fetchAllProducts = async (pageNum: number, isLoadMore = false) => {
+    try {
+      if (isLoadMore) {
+        // If we have prefetched products, use them immediately
+        if (prefetchedProducts.length > 0) {
+          setAllProducts(prev => [...prev, ...prefetchedProducts])
+          const nextBatchHadFullCount = prefetchedProducts.length === 12
+          setPrefetchedProducts([]) // Clear prefetch buffer
+          
+          if (!nextBatchHadFullCount) {
+            setHasMore(false)
+          } else {
+            setHasMore(true)
+            // Immediately start prefetching the next batch after using the current one
+            prefetchNextPage(pageNum + 1)
+          }
+          return
+        }
+        setLoadingMore(true)
+      } else {
+        setLoadingProducts(true)
+      }
+
+      const response = await fetch(`/api/products?page=${pageNum}&limit=12`, {
+        cache: "force-cache",
+        next: { revalidate: 3600 }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        // Filter active products and ensure they have valid data
+        const activeProducts = data.filter((p: Product) => p.isActive && p.images && p.images.length > 0)
+        
+        if (isLoadMore) {
+          setAllProducts(prev => [...prev, ...activeProducts])
+        } else {
           setAllProducts(activeProducts)
         }
-      } catch (error) {
-        console.error("Error fetching products", error)
-      } finally {
-        setLoadingProducts(false)
+
+        // Prefetch details for the newly loaded products
+        prefetchProductDetails(activeProducts)
+
+        // If we got fewer than 12 products, there are no more to load
+        if (activeProducts.length < 12) {
+          setHasMore(false)
+        } else {
+          setHasMore(true)
+          // Start prefetching the NEXT page in the background
+          prefetchNextPage(pageNum + 1)
+        }
       }
+    } catch (error) {
+      console.error("Error fetching products", error)
+    } finally {
+      setLoadingProducts(false)
+      setLoadingMore(false)
     }
-    fetchAllProducts()
+  }
+
+  useEffect(() => {
+    fetchAllProducts(1)
   }, [])
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1
+    setPage(nextPage)
+    fetchAllProducts(nextPage, true)
+  }
 
   const openSizeSelector = (product: Product) => {
     // For gift packages, we don't need to set selectedSize since it's handled differently
@@ -208,7 +300,7 @@ export default function HomePage() {
     }, 300)
   }
 
-  const addToCart = () => {
+  const buyNow = () => {
     if (!selectedProduct) return
     if (!isCustomSizeMode && !selectedSize) return
     if (isCustomSizeMode && !isMeasurementsValid) return
@@ -239,27 +331,26 @@ export default function HomePage() {
 
     const computedPrice = baseSize.discountedPrice || baseSize.originalPrice || selectedProduct.packagePrice || 0
 
-    cartDispatch({
-      type: "ADD_ITEM",
-      payload: {
-        id: `${selectedProduct.id}-${isCustomSizeMode ? "custom" : baseSize.size}`,
-        productId: selectedProduct.id,
+    openWhatsAppOrder({
+      phoneNumber: "+971502996885",
+      product: {
+        id: selectedProduct.id,
         name: selectedProduct.name,
+        category: selectedProduct.category,
         price: computedPrice,
         originalPrice: baseSize.originalPrice,
-        size: isCustomSizeMode ? "custom" : baseSize.size,
-        volume: isCustomSizeMode ? measurementUnit : baseSize.volume,
-        image: selectedProduct.images[0],
-        category: selectedProduct.category,
-        quantity,
-        stockCount: isCustomSizeMode ? undefined : baseSize.stockCount,
-        customMeasurements: isCustomSizeMode
-          ? {
-              unit: measurementUnit,
-              values: measurements
-            }
-          : undefined
-      }
+        image: selectedProduct.images?.[0],
+      },
+      quantity,
+      size: isCustomSizeMode
+        ? { size: "custom", volume: measurementUnit }
+        : { size: baseSize.size, volume: baseSize.volume },
+      customMeasurements: isCustomSizeMode
+        ? {
+            unit: measurementUnit,
+            values: measurements,
+          }
+        : null,
     })
 
     closeSizeSelector()
@@ -618,7 +709,7 @@ export default function HomePage() {
                       onClick={() => {
                         if (!selectedProduct || selectedProduct.isOutOfStock) return
                         if (!isCustomSizeMode) {
-                          addToCart()
+                          buyNow()
                           return
                         }
                         if (!isMeasurementsValid) {
@@ -637,10 +728,10 @@ export default function HomePage() {
                         (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ||
                         (isCustomSizeMode ? !isMeasurementsValid : !selectedSize)
                       }
-                      aria-label={selectedProduct?.isOutOfStock ? t("outOfStock") : t("addToCart")}
+                      aria-label={selectedProduct?.isOutOfStock ? t("outOfStock") : "Buy Now"}
                     >
                       <ShoppingCart className="h-4 w-4 mr-2" />
-                      {selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ? t("outOfStock") : t("addToCart")}
+                      {selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ? t("outOfStock") : "Buy Now"}
                     </Button>
                   </div>
                 </div>
@@ -679,12 +770,12 @@ export default function HomePage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                addToCart()
+                buyNow()
                 setShowCustomSizeConfirmation(false)
               }}
               className="bg-black hover:bg-gray-800"
             >
-              Confirm & Add to Cart
+              Confirm & Buy Now
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -745,8 +836,8 @@ export default function HomePage() {
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
-        viewport={{ once: true, amount: 0.3 }}
-        className="py-20 bg-gradient-to-b from-gray-50 to-white overflow-hidden"
+        viewport={{ once: true }}
+        className="py-20 bg-gradient-to-b from-gray-50 to-white"
       >
         <div className="container mx-auto px-6">
           <motion.div
@@ -812,33 +903,21 @@ export default function HomePage() {
 
 
       {/* All Products Section - Display all products from products page */}
-      <motion.section 
-        initial={{ opacity: 0 }}
-        whileInView={{ opacity: 1 }}
-        transition={{ duration: 0.6 }}
-        viewport={{ once: true, amount: 0.3 }}
-        className="py-20 bg-white overflow-hidden"
+      <section 
+        className="py-20 bg-white"
       >
         <div className="container mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.15 }}
-            viewport={{ once: true }}
+          <div
             className="text-center mb-16"
           >
             <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-4 font-serif">{t("allProducts")}</h2>
-            <motion.div
-              initial={{ width: 0 }}
-              whileInView={{ width: "100px" }}
-              transition={{ duration: 0.3, delay: 0.2 }}
-              viewport={{ once: true }}
-              className="h-1 bg-gradient-to-r from-purple-400 to-pink-400 mx-auto my-6 rounded-full"
+            <div
+              className="h-1 bg-gradient-to-r from-purple-400 to-pink-400 mx-auto my-6 rounded-full w-[100px]"
             />
             <p className="text-gray-600 max-w-2xl mx-auto">
               {t("allProductsDesc")}
             </p>
-          </motion.div>
+          </div>
 
           {loadingProducts ? (
             <div className="text-center py-12">
@@ -850,7 +929,7 @@ export default function HomePage() {
               <p className="text-gray-600">{t("noProducts")}</p>
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-8">
               {allProducts.map((product, index) => (
                 <div
                   key={product.id}
@@ -858,17 +937,20 @@ export default function HomePage() {
                 >
                   <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
                     <CardContent className="p-0 h-full flex flex-col">
-                      <Link href={`/products/${product.category}/${product.id}`} className="block relative aspect-square flex-grow">
-                        <div className="relative w-full h-full">
-                          <Image
-                            src={product.images[0] || "/placeholder.svg"}
-                            alt={product.name}
-                            fill
-                            className="object-cover"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
-                        </div>
-                        <div className="absolute bottom-0 left-0 right-0 p-4 text-white">
+                      <div className="relative aspect-square flex-grow">
+                        <Link href={`/products/${product.category}/${product.id}`} className="block w-full h-full">
+                          <div className="relative w-full h-full">
+                            <Image
+                              src={product.images[0] || "/placeholder.svg"}
+                              alt={product.name}
+                              fill
+                              className="object-cover"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
+                          </div>
+                        </Link>
+                        
+                        <div className="absolute bottom-4 left-4 right-4 z-[10] pointer-events-none text-white">
                           <div className="flex items-center mb-1">
                             <div className="flex items-center">
                               {[...Array(5)].map((_, i) => (
@@ -886,11 +968,13 @@ export default function HomePage() {
                               ({product.rating.toFixed(1)})
                             </span>
                           </div>
+
                           <h3 className="text-lg font-medium mb-1">
                             {product.name}
                           </h3>
-                          <div className="flex items-center justify-between">
-                            <div className="text-lg font-light flex-1 min-w-0">
+
+                          <div className="flex items-center justify-between pointer-events-auto">
+                            <div className="text-lg font-bold flex-1 min-w-0">
                               {(() => {
                                 // Handle gift packages
                                 if (product.isGiftPackage) {
@@ -899,13 +983,13 @@ export default function HomePage() {
 
                                   if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
                                     return (
-                                      <>
-                                        <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(packageOriginalPrice)}</span>
-                                        <span className="text-red-500 font-bold">{formatPrice(packagePrice)}</span>
-                                      </>
+                                      <div className="flex flex-col">
+                                        <span className="text-white font-bold">{formatPrice(packagePrice)}</span>
+                                        <span className="line-through text-gray-300 text-sm">{formatPrice(packageOriginalPrice)}</span>
+                                      </div>
                                     );
                                   } else {
-                                    return <>{formatPrice(packagePrice)}</>;
+                                    return <span className="text-white font-bold">{formatPrice(packagePrice)}</span>;
                                   }
                                 }
 
@@ -915,13 +999,13 @@ export default function HomePage() {
 
                                 if (smallestOriginalPrice > 0 && smallestPrice < smallestOriginalPrice) {
                                   return (
-                                    <>
-                                      <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(smallestOriginalPrice)}</span>
-                                      <span className="text-red-500 font-bold">{formatPrice(smallestPrice)}</span>
-                                    </>
+                                    <div className="flex flex-col">
+                                      <span className="text-white font-bold">{formatPrice(smallestPrice)}</span>
+                                      <span className="line-through text-gray-300 text-sm">{formatPrice(smallestOriginalPrice)}</span>
+                                    </div>
                                   );
                                 } else {
-                                  return <>{formatPrice(smallestPrice)}</>;
+                                  return <span className="text-white font-bold">{formatPrice(smallestPrice)}</span>;
                                 }
                               })()}
                             </div>
@@ -932,29 +1016,61 @@ export default function HomePage() {
                                 e.stopPropagation()
                                 openSizeSelector(product)
                               }}
-                              aria-label="Add to cart"
+                              aria-label="Buy Now"
                             >
                               <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
                             </button>
                           </div>
                         </div>
-                      </Link>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
               ))}
             </div>
           )}
+
+          {hasMore && allProducts.length > 0 && (
+            <div className="mt-16 text-center">
+              <Button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="relative overflow-hidden group bg-white text-gray-900 border border-purple-200 hover:border-purple-400 rounded-full px-10 py-7 text-lg transition-all duration-500 shadow-sm hover:shadow-purple-100 hover:shadow-xl"
+              >
+                <span className="relative z-10 flex items-center gap-2 group-hover:text-white transition-colors duration-300">
+                  {loadingMore ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-purple-600 group-hover:border-white"></div>
+                      {t("loadingProducts")}
+                    </>
+                  ) : (
+                    <>
+                      {t("loadMore") || "Explore More Designs"}
+                      <span
+                        className="animate-bounce"
+                      >
+                        <ArrowRight className="h-5 w-5 rotate-90" />
+                      </span>
+                    </>
+                  )}
+                </span>
+                <span 
+                  className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-400"
+                  style={{ transform: 'translateX(-100%)' }}
+                />
+              </Button>
+            </div>
+          )}
         </div>
-      </motion.section>
+      </section>
 
       {/* About Preview Section */}
       <motion.section 
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
-        viewport={{ once: true, amount: 0.3 }}
-        className="py-20 bg-white overflow-hidden"
+        viewport={{ once: true }}
+        className="py-20 bg-white"
       >
         <div className="container mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-12 items-center">

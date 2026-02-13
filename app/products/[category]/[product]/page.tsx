@@ -16,7 +16,6 @@ import { ArrowLeft, Star, Heart, ShoppingCart, Truck, Shield, RotateCcw, Chevron
 import { useParams } from "next/navigation"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
-import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/lib/auth-context"
@@ -28,6 +27,7 @@ import { toast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/translations"
 import { useLocale } from "@/lib/locale-context"
 import type { SizeChartRow } from "@/components/custom-size-form"
+import { openWhatsAppOrder } from "@/lib/whatsapp"
 
 const GiftPackageSelector = dynamic(
   () => import("@/components/gift-package-selector").then((m) => m.GiftPackageSelector),
@@ -92,7 +92,6 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState<number>(0)
   const [selectedImage, setSelectedImage] = useState(0)
   const [quantity, setQuantity] = useState(1)
-  const { dispatch } = useCart()
   const { state: favoritesState, addToFavorites, removeFromFavorites } = useFavorites()
   const { formatPrice } = useCurrencyFormatter()
   const { settings } = useLocale()
@@ -287,8 +286,8 @@ export default function ProductDetailPage() {
     return selectedSizeObj?.discountedPrice || selectedSizeObj?.originalPrice || 0
   }
 
-  // Handle adding to cart with custom size support
-  const handleAddToCart = async () => {
+  // Buy now via WhatsApp with custom size support
+  const handleBuyNow = async () => {
     if (!product || product.isOutOfStock) return
     
     if (isCustomSizeMode) {
@@ -300,31 +299,29 @@ export default function ProductDetailPage() {
       // Get price from first available size
       const firstSize = product.sizes[0]
       const price = firstSize?.discountedPrice || firstSize?.originalPrice || 0
-      
-      dispatch({
-        type: "ADD_ITEM",
-        payload: {
-          id: `${product.id}-custom-${Date.now()}`,
-          productId: product.id,
+
+      openWhatsAppOrder({
+        phoneNumber: "+971502996885",
+        product: {
+          id: product.id,
           name: product.name,
-          price: price,
-          originalPrice: firstSize?.originalPrice,
-          size: "custom",
-          volume: measurementUnit,
-          image: product.images[0],
           category: product.category,
-          quantity: quantity,
-          customMeasurements: {
-            unit: measurementUnit,
-            values: {
-              shoulder: measurements.shoulder,
-              bust: measurements.bust,
-              waist: measurements.waist,
-              hips: measurements.hips,
-              sleeve: measurements.sleeve,
-              length: measurements.length,
-            }
-          }
+          price,
+          originalPrice: firstSize?.originalPrice,
+          image: product.images?.[0],
+        },
+        quantity,
+        size: { size: "custom", volume: measurementUnit },
+        customMeasurements: {
+          unit: measurementUnit,
+          values: {
+            shoulder: measurements.shoulder,
+            bust: measurements.bust,
+            waist: measurements.waist,
+            hips: measurements.hips,
+            sleeve: measurements.sleeve,
+            length: measurements.length,
+          },
         },
       })
       
@@ -346,21 +343,19 @@ export default function ProductDetailPage() {
         return
       }
       
-      dispatch({
-        type: "ADD_ITEM",
-        payload: {
-          id: `${product.id}-${selectedSizeObj.size}`,
-          productId: product.id,
+      openWhatsAppOrder({
+        phoneNumber: "+971502996885",
+        product: {
+          id: product.id,
           name: product.name,
+          category: product.category,
           price: getSelectedPrice(),
           originalPrice: selectedSizeObj.originalPrice,
-          size: selectedSizeObj.size,
-          volume: selectedSizeObj.volume,
-          image: product.images[0],
-          category: product.category,
-          quantity: quantity,
-          stockCount: selectedSizeObj.stockCount
+          image: product.images?.[0],
         },
+        quantity,
+        size: { size: selectedSizeObj.size, volume: selectedSizeObj.volume },
+        customMeasurements: null,
       })
     }
     
@@ -394,26 +389,25 @@ export default function ProductDetailPage() {
     return smallestSize
   }
 
-  const addToCartFromRelated = (product: any, size: any) => {
+  const buyNowFromRelated = (product: any, size: any) => {
     // Check if product is out of stock
     if (product.isOutOfStock) {
       return
     }
-    
-    dispatch({
-      type: "ADD_ITEM",
-      payload: {
-        id: `${product.id}-${size.size}`,
-        productId: product.id,
+
+    openWhatsAppOrder({
+      phoneNumber: "+971502996885",
+      product: {
+        id: product.id,
         name: product.name,
+        category: product.category,
         price: size.discountedPrice || size.originalPrice || 0,
         originalPrice: size.originalPrice,
-        size: size.size,
-        volume: size.volume,
-        image: product.images[0],
-        category: product.category,
-        quantity: quantity,
+        image: product.images?.[0],
       },
+      quantity,
+      size: { size: size.size, volume: size.volume },
+      customMeasurements: null,
     })
   }
 
@@ -1055,7 +1049,7 @@ export default function ProductDetailPage() {
                           })
                           return
                         }
-                        handleAddToCart()
+                        handleBuyNow()
                         return
                       }
                       // Custom size flow
@@ -1070,10 +1064,10 @@ export default function ProductDetailPage() {
                       setShowCustomSizeConfirmation(true)
                     }}
                     disabled={product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) || (isCustomSizeMode && !isMeasurementsValid)}
-                    aria-label={product.isOutOfStock ? "Out of stock" : "Add to cart"}
+                    aria-label={product.isOutOfStock ? "Out of stock" : "Buy Now"}
                   >
                     <ShoppingCart className="mr-1 h-4 w-4" />
-                    {product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) ? "Out of Stock" : "Add to Cart"}
+                    {product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) ? "Out of Stock" : "Buy Now"}
                   </motion.button>
                 </div>
               </div>
@@ -1204,7 +1198,7 @@ export default function ProductDetailPage() {
                         alert(`Size ${product.sizes[selectedSize].size} is out of stock`)
                         return
                       }
-                      handleAddToCart()
+                      handleBuyNow()
                       return
                     }
                     // Custom size flow
@@ -1215,10 +1209,10 @@ export default function ProductDetailPage() {
                     setShowCustomSizeConfirmation(true)
                   }}
                   disabled={product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) || (isCustomSizeMode && !isMeasurementsValid)}
-                  aria-label={product.isOutOfStock ? "Out of stock" : "Add to cart"}
+                  aria-label={product.isOutOfStock ? "Out of stock" : "Buy Now"}
                 >
                   <ShoppingCart className="mr-2 h-5 w-5" />
-                  {product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) ? "Out of Stock" : "Add to Cart"}
+                  {product.isOutOfStock || (!isCustomSizeMode && selectedSize >= 0 && product.sizes[selectedSize]?.stockCount !== undefined && product.sizes[selectedSize].stockCount === 0) ? "Out of Stock" : "Buy Now"}
                 </motion.button>
               </div>
             </div>
@@ -1490,7 +1484,7 @@ export default function ProductDetailPage() {
                                       openSizeSelector(relatedProduct)
                                       }
                                     }}
-                                    aria-label="Add to cart"
+                                    aria-label="Buy Now"
                                   >
                                     <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
                                   </button>
@@ -1746,7 +1740,7 @@ export default function ProductDetailPage() {
                       if (!selectedProduct || selectedProduct.isOutOfStock) return
                       if (!isCustomSizeMode) {
                         if (!selectedRelatedSize) return
-                        addToCartFromRelated(selectedProduct, selectedRelatedSize)
+                        buyNowFromRelated(selectedProduct, selectedRelatedSize)
                         return
                       }
                       if (!isMeasurementsValid) {
@@ -1765,10 +1759,10 @@ export default function ProductDetailPage() {
                       (!isCustomSizeMode && !selectedRelatedSize) ||
                       (isCustomSizeMode && !isMeasurementsValid)
                     }
-                    aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Add to cart"}
+                    aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Buy Now"}
                   >
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    {selectedProduct?.isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                    {selectedProduct?.isOutOfStock ? "Out of Stock" : "Buy Now"}
                   </Button>
                 </div>
               </div>
@@ -1806,13 +1800,13 @@ export default function ProductDetailPage() {
               </AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
-                  handleAddToCart()
+                  handleBuyNow()
                   setShowCustomSizeConfirmation(false)
                   setShowMainProductSizeSelector(false)
                 }}
                 className="bg-black hover:bg-gray-800"
               >
-                Confirm & Add to Cart
+                Confirm & Buy Now
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -1857,31 +1851,30 @@ export default function ProductDetailPage() {
                   }
                   const firstSize = selectedProduct.sizes[0]
                   const price = firstSize?.discountedPrice || firstSize?.originalPrice || 0
-                  
-                  dispatch({
-                    type: "ADD_ITEM",
-                    payload: {
-                      id: `${selectedProduct.id}-custom-${Date.now()}`,
-                      productId: selectedProduct.id,
+
+                  openWhatsAppOrder({
+                    phoneNumber: "+971502996885",
+                    product: {
+                      id: selectedProduct.id,
                       name: selectedProduct.name,
-                      price: price,
-                      originalPrice: firstSize?.originalPrice,
-                      size: "custom",
-                      volume: measurementUnit,
-                      image: selectedProduct.images[0],
                       category: selectedProduct.category,
-                      quantity: quantity,
-                      customMeasurements: {
-                        unit: measurementUnit,
-                        values: {
-                          shoulder: measurements.shoulder,
-                          bust: measurements.bust,
-                          waist: measurements.waist,
-                          hips: measurements.hips,
-                          sleeve: measurements.sleeve,
-                          length: measurements.length,
-                        }
-                      }
+                      price,
+                      originalPrice: firstSize?.originalPrice,
+                      image: selectedProduct.images?.[0],
+                      url: typeof window !== "undefined" ? `${window.location.origin}/products/${selectedProduct.category}/${selectedProduct.id}` : undefined,
+                    },
+                    quantity,
+                    size: { size: "custom", volume: measurementUnit },
+                    customMeasurements: {
+                      unit: measurementUnit,
+                      values: {
+                        shoulder: measurements.shoulder,
+                        bust: measurements.bust,
+                        waist: measurements.waist,
+                        hips: measurements.hips,
+                        sleeve: measurements.sleeve,
+                        length: measurements.length,
+                      },
                     },
                   })
                   
@@ -1890,7 +1883,7 @@ export default function ProductDetailPage() {
                 }}
                 className="bg-black hover:bg-gray-800"
               >
-                Confirm & Add to Cart
+                Confirm & Buy Now
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

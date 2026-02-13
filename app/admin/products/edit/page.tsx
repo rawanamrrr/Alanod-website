@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { ArrowLeft, Plus, Trash2, Upload, X, Save } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { uploadImage } from "@/lib/supabase-storage"
+import { convertImageFileToWebP, uploadImageFile } from "@/lib/supabase-storage"
 
 interface ProductSize {
   size: string
@@ -136,25 +136,17 @@ export default function EditProductPage() {
     setError('');
 
     try {
-      const imagePromises = Array.from(files).map(file => {
-        return new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-            try {
-              const base64 = reader.result as string;
-              const imageUrl = await uploadImage(base64, 'products');
-              resolve(imageUrl);
-            } catch (uploadError) {
-              reject(uploadError);
-            }
-          };
-          reader.onerror = reject;
-          reader.readAsDataURL(file);
-        });
-      });
-
-      const imageUrls = await Promise.all(imagePromises);
-      setUploadedImages(prev => [...prev, ...imageUrls]);
+      const imageUrls: string[] = []
+      // Sequential processing for mobile stability
+      for (const file of Array.from(files)) {
+        const converted = await convertImageFileToWebP(file, {
+          maxDimension: 1000,
+          quality: 0.6,
+        })
+        const url = await uploadImageFile(converted, "products")
+        imageUrls.push(url)
+        setUploadedImages(prev => [...prev, url])
+      }
     } catch (err) {
       console.error('Image upload failed', err);
       setError('Failed to upload images. Please try again.');

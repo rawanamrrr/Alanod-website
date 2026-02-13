@@ -194,6 +194,7 @@ export const translations = {
     item: "item",
     items: "items",
     orderSummary: "Order Summary",
+    loadMore: "Load More",
   },
   ar: {
     // Navigation
@@ -390,6 +391,7 @@ export const translations = {
     item: "عنصر",
     items: "عناصر",
     orderSummary: "ملخص الطلب",
+    loadMore: "عرض المزيد",
   }
 }
 
@@ -400,4 +402,8 @@ export const useTranslation = (language: "en" | "ar") => {
     return translations[language]?.[key] || translations.en[key] || key
   }
 }
+
+
+
+
 

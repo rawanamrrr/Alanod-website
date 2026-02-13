@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge"
 import { Heart, ShoppingCart, Trash2, ArrowLeft, Star, X, Sparkles, Package, AlertCircle, MessageCircle } from "lucide-react"
 import { Navigation } from "@/components/navigation"
 import { useFavorites } from "@/lib/favorites-context"
-import { useCart } from "@/lib/cart-context"
 import { GiftPackageSelector } from "@/components/gift-package-selector"
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
@@ -18,6 +17,7 @@ import { useTranslation } from "@/lib/translations"
 import { useLocale } from "@/lib/locale-context"
 import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { openWhatsAppOrder } from "@/lib/whatsapp"
 
 interface FavoriteItem {
   id: string
@@ -44,7 +44,6 @@ interface FavoriteItem {
 
 export default function FavoritesPage() {
   const { state: favoritesState, removeFromFavorites, clearFavorites } = useFavorites()
-  const { dispatch: cartDispatch } = useCart()
   const { formatPrice } = useCurrencyFormatter()
   const { settings } = useLocale()
   const t = useTranslation(settings.language)
@@ -137,7 +136,7 @@ export default function FavoritesPage() {
     },
   ]
 
-  const addToCart = (item: FavoriteItem) => {
+  const buyNow = (item: FavoriteItem) => {
     // Check if product is out of stock
     if (item.isOutOfStock) {
       alert(t("thisProductOutOfStock"))
@@ -150,21 +149,19 @@ export default function FavoritesPage() {
       setShowGiftPackageSelector(true)
       return
     }
-    
-    // For regular products without sizes, add directly to cart
-    cartDispatch({
-      type: "ADD_ITEM",
-      payload: {
+
+    openWhatsAppOrder({
+      phoneNumber: "+971502996885",
+      product: {
         id: item.id,
         name: item.name,
-        price: item.price,
-        size: "Standard",
-        volume: "50ml",
-        image: item.image,
         category: item.category,
-        productId: item.id,
-        quantity: quantity
+        price: item.price,
+        image: item.image,
       },
+      quantity,
+      size: { size: "Standard", volume: "" },
+      customMeasurements: null,
     })
   }
 
@@ -201,7 +198,7 @@ export default function FavoritesPage() {
     }
   }, [showSizeSelector, showGiftPackageSelector, showCustomSizeConfirmation])
 
-  const addToCartWithSize = () => {
+  const buyNowWithSize = () => {
     if (!selectedProduct) return
     if (!isCustomSizeMode && !selectedSize) return
     if (isCustomSizeMode && !isMeasurementsValid) return
@@ -232,26 +229,26 @@ export default function FavoritesPage() {
 
     const computedPrice = baseSize.discountedPrice || baseSize.originalPrice || selectedProduct.packagePrice || 0
 
-    cartDispatch({
-      type: "ADD_ITEM",
-      payload: {
-        id: `${selectedProduct.id}-${isCustomSizeMode ? "custom" : baseSize.size}`,
-        productId: selectedProduct.id,
+    openWhatsAppOrder({
+      phoneNumber: "+971502996885",
+      product: {
+        id: selectedProduct.id,
         name: selectedProduct.name,
+        category: selectedProduct.category,
         price: computedPrice,
         originalPrice: baseSize.originalPrice,
-        size: isCustomSizeMode ? "custom" : baseSize.size,
-        volume: isCustomSizeMode ? measurementUnit : baseSize.volume,
         image: selectedProduct.image,
-        category: selectedProduct.category,
-        quantity,
-        customMeasurements: isCustomSizeMode
-          ? {
-              unit: measurementUnit,
-              values: measurements,
-            }
-          : undefined,
-      }
+      },
+      quantity,
+      size: isCustomSizeMode
+        ? { size: "custom", volume: measurementUnit }
+        : { size: baseSize.size, volume: baseSize.volume },
+      customMeasurements: isCustomSizeMode
+        ? {
+            unit: measurementUnit,
+            values: measurements,
+          }
+        : null,
     })
     
     closeSizeSelector()
@@ -508,7 +505,7 @@ export default function FavoritesPage() {
                     if (!selectedProduct || selectedProduct.isOutOfStock) return
                     if (!isCustomSizeMode) {
                       // Standard size flow: add directly
-                      addToCartWithSize()
+                      buyNowWithSize()
                       return
                     }
                     // Custom size flow
@@ -528,11 +525,11 @@ export default function FavoritesPage() {
                     (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ||
                     (isCustomSizeMode ? !isMeasurementsValid : !selectedSize)
                   }
-                  aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Add to cart"}
+                  aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Buy Now"}
                 >
                   <span className="relative z-10">
                     <ShoppingCart className="h-4 w-4 mr-2" />
-                    {selectedProduct?.isOutOfStock ? "Out of Stock" : "Add to Cart"}
+                    {selectedProduct?.isOutOfStock ? "Out of Stock" : "Buy Now"}
                   </span>
                   <motion.span 
                     className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100"
@@ -576,12 +573,12 @@ export default function FavoritesPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                addToCartWithSize()
+                buyNowWithSize()
                 setShowCustomSizeConfirmation(false)
               }}
               className="bg-black hover:bg-gray-800"
             >
-              Confirm & Add to Cart
+              Confirm & Buy Now
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -875,10 +872,10 @@ export default function FavoritesPage() {
                                   } else if (item.sizes && item.sizes.length > 0) {
                                     openSizeSelector(item)
                                   } else {
-                                    addToCart(item)
+                                    buyNow(item)
                                   }
                                 }}
-                                aria-label="Add to cart"
+                                aria-label="Buy Now"
                               >
                                 <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
                               </button>

@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import nodemailer from "nodemailer"
 import { supabase } from "@/lib/supabase"
 import { createEmailTemplate, createEmailSection } from "@/lib/email-templates"
+import { sendEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,25 +20,6 @@ export async function POST(request: NextRequest) {
       .order("display_order", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(3)
-
-    // Check environment variables
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("❌ [EMAIL] Missing email configuration")
-      return NextResponse.json({ 
-        error: "Email configuration missing. Please check EMAIL_USER and EMAIL_PASS environment variables." 
-      }, { status: 500 })
-    }
-
-    // Create email transporter
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    })
 
     // Generate offers section
     const offersSection = offers && offers.length > 0
@@ -117,9 +98,8 @@ export async function POST(request: NextRequest) {
 
     const emailContent = greeting + offersSection + welcomeBenefits + whyChooseUs
 
-    // Send welcome email with offers
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    // Send welcome email with offers via Brevo
+    await sendEmail({
       to: email,
       subject: "Welcome to Alanoud Alqadi Atelier",
       html: createEmailTemplate({

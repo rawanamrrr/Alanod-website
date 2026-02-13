@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import nodemailer from "nodemailer"
 import { createEmailTemplate, createEmailSection } from "@/lib/email-templates"
+import { sendEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,40 +10,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Order and new status are required" }, { status: 400 })
     }
 
-    // Check environment variables
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("❌ [EMAIL] Missing email configuration")
-      console.error("   EMAIL_USER:", !!process.env.EMAIL_USER)
-      console.error("   EMAIL_PASS:", !!process.env.EMAIL_PASS)
-      return NextResponse.json({ 
-        error: "Email configuration missing. Please check EMAIL_USER and EMAIL_PASS environment variables." 
-      }, { status: 500 })
-    }
-
-    // Create transporter
-    console.log("📧 [EMAIL] Creating email transporter...")
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    })
-
-    // Verify transporter configuration
-    console.log("📧 [EMAIL] Verifying transporter configuration...")
-    try {
-      await transporter.verify()
-      console.log("✅ [EMAIL] Transporter verification successful")
-    } catch (verifyError) {
-      console.error("❌ [EMAIL] Transporter verification failed:", verifyError)
-      return NextResponse.json({ 
-        error: "Email service configuration error. Please check your email credentials.", 
-        details: verifyError instanceof Error ? verifyError.message : String(verifyError)
-      }, { status: 500 })
-    }
+    // Helper function to get country code from country name
 
     // Helper function to get country code from country name
     function getCountryCodeFromName(countryName: string): string {
@@ -247,12 +214,12 @@ export async function POST(request: NextRequest) {
       theme: { mode: 'light' }
     })
 
-    // Send email
-    await transporter.sendMail({
-      from: `"Alanoud Alqadi Atelier" <${process.env.EMAIL_USER}>`,
+    // Send email via Brevo
+    await sendEmail({
       to: customerEmail,
       subject: `Order Update #${order.id} - ${statusContent.title}`,
       html: htmlContent,
+      fromName: "Alanoud Alqadi Atelier",
     })
 
     console.log(`✅ Order update email sent to ${customerEmail} - Status: ${newStatus}`)

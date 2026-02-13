@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Star, ShoppingCart, X, Heart, Package } from "lucide-react"
 import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
+import { openWhatsAppOrder } from "@/lib/whatsapp"
 
 interface GiftPackageSize {
   size: string
@@ -80,61 +81,49 @@ export function GiftPackageSelector({
     }))
   }
 
-  const addToCart = () => {
+  const buyNow = () => {
     if (!product.packagePrice) return
     
-    // Check if product is out of stock
     if (product.isOutOfStock) {
-      alert("This gift package is out of stock and cannot be added to cart.")
+      alert("This gift package is out of stock and cannot be ordered.")
       return
     }
 
-    console.log("Adding gift package to cart:", product.name)
-    console.log("Selected products:", selectedProducts)
-
-    // Create a single cart item for the entire gift package
-    const selectedProductsList = product.giftPackageSizes?.map(size => {
-      const selectedProductId = selectedProducts[size.size]
-      const selectedProduct = size.productOptions.find(opt => opt.productId === selectedProductId)
-      if (!selectedProduct) return null
-      return {
-        size: size.size,
-        volume: size.volume,
-        selectedProduct: selectedProduct
-      }
-    }).filter((item): item is NonNullable<typeof item> => item !== null) || []
-
-    console.log("Selected products list:", selectedProductsList)
-
-    if (selectedProductsList.length > 0) {
-      const cartItem = {
-        id: `${product.id}-gift-package-${Date.now()}`,
-        productId: product.id,
-        name: product.name,
-        price: product.packagePrice,
-        originalPrice: product.packagePrice,
-        size: "Gift Package",
-        volume: `${selectedProductsList.length} sizes`,
-        image: product.images[0],
-        category: product.category,
-        quantity: quantity,
-        isGiftPackage: true,
-        selectedProducts: selectedProductsList,
-        packageDetails: {
-          totalSizes: selectedProductsList.length,
-          packagePrice: product.packagePrice,
-          sizes: selectedProductsList
+    const selectedProductsList = product.giftPackageSizes
+      ?.map((size) => {
+        const selectedProductId = selectedProducts[size.size]
+        const selectedProduct = size.productOptions.find((opt) => opt.productId === selectedProductId)
+        if (!selectedProduct) return null
+        return {
+          size: size.size,
+          volume: size.volume,
+          selectedProduct: selectedProduct,
         }
-      }
-
-      console.log("Dispatching cart item:", cartItem)
-      
-      cartDispatch({
-        type: "ADD_ITEM",
-        payload: cartItem
       })
-    }
-    
+      .filter((item): item is NonNullable<typeof item> => item !== null) || []
+
+    openWhatsAppOrder({
+      phoneNumber: "+971502996885",
+      product: {
+        id: product.id,
+        name: product.name,
+        category: product.category,
+        price: product.packagePrice,
+        originalPrice: product.packageOriginalPrice,
+        image: product.images?.[0],
+      },
+      quantity,
+      size: { size: "Gift Package", volume: `${selectedProductsList.length} sizes` },
+      giftPackage: {
+        items: selectedProductsList.map((it) => ({
+          size: it.size,
+          volume: it.volume,
+          selectedProductName: it.selectedProduct?.productName,
+          selectedProductId: it.selectedProduct?.productId,
+        })),
+      },
+    })
+
     onClose()
   }
 
@@ -379,12 +368,12 @@ export function GiftPackageSelector({
             </div>
             
             <Button 
-              onClick={addToCart} 
+              onClick={buyNow} 
               className="flex items-center justify-center bg-black hover:bg-gray-800 rounded-full px-4 sm:px-6 py-3 sm:py-5 w-full sm:w-auto text-sm sm:text-base"
               disabled={!isAllSizesSelected()}
             >
               <ShoppingCart className="h-4 w-4 mr-2" />
-              Add Package to Cart
+              Buy Now
             </Button>
           </div>
         </div>

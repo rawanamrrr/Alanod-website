@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import nodemailer from "nodemailer"
 import { createEmailTemplate, createEmailSection } from "@/lib/email-templates"
 import { supabase } from "@/lib/supabase"
+import { sendEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,26 +25,6 @@ export async function POST(request: NextRequest) {
       console.error("Error saving contact message:", dbError)
       // Continue even if database save fails
     }
-
-    // Check environment variables
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("❌ [EMAIL] Missing email configuration")
-      return NextResponse.json({ 
-        error: "Email configuration missing. Please check EMAIL_USER and EMAIL_PASS environment variables." 
-      }, { status: 500 })
-    }
-
-    // Create transporter
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false, // STARTTLS (not SSL)
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    })
-
 
     // Create email content sections
     const headerSection = createEmailSection({
@@ -109,13 +89,12 @@ export async function POST(request: NextRequest) {
       includeUnsubscribe: false
     })
 
-    // Send email
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_USER,
+    // Send email via Brevo
+    await sendEmail({
+      to: process.env.EMAIL_USER || "",
       subject: `Contact Form: ${subject}`,
       html: htmlContent,
-      replyTo: email,
+      replyTo: { email },
     })
 
     return NextResponse.json({ success: true, message: "Message sent successfully" })

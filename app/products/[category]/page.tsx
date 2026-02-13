@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -12,15 +13,24 @@ import { ArrowLeft, Star, ShoppingCart, X, Heart, Instagram, Facebook, Package, 
 import { useParams } from "next/navigation"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
-import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
-import { GiftPackageSelector } from "@/components/gift-package-selector"
 import { useCurrencyFormatter } from "@/hooks/use-currency"
 import { useCustomSize } from "@/hooks/use-custom-size"
-import { useTranslation } from "@/lib/translations"
+import type { SizeChartRow } from "@/components/custom-size-form"
 import { useLocale } from "@/lib/locale-context"
-import { CustomSizeForm, SizeChartRow } from "@/components/custom-size-form"
+import { useTranslation } from "@/lib/translations"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+import { openWhatsAppOrder } from "@/lib/whatsapp"
+
+const GiftPackageSelector = dynamic(
+  () => import("@/components/gift-package-selector").then((m) => m.GiftPackageSelector),
+  { ssr: false }
+)
+
+const CustomSizeForm = dynamic(
+  () => import("@/components/custom-size-form").then((m) => m.CustomSizeForm),
+  { ssr: false }
+)
 
 interface ProductSize {
   size: string
@@ -177,7 +187,6 @@ export default function CategoryPage() {
     return Math.min(...prices.filter(price => price > 0))
   }
 
-  const { dispatch: cartDispatch } = useCart()
   const { addToFavorites, removeFromFavorites, isFavorite } = useFavorites()
   const { formatPrice } = useCurrencyFormatter()
   const { settings } = useLocale()
@@ -253,7 +262,7 @@ export default function CategoryPage() {
     }, 300)
   }
 
-  const addToCart = () => {
+  const buyNow = () => {
     if (!selectedProduct) return
     if (!isCustomSizeMode && !selectedSize) return
     if (isCustomSizeMode && !isMeasurementsValid) return
@@ -284,27 +293,26 @@ export default function CategoryPage() {
 
     const computedPrice = baseSize.discountedPrice || baseSize.originalPrice || selectedProduct.packagePrice || 0
 
-    cartDispatch({
-      type: "ADD_ITEM",
-      payload: {
-        id: `${selectedProduct.id}-${isCustomSizeMode ? "custom" : baseSize.size}`,
-        productId: selectedProduct.id,
+    openWhatsAppOrder({
+      phoneNumber: "+971502996885",
+      product: {
+        id: selectedProduct.id,
         name: selectedProduct.name,
+        category: selectedProduct.category,
         price: computedPrice,
         originalPrice: baseSize.originalPrice,
-        size: isCustomSizeMode ? "custom" : baseSize.size,
-        volume: isCustomSizeMode ? measurementUnit : baseSize.volume,
-        image: selectedProduct.images[0],
-        category: selectedProduct.category,
-        quantity,
-        stockCount: isCustomSizeMode ? undefined : baseSize.stockCount,
-        customMeasurements: isCustomSizeMode
-          ? {
-              unit: measurementUnit,
-              values: measurements,
-            }
-          : undefined,
-      }
+        image: selectedProduct.images?.[0],
+      },
+      quantity,
+      size: isCustomSizeMode
+        ? { size: "custom", volume: measurementUnit }
+        : { size: baseSize.size, volume: baseSize.volume },
+      customMeasurements: isCustomSizeMode
+        ? {
+            unit: measurementUnit,
+            values: measurements,
+          }
+        : null,
     })
 
     closeSizeSelector()
@@ -502,7 +510,7 @@ export default function CategoryPage() {
                   sizeChart={sizeChart}
                   sizes={selectedProduct.sizes}
                   selectedSize={selectedSize}
-                  onSelectSize={(size) => {
+                  onSelectSize={(size: ProductSize) => {
                     setIsCustomSizeMode(false)
                     setSelectedSize(size)
                   }}
@@ -588,7 +596,7 @@ export default function CategoryPage() {
                   onClick={() => {
                     if (!selectedProduct || selectedProduct.isOutOfStock) return
                     if (!isCustomSizeMode) {
-                      addToCart()
+                      buyNow()
                       return
                     }
                     if (!isMeasurementsValid) {
@@ -607,10 +615,10 @@ export default function CategoryPage() {
                     (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ||
                     (isCustomSizeMode ? !isMeasurementsValid : !selectedSize)
                   }
-                  aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Add to cart"}
+                  aria-label={selectedProduct?.isOutOfStock ? "Out of stock" : "Buy Now"}
                 >
                   <ShoppingCart className="h-4 w-4" />
-                  {selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ? "Out of Stock" : "Add to Cart"}
+                  {selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ? "Out of Stock" : "Buy Now"}
                 </Button>
               </div>
             </div>
@@ -647,12 +655,12 @@ export default function CategoryPage() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                addToCart()
+                buyNow()
                 setShowCustomSizeConfirmation(false)
               }}
               className="bg-black hover:bg-gray-800"
             >
-              Confirm & Add to Cart
+              Confirm & Buy Now
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -865,9 +873,9 @@ export default function CategoryPage() {
                                 <h3 className="text-lg font-medium mb-1">
                                   {product.name}
                                 </h3>
-                                
+
                                 <div className="flex items-end justify-between gap-2">
-                                  <div className="text-lg font-light flex-1 min-w-0">
+                                  <div className="text-lg font-bold flex-1 min-w-0">
 
                                     {(() => {
                                       // Handle gift packages
@@ -877,13 +885,13 @@ export default function CategoryPage() {
                                         
                                         if (packageOriginalPrice > 0 && packagePrice < packageOriginalPrice) {
                                           return (
-                                            <>
-                                              <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(packageOriginalPrice)}</span>
-                                              <span className="text-red-500 font-bold">{formatPrice(packagePrice)}</span>
-                                            </>
+                                            <div className="flex flex-col">
+                                              <span className="text-white font-bold">{formatPrice(packagePrice)}</span>
+                                              <span className="line-through text-gray-300 text-sm">{formatPrice(packageOriginalPrice)}</span>
+                                            </div>
                                           );
                                         } else {
-                                          return <>{formatPrice(packagePrice)}</>;
+                                          return <span className="text-white font-bold">{formatPrice(packagePrice)}</span>;
                                         }
                                       }
                                       
@@ -893,19 +901,19 @@ export default function CategoryPage() {
                                       
                                       if (smallestOriginalPrice > 0 && smallestPrice < smallestOriginalPrice) {
                                         return (
-                                          <>
-                                            <span className="line-through text-gray-300 mr-2 text-base">{formatPrice(smallestOriginalPrice)}</span>
-                                            <span className="text-red-500 font-bold">{formatPrice(smallestPrice)}</span>
-                                          </>
+                                          <div className="flex flex-col">
+                                            <span className="text-white font-bold">{formatPrice(smallestPrice)}</span>
+                                            <span className="line-through text-gray-300 text-sm">{formatPrice(smallestOriginalPrice)}</span>
+                                          </div>
                                         );
                                       } else {
-                                        return <>{formatPrice(smallestPrice)}</>;
+                                        return <span className="text-white font-bold">{formatPrice(smallestPrice)}</span>;
                                       }
                                     })()}
                                   </div>
                                   
                                   <button 
-                                    className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors flex-shrink-0"
+                                    className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors"
                                     onClick={(e) => {
                                       e.preventDefault()
                                       e.stopPropagation()
@@ -916,7 +924,7 @@ export default function CategoryPage() {
                                         openSizeSelector(product)
                                       }
                                     }}
-                                    aria-label="Add to cart"
+                                    aria-label="Buy Now"
                                   >
                                     <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5" />
                                   </button>

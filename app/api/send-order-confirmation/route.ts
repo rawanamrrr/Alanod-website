@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import nodemailer from "nodemailer"
 import { createEmailTemplate, createEmailSection, createOrderItemsTable } from "@/lib/email-templates"
+import { sendEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,40 +22,7 @@ export async function POST(request: NextRequest) {
     console.log("📧 [EMAIL] Customer Email:", customerEmail)
     console.log("📧 [EMAIL] Order structure:", JSON.stringify(order, null, 2))
 
-    // Check environment variables
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("❌ [EMAIL] Missing email configuration")
-      console.error("   EMAIL_USER:", !!process.env.EMAIL_USER)
-      console.error("   EMAIL_PASS:", !!process.env.EMAIL_PASS)
-      return NextResponse.json({ 
-        error: "Email configuration missing. Please check EMAIL_USER and EMAIL_PASS environment variables." 
-      }, { status: 500 })
-    }
-
-    // Create transporter
-    console.log("📧 [EMAIL] Creating email transporter...")
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    })
-
-    // Verify transporter configuration
-    console.log("📧 [EMAIL] Verifying transporter configuration...")
-    try {
-      await transporter.verify()
-      console.log("✅ [EMAIL] Transporter verification successful")
-    } catch (verifyError) {
-      console.error("❌ [EMAIL] Transporter verification failed:", verifyError)
-      return NextResponse.json({ 
-        error: "Email service configuration error. Please check your email credentials.", 
-        details: verifyError instanceof Error ? verifyError.message : String(verifyError)
-      }, { status: 500 })
-    }
+    // Determine preferred currency code based on order data / locale
 
     // Determine preferred currency code based on order data / locale
     // 1) Try explicit currency fields on the order, if present
@@ -329,14 +296,14 @@ export async function POST(request: NextRequest) {
       throw new Error(`Email template creation failed: ${templateError}`)
     }
 
-    // Send email
+    // Send email via Brevo
     console.log("📧 [EMAIL] Sending email to:", customerEmail)
     try {
-      await transporter.sendMail({
-        from: `"Alanoud Alqadi Atelier" <${process.env.EMAIL_USER}>`,
+      await sendEmail({
         to: customerEmail,
         subject: `Order Confirmation #${order.id} - Alanoud Alqadi Atelier`,
         html: htmlContent,
+        fromName: "Alanoud Alqadi Atelier",
       })
 
       console.log("✅ [EMAIL] Order confirmation email sent successfully to:", customerEmail)

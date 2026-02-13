@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
 import jwt from "jsonwebtoken"
-import nodemailer from "nodemailer"
-import type { User } from "@/lib/models/types"
 import { createEmailTemplate, createEmailSection } from "@/lib/email-templates"
+import { sendEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,26 +25,6 @@ export async function POST(request: NextRequest) {
 
     // Generate reset token
     const resetToken = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET!, { expiresIn: "1h" })
-
-    // Check environment variables
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("❌ [EMAIL] Missing email configuration")
-      return NextResponse.json({ 
-        error: "Email configuration missing. Please check EMAIL_USER and EMAIL_PASS environment variables." 
-      }, { status: 500 })
-    }
-
-    // Create email transporter
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS, 
-      },
-    })
-
 
     const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'https://www.alanoudalqadi.com'}/auth/reset-password?token=${resetToken}`
 
@@ -93,8 +72,7 @@ export async function POST(request: NextRequest) {
     const emailContent = greeting + resetSection + troubleshootingSection
 
     // Send email
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+    await sendEmail({
       to: email,
       subject: "Reset Your Alanoud Alqadi Atelier Password",
       html: createEmailTemplate({

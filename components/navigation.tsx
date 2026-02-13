@@ -7,9 +7,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Menu, X, ShoppingCart, User, Heart, LogOut, Settings, ChevronDown, Search, ChevronRight } from "lucide-react"
+import { Menu, X, User, Heart, LogOut, Settings, ChevronDown, Search, ChevronRight } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
-import { useCart } from "@/lib/cart-context"
 import { useFavorites } from "@/lib/favorites-context"
 import { useScroll } from "@/lib/scroll-context"
 import { OffersBanner } from "@/components/offers-banner"
@@ -26,7 +25,6 @@ export function Navigation() {
   const hasScrolledToCurrency = useRef(false)
   const { isScrolled, isLogoVisible } = useScroll()
   const { state: authState, logout } = useAuth()
-  const { state: cartState } = useCart()
   const { state: favoritesState } = useFavorites()
   const pathname = usePathname()
   const { settings, setSettings, selectCountry, setSelectCountry, selectLanguage, setSelectLanguage, isSaving } = useLocale()
@@ -434,24 +432,6 @@ export function Navigation() {
                  )}
               </Link>
 
-              {/* Cart */}
-              <Link 
-                href="/cart" 
-                className={`relative p-2 transition-colors ${getIconColors(isActiveLink("/cart"))}`}
-              >
-                <ShoppingCart className="h-4 w-4 md:h-5 md:w-5" />
-                {cartState.count > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs">
-                    {cartState.count}
-                  </Badge>
-                )}
-                                 {isActiveLink("/cart") && (
-                   <div className={`absolute inset-0 rounded-xl ${
-                     !isHomePage || isScrolled ? 'bg-black/3' : 'bg-white/20'
-                   }`} />
-                 )}
-              </Link>
-
               {/* User Menu - Desktop */}
               {authState.isAuthenticated ? (
                 <div className="relative hidden md:block">
@@ -601,14 +581,6 @@ export function Navigation() {
                            {favoritesState.count > 0 && (
                              <span className="absolute -top-2 -right-2 h-4 w-4 bg-black text-white text-xs rounded-full flex items-center justify-center">
                                {favoritesState.count}
-                             </span>
-                           )}
-                         </Link>
-                         <Link href="/cart" onClick={() => setIsOpen(false)} className="relative p-1">
-                           <ShoppingCart className="h-5 w-5 text-black" />
-                           {cartState.count > 0 && (
-                             <span className="absolute -top-2 -right-2 h-4 w-4 bg-black text-white text-xs rounded-full flex items-center justify-center">
-                               {cartState.count}
                              </span>
                            )}
                          </Link>

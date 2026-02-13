@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import nodemailer from "nodemailer"
 import { createEmailTemplate, createEmailSection } from "@/lib/email-templates"
+import { sendEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,33 +14,6 @@ export async function POST(request: NextRequest) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
       return NextResponse.json({ error: "Invalid email format" }, { status: 400 })
-    }
-
-    // Check environment variables
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("❌ [EMAIL] Missing email configuration")
-      return NextResponse.json({ 
-        error: "Email configuration missing. Please check EMAIL_USER and EMAIL_PASS environment variables." 
-      }, { status: 500 })
-    }
-
-    // Create email transporter
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    })
-
-    // Verify transporter configuration
-    try {
-      await transporter.verify()
-    } catch (verifyError) {
-      console.error("Email transporter verification failed:", verifyError)
-      return NextResponse.json({ error: "Email service configuration error" }, { status: 500 })
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.alanoudalqadi.com"
@@ -98,9 +71,8 @@ export async function POST(request: NextRequest) {
 
     const emailContent = greeting + discountSection + ctaSection
 
-    // Send offer email
-    await transporter.sendMail({
-      from: `"Alanoud Alqadi Atelier" <${process.env.EMAIL_USER}>`,
+    // Send offer email via Brevo
+    await sendEmail({
       to: email,
       subject: `🎉 New Exclusive Offer: ${offer.title}`,
       html: createEmailTemplate({
@@ -108,7 +80,8 @@ export async function POST(request: NextRequest) {
         preheader: `${offer.title} - Don't miss this exclusive offer!`,
         content: emailContent,
         theme: { mode: 'light' }
-      })
+      }),
+      fromName: "Alanoud Alqadi Atelier",
     })
 
     return NextResponse.json({

@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import nodemailer from "nodemailer"
 import { createEmailTemplate, createEmailSection, createProductCard } from "@/lib/email-templates"
+import { sendEmail } from "@/lib/email"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,25 +9,6 @@ export async function POST(request: NextRequest) {
     if (!order || !product) {
       return NextResponse.json({ error: "Order and product are required" }, { status: 400 })
     }
-
-    // Check environment variables
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error("❌ [EMAIL] Missing email configuration")
-      return NextResponse.json({ 
-        error: "Email configuration missing. Please check EMAIL_USER and EMAIL_PASS environment variables." 
-      }, { status: 500 })
-    }
-
-    // Create transporter
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    })
 
     const customerEmail = order.shippingAddress.email
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.alanoudalqadi.com'
@@ -109,12 +90,12 @@ export async function POST(request: NextRequest) {
       theme: { mode: 'light' }
     })
 
-    // Send email
-    await transporter.sendMail({
-      from: `"Alanoud Alqadi Atelier" <${process.env.EMAIL_USER}>`,
+    // Send email via Brevo
+    await sendEmail({
       to: customerEmail,
       subject: `How was your ${product.name}? Share your experience!`,
       html: htmlContent,
+      fromName: "Alanoud Alqadi Atelier",
     })
 
     console.log(`✅ Review reminder email sent to ${customerEmail} for product: ${product.name}`)
