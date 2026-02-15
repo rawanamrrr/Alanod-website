@@ -86,7 +86,7 @@ export default function HomePage() {
   const { formatPrice } = useCurrencyFormatter()
   const { settings } = useLocale()
   const t = useTranslation(settings.language)
-  
+
   // Size selector state
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null)
@@ -168,22 +168,20 @@ export default function HomePage() {
   const prefetchProductDetails = async (products: Product[]) => {
     if (typeof window === "undefined" || !products.length) return
 
-    // Run prefetches in background with a slight delay to prioritize main content
-    setTimeout(() => {
-      products.forEach((product) => {
-        const url = `/api/products/${product.category}/${product.id}`
-        // Use a simple fetch with cache for the data
-        fetch(url, { cache: "force-cache" }).catch(() => {})
-        
-        // Use Next.js router to prefetch the page components
-        router.prefetch(`/products/${product.category}/${product.id}`)
-      })
-    }, 100)
+    // Prefetch immediately without delay - run all in parallel
+    products.forEach((product) => {
+      const url = `/api/products/${product.category}/${product.id}`
+      // Prefetch data - run in background
+      fetch(url, { cache: "force-cache" }).catch(() => { })
+
+      // Prefetch route - run in background
+      router.prefetch(`/products/${product.category}/${product.id}`)
+    })
   }
 
   const prefetchNextPage = async (nextPage: number) => {
     if (isPrefetching || !hasMore) return
-    
+
     try {
       setIsPrefetching(true)
       const response = await fetch(`/api/products?page=${nextPage}&limit=12`, {
@@ -212,7 +210,7 @@ export default function HomePage() {
           setAllProducts(prev => [...prev, ...prefetchedProducts])
           const nextBatchHadFullCount = prefetchedProducts.length === 12
           setPrefetchedProducts([]) // Clear prefetch buffer
-          
+
           if (!nextBatchHadFullCount) {
             setHasMore(false)
           } else {
@@ -235,7 +233,7 @@ export default function HomePage() {
         const data = await response.json()
         // Filter active products and ensure they have valid data
         const activeProducts = data.filter((p: Product) => p.isActive && p.images && p.images.length > 0)
-        
+
         if (isLoadMore) {
           setAllProducts(prev => [...prev, ...activeProducts])
         } else {
@@ -265,6 +263,46 @@ export default function HomePage() {
   useEffect(() => {
     fetchAllProducts(1)
   }, [])
+
+  // CRITICAL: Aggressive eager prefetch to eliminate first-click delay
+  useEffect(() => {
+    if (allProducts.length > 0) {
+      // Prefetch MORE products on mobile (no hover), fewer on desktop (has hover)
+      // Prefetch ALL visible products (first 12 = full first page)
+      const firstProducts = allProducts.slice(0, 12)
+
+      // CRITICAL FIX: Add prefetch link tags to DOM for instant browser-level prefetching
+      firstProducts.forEach((product, index) => {
+        const route = `/products/${product.category}/${product.id}`
+
+        // Create prefetch link tag and add to document head
+        const link = document.createElement('link')
+        link.rel = 'prefetch'
+        link.href = route
+        link.as = 'document'
+        document.head.appendChild(link)
+
+        // Also use Next.js router prefetch
+        router.prefetch(route)
+
+        // Prefetch the API data
+        const url = `/api/products/${product.category}/${product.id}`
+        fetch(url, { cache: "force-cache" }).catch(() => { })
+
+        // For first 3 items, do it multiple times (extra aggressive for above-the-fold)
+        if (index < 3) {
+          setTimeout(() => {
+            fetch(url, { cache: "force-cache" }).catch(() => { })
+            router.prefetch(route)
+          }, 0)
+          setTimeout(() => {
+            fetch(url, { cache: "force-cache" }).catch(() => { })
+            router.prefetch(route)
+          }, 50)
+        }
+      })
+    }
+  }, [allProducts, router])
 
   const handleLoadMore = () => {
     const nextPage = page + 1
@@ -347,9 +385,9 @@ export default function HomePage() {
         : { size: baseSize.size, volume: baseSize.volume },
       customMeasurements: isCustomSizeMode
         ? {
-            unit: measurementUnit,
-            values: measurements,
-          }
+          unit: measurementUnit,
+          values: measurements,
+        }
         : null,
     })
 
@@ -359,7 +397,7 @@ export default function HomePage() {
   // Function to calculate the smallest price from all sizes
   const getSmallestPrice = (sizes: ProductSize[]) => {
     if (!sizes || sizes.length === 0) return 0
-    
+
     const prices = sizes.map(size => size.discountedPrice || size.originalPrice || 0)
     return Math.min(...prices.filter(price => price > 0))
   }
@@ -367,7 +405,7 @@ export default function HomePage() {
   // Function to calculate the smallest original price from all sizes
   const getSmallestOriginalPrice = (sizes: ProductSize[]) => {
     if (!sizes || sizes.length === 0) return 0
-    
+
     const prices = sizes.map(size => size.originalPrice || 0)
     return Math.min(...prices.filter(price => price > 0))
   }
@@ -379,7 +417,7 @@ export default function HomePage() {
   const handleFavoriteClick = (e: React.MouseEvent, product: Product) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     if (isFavorite(product.id)) {
       removeFromFavorites(product.id)
     } else {
@@ -419,7 +457,7 @@ export default function HomePage() {
   }
 
   const scrollToCollections = () => {
-    collectionsRef.current?.scrollIntoView({ 
+    collectionsRef.current?.scrollIntoView({
       behavior: 'smooth',
       block: 'start'
     })
@@ -539,7 +577,7 @@ export default function HomePage() {
               onClick={closeSizeSelector}
               style={{ touchAction: 'none' }}
             >
-              <motion.div 
+              <motion.div
                 className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto overflow-x-hidden shadow-2xl"
                 initial={{ scale: 0.9, y: 20 }}
                 animate={{ scale: 1, y: 0 }}
@@ -574,15 +612,14 @@ export default function HomePage() {
                         }}
                         className="mr-2 p-1.5 bg-white/80 backdrop-blur-sm rounded-full shadow-md hover:bg-gray-100 transition-colors"
                       >
-                        <Heart 
-                          className={`h-5 w-5 ${
-                            isFavorite(selectedProduct.id) 
-                              ? "text-red-500 fill-red-500" 
-                              : "text-gray-700"
-                          }`} 
+                        <Heart
+                          className={`h-5 w-5 ${isFavorite(selectedProduct.id)
+                            ? "text-red-500 fill-red-500"
+                            : "text-gray-700"
+                            }`}
                         />
                       </button>
-                      <button 
+                      <button
                         onClick={closeSizeSelector}
                         className="text-gray-500 hover:text-gray-700 transition-colors"
                       >
@@ -590,7 +627,7 @@ export default function HomePage() {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center mb-6">
                     <div className="relative w-20 h-20 mr-4">
                       <Image
@@ -604,15 +641,15 @@ export default function HomePage() {
                       <p className="text-gray-600 text-sm line-clamp-2">
                         {selectedProduct.description}
                       </p>
-                                        <div className="flex items-center mt-1">
-                    <StarRating rating={selectedProduct.rating || 0} />
-                                         <span className="text-xs text-gray-600 ml-2">
-                       ({selectedProduct.rating ? selectedProduct.rating.toFixed(1) : '0.0'})
-                     </span>
-                  </div>
+                      <div className="flex items-center mt-1">
+                        <StarRating rating={selectedProduct.rating || 0} />
+                        <span className="text-xs text-gray-600 ml-2">
+                          ({selectedProduct.rating ? selectedProduct.rating.toFixed(1) : '0.0'})
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  
+
                   <div className="mb-6">
                     <CustomSizeForm
                       controller={{
@@ -647,7 +684,7 @@ export default function HomePage() {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Quantity Selection */}
                   <div className="mb-4">
                     <h4 className="font-medium mb-3">{t("quantity")}</h4>
@@ -704,8 +741,8 @@ export default function HomePage() {
                         })()}
                       </div>
                     </div>
-                    
-                    <Button 
+
+                    <Button
                       onClick={() => {
                         if (!selectedProduct || selectedProduct.isOutOfStock) return
                         if (!isCustomSizeMode) {
@@ -717,12 +754,11 @@ export default function HomePage() {
                           return
                         }
                         setShowCustomSizeConfirmation(true)
-                      }} 
-                      className={`flex items-center rounded-full px-6 py-5 flex-shrink-0 ${
-                        selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0)
-                          ? 'bg-gray-400 cursor-not-allowed opacity-60' 
-                          : 'bg-black hover:bg-gray-800'
-                      }`}
+                      }}
+                      className={`flex items-center rounded-full px-6 py-5 flex-shrink-0 ${selectedProduct?.isOutOfStock || (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0)
+                        ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                        : 'bg-black hover:bg-gray-800'
+                        }`}
                       disabled={
                         selectedProduct?.isOutOfStock ||
                         (!isCustomSizeMode && selectedSize && selectedSize.stockCount !== undefined && selectedSize.stockCount === 0) ||
@@ -782,14 +818,14 @@ export default function HomePage() {
       </AlertDialog>
 
       {/* Hero Section */}
-      <motion.section 
+      <motion.section
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
         className="relative h-screen flex items-center justify-center overflow-hidden"
       >
         {/* Image Background - Full Screen (with subtle continuous zoom) */}
-        <motion.div 
+        <motion.div
           className="absolute inset-0 z-0"
           animate={{
             scale: [1, 1.05, 1],
@@ -812,18 +848,18 @@ export default function HomePage() {
 
         {/* Logo Over Hero - Only show when not scrolled and logo not visible in header */}
         {isHeroLogoVisible && !isLogoVisible && (
-          <motion.div 
+          <motion.div
             className="text-center z-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
           >
-            <Image 
-              src="/Anod-logo-white.png" 
-              alt="Alanod Logo" 
-              width={864} 
-              height={288} 
+            <Image
+              src="/Anod-logo-white.png"
+              alt="Alanod Logo"
+              width={864}
+              height={288}
               priority
               className="h-72 w-auto mx-auto"
             />
@@ -832,7 +868,7 @@ export default function HomePage() {
       </motion.section>
 
       {/* Text Content Section - Below Video */}
-      <motion.section 
+      <motion.section
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
@@ -847,7 +883,7 @@ export default function HomePage() {
             viewport={{ once: true }}
             className="text-center space-y-4"
           >
-            <motion.h1 
+            <motion.h1
               className="text-4xl md:text-6xl font-light tracking-wider text-gray-900 font-serif"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -856,7 +892,7 @@ export default function HomePage() {
             >
               {t("embraceYour")}
             </motion.h1>
-            <motion.h2 
+            <motion.h2
               className="text-4xl md:text-6xl font-light tracking-wider text-gray-900 font-serif"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -865,7 +901,7 @@ export default function HomePage() {
             >
               {t("soiréeMoment")}
             </motion.h2>
-            <motion.p 
+            <motion.p
               className="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed"
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
@@ -874,7 +910,7 @@ export default function HomePage() {
             >
               {t("homeDescription")}
             </motion.p>
-            
+
             {/* Explore Collections Button */}
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -888,7 +924,7 @@ export default function HomePage() {
                 >
                   <span className="relative z-10">{t("exploreCollections")}</span>
                   <ArrowRight className="ml-2 h-5 w-5 relative z-10" />
-                  <motion.span 
+                  <motion.span
                     className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100"
                     initial={{ x: "-100%" }}
                     whileHover={{ x: 0 }}
@@ -903,7 +939,7 @@ export default function HomePage() {
 
 
       {/* All Products Section - Display all products from products page */}
-      <section 
+      <section
         className="py-20 bg-white"
       >
         <div className="container mx-auto px-6">
@@ -935,32 +971,53 @@ export default function HomePage() {
                   key={product.id}
                   className="group relative"
                 >
-                  <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full">
+                  <Card
+                    className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full"
+                    style={{ touchAction: 'manipulation', willChange: 'transform' }}
+                    onMouseEnter={() => {
+                      // Prefetch on hover for instant click (desktop)
+                      const url = `/api/products/${product.category}/${product.id}`
+                      fetch(url, { cache: "force-cache" }).catch(() => { })
+                      router.prefetch(`/products/${product.category}/${product.id}`)
+                    }}
+                    onTouchStart={() => {
+                      // Prefetch on touch start for instant navigation (mobile)
+                      const url = `/api/products/${product.category}/${product.id}`
+                      fetch(url, { cache: "force-cache" }).catch(() => { })
+                      router.prefetch(`/products/${product.category}/${product.id}`)
+                    }}
+                  >
                     <CardContent className="p-0 h-full flex flex-col">
                       <div className="relative aspect-square flex-grow">
-                        <Link href={`/products/${product.category}/${product.id}`} className="block w-full h-full">
+                        <Link
+                          href={`/products/${product.category}/${product.id}`}
+                          prefetch={true}
+                          className="block w-full h-full"
+                          style={{ touchAction: 'manipulation' }}
+                        >
                           <div className="relative w-full h-full">
                             <Image
                               src={product.images[0] || "/placeholder.svg"}
                               alt={product.name}
                               fill
+                              priority={index < 6}
+                              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
                               className="object-cover"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent pointer-events-none"></div>
                           </div>
                         </Link>
-                        
+
                         <div className="absolute bottom-4 left-4 right-4 z-[10] pointer-events-none text-white">
                           <div className="flex items-center mb-1">
                             <div className="flex items-center">
                               {[...Array(5)].map((_, i) => (
                                 <Star
                                   key={i}
-                                  className={`h-4 w-4 ${
-                                    i < Math.floor(product.rating) 
-                                      ? "fill-yellow-400 text-yellow-400" 
-                                      : "text-gray-300"
-                                  }`}
+                                  className={`h-4 w-4 ${i < Math.floor(product.rating)
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : "text-gray-300"
+                                    }`}
                                 />
                               ))}
                             </div>
@@ -1009,7 +1066,7 @@ export default function HomePage() {
                                 }
                               })()}
                             </div>
-                            <button 
+                            <button
                               className="p-2 bg-white/20 backdrop-blur-sm rounded-full hover:bg-white/30 transition-colors flex-shrink-0"
                               onClick={(e) => {
                                 e.preventDefault()
@@ -1054,7 +1111,7 @@ export default function HomePage() {
                     </>
                   )}
                 </span>
-                <span 
+                <span
                   className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-400"
                   style={{ transform: 'translateX(-100%)' }}
                 />
@@ -1065,7 +1122,7 @@ export default function HomePage() {
       </section>
 
       {/* About Preview Section */}
-      <motion.section 
+      <motion.section
         initial={{ opacity: 0 }}
         whileInView={{ opacity: 1 }}
         transition={{ duration: 0.6 }}
@@ -1081,7 +1138,7 @@ export default function HomePage() {
               viewport={{ once: true }}
             >
               <h2 className="text-3xl md:text-4xl font-light tracking-wider mb-6">{t("theArtOfCouture")}</h2>
-              <motion.p 
+              <motion.p
                 className="text-gray-600 mb-6 leading-relaxed"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
@@ -1090,7 +1147,7 @@ export default function HomePage() {
               >
                 {t("artOfCoutureDesc1")}
               </motion.p>
-              <motion.p 
+              <motion.p
                 className="text-gray-600 mb-8 leading-relaxed"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
@@ -1112,7 +1169,7 @@ export default function HomePage() {
                   >
                     <span className="relative z-10">{t("learnMoreAboutUs")}</span>
                     <ArrowRight className="ml-2 h-4 w-4 relative z-10" />
-                    <motion.span 
+                    <motion.span
                       className="absolute inset-0 bg-black opacity-0 group-hover:opacity-100"
                       initial={{ x: "-100%" }}
                       whileHover={{ x: 0 }}

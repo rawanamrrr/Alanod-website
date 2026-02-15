@@ -14,6 +14,12 @@ type CountryConfig = {
   locale: string
 }
 
+const getInstantRate = (currencyCode: string): number => {
+  const cached = getCachedRate(currencyCode)
+  if (cached !== null) return cached
+  return FALLBACK_EXCHANGE_RATES_USD[currencyCode] ?? 1
+}
+
 export type LocaleSettings = {
   countryCode: string
   countryName: string
@@ -132,7 +138,7 @@ const COUNTRY_OPTIONS: CountryConfig[] = [
     name: "Turkey",
     currencyCode: "TRY",
     currencySymbol: "₺",
-    languages: ["tr", "en"],
+    languages: ["en"],
     locale: "tr-TR"
   },
   {
@@ -140,7 +146,7 @@ const COUNTRY_OPTIONS: CountryConfig[] = [
     name: "Lebanon",
     currencyCode: "LBP",
     currencySymbol: "ل.ل",
-    languages: ["ar", "en", "fr"],
+    languages: ["ar", "en"],
     locale: "ar-LB"
   }
 ]
@@ -162,6 +168,22 @@ const createSettings = (config: CountryConfig, language: Language, rate = 1): Lo
 // Cache for exchange rates with timestamp
 const RATE_CACHE_KEY = "ala_exchange_rates_cache"
 const CACHE_DURATION = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
+
+const FALLBACK_EXCHANGE_RATES_USD: Record<string, number> = {
+  USD: 1,
+  AED: 3.6725,
+  SAR: 3.75,
+  KWD: 0.308,
+  QAR: 3.64,
+  GBP: 0.79,
+  EGP: 48.5,
+  OMR: 0.3845,
+  BHD: 0.376,
+  IQD: 1310,
+  JOD: 0.709,
+  TRY: 32,
+  LBP: 89500,
+}
 
 type RateCache = {
   [currencyCode: string]: {
@@ -285,17 +307,23 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
         const parsed = JSON.parse(stored) as LocaleSettings
         setSelectCountry(parsed.countryCode)
         setSelectLanguage(parsed.language)
-        // Refresh exchange rate on load to ensure it's current
+        // Apply stored settings immediately
+        persist(parsed)
+        // Refresh exchange rate in the background to ensure it's current
         const config = COUNTRY_OPTIONS.find(c => c.code === parsed.countryCode) ?? DEFAULT_COUNTRY
-        // Use stored rate as fallback in case API fails
-        fetchExchangeRate(config.currencyCode, parsed.exchangeRate).then(rate => {
-          persist({ ...parsed, exchangeRate: rate })
-        })
+        fetchExchangeRate(config.currencyCode, parsed.exchangeRate)
+          .then(rate => {
+            persist({ ...parsed, exchangeRate: rate })
+          })
+          .catch(() => {})
       } catch (err) {
         console.warn("Failed to parse locale storage", err)
       }
+      // Don't force modal if we already have stored settings
+      setShowModal(false)
+      return
     }
-    // Always show modal on page load
+    // First visit: show modal
     setShowModal(true)
   }, [persist])
 
@@ -309,13 +337,19 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const setSettings = useCallback(async (countryCode: string, language: Language) => {
     const config = COUNTRY_OPTIONS.find(country => country.code === countryCode) ?? DEFAULT_COUNTRY
     setIsSaving(true)
-    // Try to get cached rate for the new currency, or use 1 as fallback
-    const cachedRate = getCachedRate(config.currencyCode)
-    const rate = await fetchExchangeRate(config.currencyCode, cachedRate || undefined)
-    const next = createSettings(config, language, rate)
+    // Apply settings instantly (use cached rate if present, otherwise use built-in fallback)
+    const instantRate = getInstantRate(config.currencyCode)
+    const next = createSettings(config, language, instantRate)
     persist(next)
     setShowModal(false)
     setIsSaving(false)
+
+    // Fetch the actual rate in the background and update when ready
+    fetchExchangeRate(config.currencyCode, instantRate)
+      .then((rate) => {
+        persist({ ...next, exchangeRate: rate })
+      })
+      .catch(() => {})
   }, [persist])
 
   const value = useMemo<LocaleContextValue>(() => ({

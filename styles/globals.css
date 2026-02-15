@@ -88,3 +88,19 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Eliminate 300ms mobile tap delay globally */
+html {
+  touch-action: manipulation;
+}
+
+a,
+button,
+[role="button"],
+input,
+select,
+textarea,
+label,
+summary {
+  touch-action: manipulation;
+}
