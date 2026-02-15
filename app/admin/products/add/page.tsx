@@ -30,14 +30,15 @@ export default function AddProductPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [uploadedImages, setUploadedImages] = useState<string[]>([])
+  const [pendingUploads, setPendingUploads] = useState(0)
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     longDescription: "",
     category: "winter",
-    sizes: [{ 
-      size: "", 
+    sizes: [{
+      size: "",
       volume: "",
       originalPrice: "",
       discountedPrice: "",
@@ -58,27 +59,42 @@ export default function AddProductPage() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setLoading(true);
     setError('');
 
-    try {
-      const imageUrls: string[] = []
-      // Sequential processing for mobile stability
-      for (const file of Array.from(files)) {
+    // INSTANT: Show images immediately using local blob URLs
+    const fileArray = Array.from(files)
+    const localPreviews = fileArray.map(file => URL.createObjectURL(file))
+    const startIndex = uploadedImages.length
+    setUploadedImages(prev => [...prev, ...localPreviews])
+
+    // BACKGROUND: Convert + upload silently, replace blob URLs with real URLs
+    setPendingUploads(prev => prev + fileArray.length)
+
+    fileArray.forEach(async (file, i) => {
+      try {
         const converted = await convertImageFileToWebP(file, {
-          maxDimension: 1000,
-          quality: 0.6,
+          maxDimension: 800,
+          quality: 0.5,
         })
-        const url = await uploadImageFile(converted, "products")
-        imageUrls.push(url)
-        setUploadedImages(prev => [...prev, url])
+        const realUrl = await uploadImageFile(converted, "products")
+
+        // Replace blob URL with real URL at the same position
+        setUploadedImages(prev => {
+          const updated = [...prev]
+          const targetIndex = startIndex + i
+          if (updated[targetIndex]?.startsWith('blob:')) {
+            URL.revokeObjectURL(updated[targetIndex])
+          }
+          updated[targetIndex] = realUrl
+          return updated
+        })
+      } catch (err) {
+        console.error(`Failed to upload image ${i + 1}`, err)
+        setError('Some images failed to upload. Please try again.')
+      } finally {
+        setPendingUploads(prev => prev - 1)
       }
-    } catch (err) {
-      console.error('Image upload failed', err);
-      setError('Failed to upload images. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    })
   };
 
   const removeImage = (index: number) => {
@@ -143,7 +159,7 @@ export default function AddProductPage() {
               message = "Images too large. Please upload fewer or smaller images."
             }
           }
-        } catch {}
+        } catch { }
         setError(message)
       }
     } catch (error) {
@@ -168,8 +184,8 @@ export default function AddProductPage() {
   const addSize = () => {
     setFormData(prev => ({
       ...prev,
-      sizes: [...prev.sizes, { 
-        size: "", 
+      sizes: [...prev.sizes, {
+        size: "",
         volume: "",
         originalPrice: "",
         discountedPrice: "",
@@ -268,6 +284,12 @@ export default function AddProductPage() {
                                 <span className="font-semibold">Click to upload</span> product images
                               </p>
                               <p className="text-xs text-gray-500">PNG, JPG or JPEG (MAX. 5MB each)</p>
+                              {pendingUploads > 0 && (
+                                <div className="flex items-center mt-2 text-sm text-purple-600">
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600 mr-2"></div>
+                                  Uploading {pendingUploads} image(s) in background...
+                                </div>
+                              )}
                             </div>
                             <input
                               type="file"
@@ -316,8 +338,8 @@ export default function AddProductPage() {
 
                       <div>
                         <Label htmlFor="category">Category *</Label>
-                        <Select 
-                          value={formData.category} 
+                        <Select
+                          value={formData.category}
                           onValueChange={(value) => handleChange("category", value)}
                           required
                         >
@@ -484,8 +506,13 @@ export default function AddProductPage() {
                           Cancel
                         </Button>
                       </Link>
-                      <Button type="submit" className="bg-black text-white hover:bg-gray-800" disabled={loading}>
-                        {loading ? (
+                      <Button type="submit" className="bg-black text-white hover:bg-gray-800" disabled={loading || pendingUploads > 0}>
+                        {pendingUploads > 0 ? (
+                          <>
+                            <Upload className="h-4 w-4 mr-2 animate-pulse" />
+                            Uploading images...
+                          </>
+                        ) : loading ? (
                           <>
                             <Save className="h-4 w-4 mr-2 animate-spin" />
                             Saving...
